@@ -1,0 +1,44 @@
+#include "/lib/config.glsl"
+
+#ifdef THE_END
+    #include "/lib/color_utils_end.glsl"
+#elif defined NETHER
+    #include "/lib/color_utils_nether.glsl"
+#else
+    #include "/lib/color_utils.glsl"
+#endif
+
+uniform float rainStrength;
+uniform mat4 gbufferProjectionInverse;
+
+#if defined SHADOW_CASTING && !defined NETHER
+    uniform mat4 gbufferModelViewInverse;
+#endif
+
+varying vec4 tintColor;
+varying vec2 texcoord;
+varying vec3 basicLight;
+
+#include "/lib/luma.glsl"
+#include "/lib/basic_utils.glsl"
+
+#if AA_TYPE > 0
+    #include "/src/taa_offset.glsl"
+#endif
+
+void main() {
+    #include "/src/basiccoords_vertex.glsl"
+    #include "/src/position_vertex.glsl"
+    tintColor = gl_Color;
+
+    basicLight = dayBlend(LIGHT_SUNSET_COLOR, LIGHT_DAY_COLOR, LIGHT_NIGHT_COLOR);
+    basicLight = mix(basicLight, ZENITH_SKY_RAIN_COLOR * luma(basicLight), rainStrength);
+
+    vec2 illumination = clamp(abs(lmcoord), 0.0, 1.0);
+    illumination.y = (max(illumination.y, 0.065) - 0.065) * 1.06951871657754;
+
+    vec3 candleColor =
+        CANDLE_BASELIGHT * ((illumination.x * illumination.x) + pow(illumination.x * 1.165, 6.0));
+
+    basicLight += candleColor;
+}
