@@ -3,6 +3,7 @@
 yDream is a shader pack for people who want Minecraft to look beautiful without needing a monster GPU. It is built on the fast rendering core of [MakeUp UltraFast](https://github.com/javiergcim/MakeUpUltraFast) by Javier Garduño, but the sky, clouds, water, lighting, color and planetary atmospheres are all its own. Almost everything can be changed in the settings.
 
 Requires Iris 1.5.1 or newer, or OptiFine.
+Tested only on Minecraft NeoForge 1.21.1
 
 ## Pick your look
 
@@ -14,6 +15,13 @@ yDream has four styles. You can combine any style with a color scheme, a perform
 - **Custom** lets you set every sky, light and water color yourself.
 
 Ten color schemes change the whole palette (sky, light, sunsets, night and aurora): Golden Hour, Arctic, Neon Dusk, Crimson Ember, Pastel Dream, Tropical Lagoon, Violet Twilight, Misty Forest, Desert Gold and Midnight Blue. Choose "Style default" to keep the style's own colors.
+
+## TODO
+- Cosmonautics Compability
+- Ad Astra Compability
+- Clouds fixes
+
+- *more mods compability*
 
 ## Performance
 
@@ -104,8 +112,11 @@ Cloud controls include speed, density, brightness, shadow strength on the ground
 
 **The End:** a self-contained End atmosphere with three sky palettes (Molten dusk, Violet abyss, Ash and ember), sky depth, horizon glow, vertical heat, and a planetary core you can turn on or off. The core has three palettes (Molten orange, Bright magma, Deep mantle), adjustable size and intensity, optional purple corruption lines with their own count and palette, and a warm scene light.
 
-**Northstar planets (requires the Northstar mod):** Mercury, Venus, Mars, the Moon and the orbital dimensions each have their own atmosphere presets, sky colors, haze and sun size.
 
+## Compatibility
+
+- Distant Horizons and Voxy are supported.
+- Northstar planets (requires the Northstar mod):** Mercury, Venus, Mars, the Moon and the orbital dimensions each have their own atmosphere presets, sky colors, haze and sun size.
 - **Moon:** sky colors, haze, neutral sunlight and a small shadow floor.
 - **Mars:** a tawny dust-haze sky with a blue aureole around the sun, adjustable dust optical depth and daylight strength. Stars low on the horizon are dimmed by the dust.
 - **Venus:** a dense, amber, cloud-filtered sky with a diffuse solar glow. Cloud opacity and warm ground light are adjustable.
@@ -113,11 +124,6 @@ Cloud controls include speed, density, brightness, shadow strength on the ground
 - **Orbit:** planets and the sun are drawn with their correct brightness from the NASA solar flux values, sun size scales with orbital distance, and the planet brightness and maximum brightness are adjustable.
 
 Each planet can show or hide the Northstar suns and clouds independently, and planet atmosphere presets can be turned off entirely.
-
-## Compatibility
-
-- Distant Horizons and Voxy are supported.
-- Every setting has a tooltip, and the menu is split into Sky, Clouds, Water, Atmosphere, Lighting, Weather, Color, Effects, Performance, Dimensions, Experimental and Miscellaneous.
 
 ## Credits
 
