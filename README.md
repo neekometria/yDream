@@ -8,7 +8,7 @@
   <p>
     A cinematic and highly customizable visual experience for Minecraft.
     Explore new skies, dynamic lighting, volumetric clouds and planetary atmospheres
-    without needing a monster GPU.
+    without needing a high-end GPU.
   </p>
 
   <p>
@@ -39,6 +39,7 @@
 > [!IMPORTANT]
 > **yDream Shaders** requires **Iris 1.5.1 or newer**, or **OptiFine**.
 > Tested on Minecraft **1.21.1 with NeoForge**.
+> Creating with Create Aeronautics in mind.
 
 > [!NOTE]
 > Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javiergcim/MakeUpUltraFast), with custom visual systems and atmospheric features. Also based on [Gleam Shaders](https://modrinth.com/mod/gleam-shaders), with credits to its [original creator](https://modrinth.com/user/FihMC).
@@ -54,9 +55,10 @@ yDream has four styles. You can combine any style with a color scheme, a perform
 Ten color schemes change the whole palette (sky, light, sunsets, night and aurora): Golden Hour, Arctic, Neon Dusk, Crimson Ember, Pastel Dream, Tropical Lagoon, Violet Twilight, Misty Forest, Desert Gold and Midnight Blue. Choose "Style default" to keep the style's own colors.
 
 ## TODO
+- Clouds adjustment
+- True atmosphere after clouds
 - Cosmonautics Compability
 - Ad Astra Compability
-- Clouds fixes
 - Better TAA
 - Better overworld tonemapping
 

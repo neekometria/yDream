@@ -1,4 +1,4 @@
-yDream v0.1
+yDream v0.01
 
 Changes:
 - Volumetric clouds now ray-march the cloud slab from either direction, so the player can see the layer when above it and looking down.
@@ -11,13 +11,13 @@ Changes:
 
 Validation: archive structure and source-level checks only. The shader could not be launched in Minecraft in this environment, so in-game visual compilation still needs testing.
 
-yDream v0.2 — customStarsLayer compile error
+yDream v0.02 — customStarsLayer compile error
 - Restored the shared procedural customStarsLayer() implementation in shaders/lib/sky.glsl.
 - The End, Nether, and Northstar sky code referenced this function, but the prior patch removed it while retaining its call sites.
 - Kept yDream's existing nightSkyLayer() implementation unchanged to avoid altering the Overworld star rendering.
 - ZIP integrity and source-level checks passed. Runtime shader compilation still needs verification in Minecraft/Iris or the user's shader loader.
 
-yDream v0.3 — End core, Nether clouds, Northstar isolation
+yDream v0.03 — End core, Nether clouds, Northstar isolation
 - End: the planetary core referenced END_CORE_DEEP, END_CORE_MID, END_CORE_HOT, END_CORE_VEIN, END_CORE_RIM and END_CORE_DIR without defining them. END_CORE is on by default, so the End sky failed to compile. The palettes are now defined from END_CORE_PALETTE (0 Molten orange = default, 1 Bright magma, 2 Deep mantle), and END_CORE_PALETTE is exposed on the End settings screen.
 - End core default brightness lowered from 1.5 to 1.0. Core radiance is capped by END_CORE_RADIANCE_CAP (1.15) so the sphere stays clearly visible without pushing bloom or exposure into white.
 - Nether clouds were gated by CLOUDS_OFF, which is only defined when vanilla clouds are off, so the Nether cloud layer never drew at default settings. The gate was removed; Nether clouds now depend only on NETHER_CLOUDS.
@@ -29,7 +29,7 @@ yDream v0.3 — End core, Nether clouds, Northstar isolation
 
 Validation: source-level only. Shader compilation and in-game visuals were not tested in Minecraft or Iris in this environment. Verify with /execute in minecraft:the_end, minecraft:the_nether and northstar:mars, and check the Overworld after the change.
 
-yDream v0.4 — End rewrite
+yDream v0.04 — End rewrite
 - The End sky was being overwritten. gbuffers_skytextured and gbuffers_skybasic ran the vanilla End sky quads and painted ZENITH_DAY_COLOR (near black) over the sky the prepare pass had just drawn. That is why the core did not show, palette changes did nothing and the End had no atmosphere. Both End paths now discard, so the prepared sky is the only sky.
 - New lib/end_sky.glsl: one self-contained End atmosphere (gradient, horizon ember glow, molten core). No stars, clouds, nebula, aurora or shooting stars.
 - End sky colours come from END_SKY_PALETTE (0 Ember void = default, 1 Violet abyss, 2 Ash and ember) and END_SKY_DEPTH. The vanilla-derived zenith/horizon colours now map to these, so fog and terrain agree with the sky.
@@ -38,7 +38,7 @@ yDream v0.4 — End rewrite
 
 Validation: source-level only, not compiled or run in Minecraft or Iris. Check /execute in minecraft:the_end and look up at the zenith.
 
-yDream v0.5 — Nether parity with the Overworld, warmer End, purple core lines
+yDream v0.05 — Nether parity with the Overworld, warmer End, purple core lines
 - Nether clouds now use the Overworld volumetric cloud pass (cirrus + cloud layer, same planes and same vanilla cloud offset). The procedural Nether deck and its NETHER_CLOUDS / NETHER_CLOUD_Y / NETHER_CLOUD_DENSITY / NETHER_CLOUD_BRIGHTNESS options were removed; the Nether now follows the Overworld cloud settings.
 - Nether stars use the Overworld night-sky star layer (clusters, hero stars, constellations, dust), with NETHER_STAR_BRIGHTNESS as a multiplier. CUSTOM_DIMENSION_STARS still toggles it.
 - The deferred pass no longer overwrites the Nether sky with flat fog colour, which had erased the stars when clouds were off.
@@ -48,7 +48,7 @@ yDream v0.5 — Nether parity with the Overworld, warmer End, purple core lines
 
 Validation: source-level only, not compiled or run in Minecraft or Iris. Check /execute in minecraft:the_nether and look up, and confirm the Overworld cloud and star settings apply in the Nether.
 
-yDream v0.6 — Venus and Mars atmospheres, NASA-based
+yDream v0.06 — Venus and Mars atmospheres, NASA-based
 Venus (sources: NASA data as reported in NASA and university fact pages)
 - About 96.5 % CO2, 3.5 % N2, surface pressure about 92 times Earth's.
 - Sulfuric-acid cloud deck from about 45 to 70 km, opaque, reflects about 75 % of sunlight.
@@ -69,17 +69,15 @@ Overworld, Moon and the other dimensions are unchanged.
 
 Validation: source-level only. Not compiled or run in Minecraft or Iris. Check /execute in northstar:venus and northstar:mars at noon, sunset and night.
 
-yDream v0.7 — orbital dimensions (compatibility with Northstar 0.6.6, 1.21.1)
+yDream v0.07 — orbital dimensions (compatibility with Northstar 0.6.6, 1.21.1)
 - Each planet's orbit now has its own shader folder: northstar_orbit_earth (also used by the Moon), northstar_orbit_mars, northstar_orbit_mercury, northstar_orbit_venus. Each folder defines NORTHSTAR_ORBIT_RADIUS from the mod's planet data (AU): Earth 1.0, Mars 1.52366231, Mercury 0.38709893, Venus 0.72333199.
 - Sun size in orbit = 0.00465 rad / orbit radius, so it is larger over Mercury and smaller over Mars. The orbit sun also gets an inverse-square brightness factor, clamped to 0.35 to 3.0.
 - Planets and the sun in orbit were black: the mod tints planet textures with its daylight value (gl_Color), which is zero at night, and the pack multiplied the texture by it. In orbit, skytextured now uses full tint and no sky-luma dimming. NORTHSTAR_ORBIT_PLANET_BRIGHTNESS controls the overall level.
 - Limitation: the mod draws the sun sprite at a fixed size (ldc 15.0 in PlanetRenderer.render). The shader cannot resize that sprite, so the sprite looks the same in every
 
-yDream v1.0 - Release Changes
+yDream v0.10 - Alpha Changes
 
 Changes:
-- Renamed the shaderpack from Gleam to yDream in the documentation, credits, settings screens and language files.
 - Settings keys now use the YDREAM_ prefix (for example YDREAM_QUALITY and YDREAM_COLOR_STYLE). Settings saved under the old names need to be set again in Iris/OptiFine.
 - Fixed values: The solar flux per planet comes from NASA’s fact sheet: Mercury 9,126.6 W/m², Venus 2,613.9, Earth 1,367.6, and Mars 589.2. The orbital irradiance is calculated from these numbers, and no longer as 1/r².
 - Sun’s radius: now 0.0046505 rad (695,700 km at 1 AU). The apparent sizes on a scale of 1.0 are Earth 0.53°, Venus 0.74°, Mars 0.35°, and Mercury 1.38°.
-- Version set to 1.0.
