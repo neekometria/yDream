@@ -81,3 +81,9 @@ Changes:
 - Settings keys now use the YDREAM_ prefix (for example YDREAM_QUALITY and YDREAM_COLOR_STYLE). Settings saved under the old names need to be set again in Iris/OptiFine.
 - Fixed values: The solar flux per planet comes from NASA’s fact sheet: Mercury 9,126.6 W/m², Venus 2,613.9, Earth 1,367.6, and Mars 589.2. The orbital irradiance is calculated from these numbers, and no longer as 1/r².
 - Sun’s radius: now 0.0046505 rad (695,700 km at 1 AU). The apparent sizes on a scale of 1.0 are Earth 0.53°, Venus 0.74°, Mars 0.35°, and Mercury 1.38°.
+
+yDream v0.11 - Small Cloud Changes
+- Changed cloud height, new values are: overworld 300, nether 400, mars 500, venus 600
+- Mars cloud density changed to 0.10
+- Clouds now renders if you go above them, still bugged if you are inside them
+- Changed clouds on storms, more color corrected version.

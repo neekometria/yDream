@@ -51,9 +51,9 @@ void main() {
     #include "/src/position_vertex.glsl"
 
     // Vanilla cloud vertices are emitted relative to the camera around Y=192.
-    // Keep the clouds fixed in world space at Y=400, same for every dimension.
+    // Keep the clouds fixed in world space at the per-dimension cloud height.
     vec4 cloudRelativePosition = gbufferModelViewInverse * viewPosition;
-    cloudRelativePosition.y += 208.0;
+    cloudRelativePosition.y += CLOUD_PLANE_CENTER - 192.0;
     gl_Position = gl_ModelViewProjectionMatrix * cloudRelativePosition;
 
     cloudFinalColor = vec3(1.0);
@@ -89,7 +89,7 @@ void main() {
         float sunFacing = mix(-dot(faceNormal, sunDirection), dot(faceNormal, sunDirection), dayNightMix);
 
         float cloudWorldY = cloudRelativePosition.y + cameraPosition.y;
-        float heightGradient = clamp((cloudWorldY - 191.6) * 0.22, 0.0, 1.0);
+        float heightGradient = clamp((cloudWorldY - VANILLA_CLOUD_BASE_Y) * 0.22, 0.0, 1.0);
 
         float topAmount = smoothstep(-0.85, 0.85, upFacing);
         float baseLight = mix(0.42, 1.0, topAmount) * mix(0.88, 1.0, heightGradient);

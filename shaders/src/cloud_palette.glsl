@@ -23,8 +23,8 @@ vec3 cloudShadeSky = mix(cloudSkyMix, cloudZenithRgb, cloudTwilight * 0.55);
 vec3 cloudShadeBase = mix(vec3(cloudSkyLuma), cloudShadeSky, mix(0.30, 0.75, cloudTwilight)) * mix(0.93, 0.92, cloudTwilight) + cloudSunLight * 0.10;
 
 float cloudRain = clamp(rainStrength * RAIN_ATMOSPHERE_STRENGTH, 0.0, 1.0);
-vec3 cloudRainLit = vec3(0.62, 0.65, 0.70) * (luma(cloudSunLight) * 0.8 + cloudSkyLuma * 0.45);
-vec3 cloudRainShade = cloudRainLit * 0.62;
+vec3 cloudRainLit = vec3(0.46, 0.50, 0.56) * (luma(cloudSunLight) * 0.55 + cloudSkyLuma * 0.34);
+vec3 cloudRainShade = cloudRainLit * 0.80;
 
 cloudColor = mix(cloudLitBase, cloudRainLit, cloudRain * 0.9);
 darkCloudColor = mix(cloudShadeBase, cloudRainShade, cloudRain * 0.9);

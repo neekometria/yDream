@@ -50,9 +50,9 @@ vec3 get_cirrus(vec3 eyeDirection, vec3 blockColor, float bright, vec3 litColor,
     return blockColor;
 }
 
-vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, vec3 base_pos, int samples, float umbral, vec3 cloudColor, vec3 darkCloudColor, vec3 lightDir) {
+vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, vec3 base_pos, int samples, float umbral, vec3 cloudColor, vec3 darkCloudColor, vec3 lightDir, float maxDist) {
     #if VOL_LIGHT == 0
-        blockColor.rgb *= clamp(bright + ((dither - .5) * .1), 0.0, 1.0) * .3 + 1.0;
+        if (maxDist > 1e8) blockColor.rgb *= clamp(bright + ((dither - .5) * .1), 0.0, 1.0) * .3 + 1.0;
     #endif
 
     #if defined DISTANT_HORIZONS && defined DEFERRED_SHADER
@@ -65,6 +65,9 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
 
     umbral = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
 
+    // Fade toward the horizon only when the camera is below the layer; from above or inside, keep the clouds visible.
+    float horizonFade = (base_pos.y < CLOUD_PLANE) ? clamp((eyeDirection.y - 0.06) * 5.0, 0.0, 1.0) : 1.0;
+
     if (abs(eyeDirection.y) > 0.001) {
         float view_y_inv = 1.0 / max(abs(eyeDirection.y), 0.001);
 
@@ -72,6 +75,10 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float plane_distance_sup = (CLOUD_PLANE_SUP - base_pos.y) / eyeDirection.y;
         float plane_distance_start = max(min(plane_distance_inf, plane_distance_sup), 0.0);
         float plane_distance_end = max(plane_distance_inf, plane_distance_sup);
+
+        // Clouds only exist in front of the visible surface (terrain or sky).
+        plane_distance_start = min(plane_distance_start, maxDist);
+        plane_distance_end = min(plane_distance_end, maxDist);
 
         // Only march the part of the cloud layer in front of the camera.
         if (plane_distance_end <= plane_distance_start + 0.001) {
@@ -153,7 +160,9 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             intersection_pos += increment;
         }
 
-        cloud_value = clamp(cloud_value / opacity_dist, 0.0, 1.0);
+        // Camera inside the layer: the path is short, so boost the density to make it feel like being inside a cloud.
+        float interiorBoost = (base_pos.y > CLOUD_PLANE && base_pos.y < CLOUD_PLANE_SUP) ? CLOUD_INTERIOR_DENSITY : 1.0;
+        cloud_value = clamp(cloud_value / opacity_dist * interiorBoost, 0.0, 1.0);
         density = clamp(density, 0.0001, 1.0);
 
         float sunSide = clamp(bright, 0.0, 1.0);
@@ -233,11 +242,11 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float silverLining = thinEdge * thinEdge * thinEdge * sunSide * (1.0 - rainStrength);
         cloudColor += cloudColor * (silverLining * 1.1 * STYLE_CLOUD_GLOW_MULT + sunSide * 0.10 * lightAmount);
 
-        float horizonBleed = (1.0 - smoothstep(0.03, 0.32, eyeDirection.y)) * 0.55;
+        float horizonBleed = (1.0 - smoothstep(0.03, 0.32, eyeDirection.y)) * 0.55 * (base_pos.y < CLOUD_PLANE ? 1.0 : 0.0);
         cloudColor = mix(cloudColor, blockColor * 1.15 + cloudColor * 0.15, horizonBleed);
 
         float nightCloudSheer = 1.0 - 0.34 * (1.0 - smoothstep(-0.18, 0.02, sunElevation)) * (1.0 - cloud_value) * (1.0 - rainStrength);
-        blockColor = mix(blockColor, cloudColor, cloud_value * nightCloudSheer * clamp((eyeDirection.y - 0.06) * 5.0, 0.0, 1.0));
+        blockColor = mix(blockColor, cloudColor, cloud_value * nightCloudSheer * horizonFade);
     }
 
     return blockColor;

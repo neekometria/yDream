@@ -1,6 +1,6 @@
 vec3 csWorld = (gbufferModelViewInverse * viewPosition).xyz + cameraPosition;
 vec3 csLight = normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * mix(-1.0, 1.0, step(0.5, dayNightMix));
-float csT = (CLOUD_PLANE_CENTER - csWorld.y) / max(csLight.y, 0.15);
+float csT = (CLOUD_SHADOW_PLANE_CENTER - csWorld.y) / max(csLight.y, 0.15);
 vec2 csPos = csWorld.xz + csLight.xz * csT;
 
 float csNoise = texture2DLod(gaux2, csPos * CLOUD_NOISE_SCALE + (frameTimeCounter * CLOUD_HI_FACTOR), 0.0).r;

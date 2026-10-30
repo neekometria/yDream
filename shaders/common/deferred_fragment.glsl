@@ -124,9 +124,16 @@ void main() {
     #endif
 
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-        if(linearDepth > 0.9999) {
+        {
             vec4 farPlaneClipPos = gbufferModelViewInverse * gbufferProjectionInverse * (vec4(texcoord, 1.0, 1.0) * 2.0 - 1.0);
             eyeDirection = normalize(farPlaneClipPos.xyz);
+
+            // Distance to the visible surface along this ray (sky = unlimited).
+            float sceneDist = 1e9;
+            if (linearDepth <= 0.9999) {
+                vec4 scenePos = gbufferProjectionInverse * (vec4(texcoord, depth, 1.0) * 2.0 - 1.0);
+                sceneDist = length(scenePos.xyz / scenePos.w);
+            }
 
             #ifdef THE_END
                 float bright = dot(eyeDirection, vec3(0.0, 0.89442719, 0.4472136));
@@ -143,14 +150,14 @@ void main() {
 
                     #if !defined NORTHSTAR_CLOUDS_OFF
                         #if YDREAM_CIRRUS == 1
-                            blockColor.rgb = get_cirrus(eyeDirection, blockColor.rgb, bright, cloudColor, darkCloudColor);
+                            if (linearDepth > 0.9999) blockColor.rgb = get_cirrus(eyeDirection, blockColor.rgb, bright, cloudColor, darkCloudColor);
                         #endif
                         float northstarCloudUmbral = umbral;
                         #if defined NORTHSTAR_MARS
                             // Mars' clouds are thin and high: low density means a higher noise cutoff.
                             northstarCloudUmbral = max(umbral, 0.84 - 0.34 * clamp(NORTHSTAR_MARS_CLOUD_DENSITY, 0.05, 0.50));
                         #endif
-                        blockColor.rgb = get_cloud(eyeDirection, blockColor.rgb, bright, dither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir);
+                        blockColor.rgb = get_cloud(eyeDirection, blockColor.rgb, bright, dither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir, sceneDist);
                     #endif
                 }
             #endif
