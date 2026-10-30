@@ -13,13 +13,13 @@ const int colortex1Format = RGBA16F;
 const int colortex1Format = R11F_G11F_B10F;
 */
 #endif
-#ifdef GLEAM_LIGHT_BUFFERS
+#ifdef YDREAM_LIGHT_BUFFERS
 /*
 const int colortex2Format = RGBA16F;
 const int colortex9Format = RGBA8;
 */
 const bool colortex9Clear = true;
-#if GLEAM_RSM_GI > 0
+#if YDREAM_RSM_GI > 0
 /*
 const int colortex10Format = RGBA16F;
 const int colortex14Format = RGBA16F;
@@ -27,7 +27,7 @@ const int colortex14Format = RGBA16F;
 const bool colortex10Clear = false;
 const bool colortex14Clear = true;
 #endif
-#if GLEAM_VOXEL_LIGHT > 0
+#if YDREAM_VOXEL_LIGHT > 0
 /*
 const int colortex11Format = RGBA8;
 const int colortex12Format = RGBA16F;
@@ -39,7 +39,7 @@ const bool colortex12Clear = true;
 const bool colortex13Clear = false;
 const bool colortex15Clear = true;
 #endif
-#if GLEAM_VOXEL_LIGHT > 0
+#if YDREAM_VOXEL_LIGHT > 0
 /*
 const int colortex8Format = RGBA16F;
 */
@@ -69,7 +69,7 @@ const int shadowcolor0Format = RGBA8;
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;
-#ifdef GLEAM_LIGHT_BUFFERS
+#ifdef YDREAM_LIGHT_BUFFERS
 const bool colortex2Clear = true;
 #else
 const bool colortex2Clear = false;
@@ -91,11 +91,11 @@ uniform float viewWidth;
 uniform float viewHeight;
 uniform int frameCounter;
 
-#if GLEAM_LETTERBOX == 1
+#if YDREAM_LETTERBOX == 1
     uniform float letterboxAmount;
 #endif
 
-#if GLEAM_OUTLINES == 1 || GLEAM_CEL == 1
+#if YDREAM_OUTLINES == 1 || YDREAM_CEL == 1
     uniform sampler2D depthtex0;
     uniform float near;
     uniform float far;
@@ -145,7 +145,7 @@ float grainHash(vec2 p) {
     return fract((q.x + q.y) * q.z);
 }
 
-#if GLEAM_OUTLINES == 1
+#if YDREAM_OUTLINES == 1
     float outlineInverseDepth(vec2 uv) {
         float d = texture2D(depthtex0, uv).r;
         return (far - d * (far - near)) / (near * far);
@@ -212,7 +212,7 @@ void main() {
         #endif
     #endif
 
-    blockColor *= vec3(GLEAM_EXPOSURE * GLEAM_STYLE_EXPOSURE_MULT);
+    blockColor *= vec3(YDREAM_EXPOSURE * YDREAM_STYLE_EXPOSURE_MULT);
     blockColor = custom_sigmoid(blockColor);
 
     float toneLuma = luma(blockColor);
@@ -237,8 +237,8 @@ void main() {
     float chroma = max(max(blockColor.r, blockColor.g), blockColor.b) - min(min(blockColor.r, blockColor.g), blockColor.b);
     blockColor = mix(vec3(gradeLuma), blockColor, 1.0 + (GRADE_VIBRANCE + STYLE_VIBRANCE) * (1.0 - clamp(chroma * 1.6, 0.0, 1.0)));
 
-    blockColor = mix(vec3(gradeLuma), blockColor, GLEAM_SATURATION * GLEAM_STYLE_SATURATION_MULT);
-    blockColor = (blockColor - 0.5) * (GLEAM_CONTRAST * GLEAM_STYLE_CONTRAST_MULT) + 0.5;
+    blockColor = mix(vec3(gradeLuma), blockColor, YDREAM_SATURATION * YDREAM_STYLE_SATURATION_MULT);
+    blockColor = (blockColor - 0.5) * (YDREAM_CONTRAST * YDREAM_STYLE_CONTRAST_MULT) + 0.5;
 
     float lkLuma = luma(blockColor);
     blockColor += vec3(GRADE_SHADOWS * 0.06) * (1.0 - smoothstep(0.0, 0.5, lkLuma));
@@ -268,7 +268,7 @@ void main() {
     float hrScale = hrPeak > 0.78 ? (0.78 + hrOver / (1.0 + hrOver * HIGHLIGHT_ROLLOFF * 3.0)) / hrPeak : 1.0;
     blockColor *= hrScale;
 
-    #if GLEAM_CEL == 1
+    #if YDREAM_CEL == 1
         float celLuma = min(luma(blockColor), 1.0);
         float celScaled = celLuma * float(CEL_BANDS);
         float celBase = floor(celScaled);
@@ -279,32 +279,27 @@ void main() {
         blockColor = mix(blockColor, celColor, CEL_STRENGTH * celSolid);
     #endif
 
-    #if GLEAM_OUTLINES == 1
-        #if GLEAM_COLOR_STYLE == 5
-            float outlineEdge = outlineMask(texcoord, 1.7);
-            float outlineBoost = 1.1;
-        #else
-            float outlineEdge = outlineMask(texcoord, 1.0);
-            float outlineBoost = 1.0;
-        #endif
+    #if YDREAM_OUTLINES == 1
+        float outlineEdge = outlineMask(texcoord, 1.0);
+        float outlineBoost = 1.0;
         vec3 outlineTint = vec3(OUTLINE_COLOR_R, OUTLINE_COLOR_G, OUTLINE_COLOR_B);
         vec3 outlineInk = outlineTint + blockColor * 0.04;
         blockColor = mix(blockColor, outlineInk, clamp(outlineEdge * OUTLINE_STRENGTH * outlineBoost, 0.0, 1.0));
     #endif
 
-    #if GLEAM_STYLE_VIGNETTE == 1
+    #if YDREAM_STYLE_VIGNETTE == 1
         vec2 vignetteCoord = (texcoord - 0.5) * vec2(1.0, 0.925);
         float vignetteFactor = 1.0 - smoothstep(0.35, 0.95, length(vignetteCoord) * 1.35) * VIGNETTE_STRENGTH;
         blockColor *= vignetteFactor;
     #endif
 
-    #if GLEAM_GRAIN == 1
+    #if YDREAM_GRAIN == 1
         float grain = grainHash(gl_FragCoord.xy + mod(float(frameCounter), 64.0) * 17.13) - 0.5;
         float grainMask = 1.0 - abs(luma(blockColor) * 2.0 - 1.0) * 0.55;
         blockColor += grain * FILM_GRAIN_STRENGTH * grainMask;
     #endif
 
-    #if GLEAM_LETTERBOX == 1
+    #if YDREAM_LETTERBOX == 1
         float screenAspect = viewWidth / viewHeight;
         float barHeight = max(0.0, 1.0 - screenAspect / LETTERBOX_RATIO) * 0.5 * letterboxAmount;
         float barEdge = 1.0 / viewHeight;
@@ -328,7 +323,7 @@ void main() {
         if(texcoord.x < 0.5 && texcoord.y < 0.5) {
             blockColor = texture2D(shadowtex1, texcoord * 2.0).rrr;
         } else if(texcoord.x >= 0.5 && texcoord.y >= 0.5) {
-            blockColor = vec3(GLEAM_EXPOSURE * 0.25);
+            blockColor = vec3(YDREAM_EXPOSURE * 0.25);
         } else if(texcoord.x < 0.5 && texcoord.y >= 0.5) {
             blockColor = texture2D(colortex1, ((texcoord - vec2(0.0, 0.5)) * 2.0)).rgb;
         } else if(texcoord.x >= 0.5 && texcoord.y < 0.5) {

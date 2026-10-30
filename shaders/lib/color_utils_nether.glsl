@@ -17,12 +17,12 @@ vec3 netherAmbientHue(vec3 rawFog) {
     return mix(vec3(1.0), netherHue(rawFog), 0.62);
 }
 
-#if GLEAM_COLOR_STYLE == 0
+#if YDREAM_COLOR_STYLE == 0
     #define OMNI_TINT 0.45
     #define NETHER_LIGHT_LUMA 0.130
     #define NETHER_AMBIENT_LUMA 0.100
     #define NETHER_FOG_LUMA 0.075
-#elif GLEAM_COLOR_STYLE == 2 || GLEAM_COLOR_STYLE == 3
+#elif YDREAM_COLOR_STYLE == 2 || YDREAM_COLOR_STYLE == 3
     #define OMNI_TINT 0.42
     #define NETHER_LIGHT_LUMA 0.150
     #define NETHER_AMBIENT_LUMA 0.120
@@ -66,9 +66,9 @@ vec3 netherFog(vec3 rawFog) {
 
 #include "/lib/day_blend.glsl"
 
-#define FOG_DAY (1.0 * GLEAM_HAZE)
-#define FOG_SUNSET (1.0 * GLEAM_HAZE)
-#define FOG_NIGHT (1.0 * GLEAM_HAZE)
+#define FOG_DAY (1.0 * YDREAM_HAZE)
+#define FOG_SUNSET (1.0 * YDREAM_HAZE)
+#define FOG_NIGHT (1.0 * YDREAM_HAZE)
 
 #include "/lib/color_conversion.glsl"
 

@@ -2,7 +2,7 @@
 
 varying vec2 texcoord;
 
-#if GLEAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
+#if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
     uniform mat4 gbufferProjection;
     uniform mat4 gbufferModelView;
     uniform vec3 sunPosition;
@@ -17,7 +17,7 @@ void main() {
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
     texcoord = gl_MultiTexCoord0.xy;
 
-    #if GLEAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
+    #if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
         vec3 sunView = normalize(sunPosition);
         vec4 sunClip = gbufferProjection * vec4(sunView, 0.0);
         float sunFront = step(0.001, sunClip.w);

@@ -105,7 +105,7 @@ vec3 fastRaymarch(vec3 direction, vec3 hitPoint, inout float infinite, float dit
             float sheen = pow(alignment, 14.0);
             float glint = core * 2.4 * (1.0 - 0.45 * lowAstro) + body * 0.28 * (1.0 + 0.5 * lowAstro) + sheen * 0.05 * lowAstro;
 
-            #if GLEAM_GLITTER == 1
+            #if YDREAM_GLITTER == 1
                 vec2 glitterPos = worldposition.xz * 1.7 + vec2(frameTimeCounter * 0.11, frameTimeCounter * -0.07);
                 vec2 noiseA = texture2D(noisetex, glitterPos * 0.21).rg;
                 vec2 noiseB = texture2D(noisetex, glitterPos.yx * 0.33 - frameTimeCounter * 0.02).rg;
@@ -157,7 +157,7 @@ vec3 refraction(vec3 fragpos, vec3 color, vec3 refraction) {
     float water_absortion;
     float waterThickness = 0.0;
 
-    #if GLEAM_FOAM == 1
+    #if YDREAM_FOAM == 1
         float foam = 0.0;
     #endif
 
@@ -177,7 +177,7 @@ vec3 refraction(vec3 fragpos, vec3 color, vec3 refraction) {
         water_absortion = waterThickness * waterThickness;
         water_absortion = (1.0 / -((water_absortion * WATER_ABSORPTION) + 1.125)) + 1.0;
 
-        #if GLEAM_FOAM == 1
+        #if YDREAM_FOAM == 1
             vec2 foamPos = worldposition.xz * 0.9 + vec2(frameTimeCounter * 0.06, frameTimeCounter * -0.04);
             float foamBase = texture2D(noisetex, foamPos * 0.11).r * 0.6 + texture2D(noisetex, foamPos.yx * 0.23).g * 0.4;
             float foamStreak = texture2D(noisetex, foamPos * 0.55 + vec2(frameTimeCounter * 0.12, 0.0)).r * 0.6 +
@@ -194,12 +194,12 @@ vec3 refraction(vec3 fragpos, vec3 color, vec3 refraction) {
 
     float depthBlend = 1.0 - exp(-waterThickness * 0.12);
     vec3 shallowColor = color * vec3(0.95, 1.50, 1.32);
-    vec3 bodyColor = mix(color, mix(shallowColor, color, depthBlend), clamp(GLEAM_WATER_DEPTH_TINT, 0.0, 1.5));
+    vec3 bodyColor = mix(color, mix(shallowColor, color, depthBlend), clamp(YDREAM_WATER_DEPTH_TINT, 0.0, 1.5));
 
     vec3 floorColor = texture2D(gaux1, pos.xy).rgb * underwaterTransmission(water_absortion * 0.85);
     vec3 refractedColor = mix(floorColor, bodyColor, water_absortion);
 
-    #if GLEAM_FOAM == 1
+    #if YDREAM_FOAM == 1
         vec3 foamLight = omniLight + directLightColor * (visibleSky * 0.6) + candleColor * 0.5;
         vec3 foamColor = vec3(0.92, 0.96, 1.0) * clamp(foamLight, vec3(0.05), vec3(1.4));
         refractedColor = mix(refractedColor, foamColor, clamp(foam, 0.0, 1.0) * 0.85);

@@ -11,12 +11,12 @@ uniform mat4 gbufferPreviousProjection;
 uniform vec3 cameraPosition;
 uniform vec3 previousCameraPosition;
 
-#if GLEAM_RSM_GI > 0
+#if YDREAM_RSM_GI > 0
     uniform sampler2D colortex2;
     uniform sampler2D colortex10;
 #endif
 
-#if GLEAM_VOXEL_LIGHT > 0
+#if YDREAM_VOXEL_LIGHT > 0
     uniform sampler2D colortex12;
     uniform sampler2D colortex13;
 #endif
@@ -28,7 +28,7 @@ varying vec2 texcoord;
 void main() {
     float depth = texture2DLod(depthtex0, texcoord, 0.0).r;
 
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         vec4 giResult = vec4(0.0);
 
         if (depth < 0.99999 && depth > 0.56) {
@@ -36,7 +36,7 @@ void main() {
         }
     #endif
 
-    #if GLEAM_VOXEL_LIGHT > 0
+    #if YDREAM_VOXEL_LIGHT > 0
         vec4 clResult = vec4(0.0);
 
         if (depth > 0.56) {
@@ -44,14 +44,14 @@ void main() {
         }
     #endif
 
-    #if GLEAM_RSM_GI > 0 && GLEAM_VOXEL_LIGHT > 0
+    #if YDREAM_RSM_GI > 0 && YDREAM_VOXEL_LIGHT > 0
         /* RENDERTARGETS: 14,15 */
         gl_FragData[0] = giResult;
         gl_FragData[1] = clResult;
-    #elif GLEAM_RSM_GI > 0
+    #elif YDREAM_RSM_GI > 0
         /* RENDERTARGETS: 14 */
         gl_FragData[0] = giResult;
-    #elif GLEAM_VOXEL_LIGHT > 0
+    #elif YDREAM_VOXEL_LIGHT > 0
         /* RENDERTARGETS: 15 */
         gl_FragData[0] = clResult;
     #else

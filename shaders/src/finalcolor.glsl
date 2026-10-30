@@ -21,7 +21,7 @@
 
         float fogGoldenHour = 1.0 - abs(dayNightMix * 2.0 - 1.0);
         fog_texture = mix(fog_texture, fog_texture * vec3(1.18, 0.90, 0.74) + vec3(0.025, 0.012, 0.0), clamp(fogGoldenHour * (0.55 * FOG_GOLDEN_TINT), 0.0, 1.0));
-        fog_texture = gleamFogColor(fog_texture, fogSunScatter, fogGoldenHour, rainStrength, abs(dayNightMix * 2.0 - 1.0));
+        fog_texture = ydreamFogColor(fog_texture, fogSunScatter, fogGoldenHour, rainStrength, abs(dayNightMix * 2.0 - 1.0));
         fog_texture = mix(vec3(dot(fog_texture, vec3(0.2126, 0.7152, 0.0722))), fog_texture, FOG_SATURATION) * FOG_BRIGHTNESS;
         #if defined GBUFFER_ENTITIES
             if(isEyeInWater == 0 && entityId != 10101 && FOG_ADJUST < 15.0) {

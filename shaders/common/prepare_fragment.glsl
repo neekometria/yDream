@@ -184,14 +184,9 @@ void main() {
             northstarStarDensity = 0.36;
             northstarStarBrightness = 1.1;
             // Sun radius (0.00465 rad from 1 AU) divided by this orbit's radius, times the visual scale.
-            #ifdef NORTHSTAR_ORBIT_REALISTIC_SUN
-                // Mercury orbit: the true angular size of the Sun from this distance.
-                northstarSunSize = 0.00465 / NORTHSTAR_ORBIT_RADIUS;
-            #else
-                northstarSunSize = 0.00465 * NORTHSTAR_ORBIT_SUN_SCALE / NORTHSTAR_ORBIT_RADIUS;
-            #endif
+            northstarSunSize = 0.0046505 * NORTHSTAR_ORBIT_SUN_SCALE_USED / NORTHSTAR_ORBIT_RADIUS;
             // Inverse-square law: sunlight is brighter closer to the Sun.
-            northstarSunColor = vec3(1.0, 0.88, 0.66) * clamp(1.0 / (NORTHSTAR_ORBIT_RADIUS * NORTHSTAR_ORBIT_RADIUS), 0.35, 3.0);
+            northstarSunColor = vec3(1.0, 0.88, 0.66) * NORTHSTAR_ORBIT_IRR_VIEW * NORTHSTAR_LIGHT_STRENGTH;
         #endif
 
         #ifndef NORTHSTAR_ATMOSPHERE
@@ -230,7 +225,7 @@ void main() {
         fullSky = northstarSky;
     #elif defined UNKNOWN_DIM
         float n_u = clamp(skyElevation + dither * 0.0625 - 0.03125, 0.0, 1.0);
-        float hazeExp = clamp(0.333 / (GLEAM_HAZE * GLEAM_STYLE_HAZE_MULT), 0.15, 0.7);
+        float hazeExp = clamp(0.333 / (YDREAM_HAZE * YDREAM_STYLE_HAZE_MULT), 0.15, 0.7);
         vec3 blockColor =
             xyzToRgb(mix(horizonSkyColor, zenithSkyColor, smoothstep(0.0, 1.0, pow(n_u, hazeExp))));
 
@@ -248,13 +243,13 @@ void main() {
         vec3 worldDir = normalize((gbufferModelViewInverse * vec4(nfragpos, 0.0)).xyz);
 
         float n_u = clamp(skyElevation + dither * 0.0625 - 0.03125, 0.0, 1.0);
-        float hazeExp = clamp(0.333 / (GLEAM_HAZE * GLEAM_STYLE_HAZE_MULT), 0.15, 0.7);
+        float hazeExp = clamp(0.333 / (YDREAM_HAZE * YDREAM_STYLE_HAZE_MULT), 0.15, 0.7);
         vec3 sky = xyzToRgb(mix(horizonSkyColor, zenithSkyColor, smoothstep(0.0, 1.0, pow(n_u, hazeExp))));
 
         #if STYLE_SKY_MODEL == 1
             float dayWeight = smoothstep(-0.02, 0.28, sunAltitude) * (1.0 - rainAmount);
             if (dayWeight > 0.001) {
-                vec3 physical = atmosphericSky(skyElevation, cosSun, sunAltitude, 1.0 + GLEAM_HAZE * 0.6);
+                vec3 physical = atmosphericSky(skyElevation, cosSun, sunAltitude, 1.0 + YDREAM_HAZE * 0.6);
                 physical = pow(max(physical * 8.0, vec3(0.0)), vec3(0.4545));
                 float physicalWeight = dayWeight * mix(0.55, 1.0, smoothstep(0.0, 0.25, skyElevation));
                 sky = mix(sky, physical, physicalWeight);
@@ -279,19 +274,6 @@ void main() {
         float beltAmount = twilight * (1.0 - smoothstep(-0.10, 0.10, sunAltitude));
         sky += vec3(0.72, 0.45, 0.58) * (oppositeSide * beltHeight * beltAmount * 0.20);
 
-        #if GLEAM_COLOR_STYLE == 1
-            float fantasyDay = smoothstep(0.05, 0.35, sunAltitude) * (1.0 - rainAmount) * DAY_SKY_ENHANCE;
-            float zenithDeep = smoothstep(0.15, 0.85, skyElevation);
-            sky *= mix(vec3(1.0), vec3(0.90, 0.96, 1.08), zenithDeep * fantasyDay * 0.8);
-            float hazeGlow = exp(-sunSideElevation * 4.0);
-            sky += vec3(0.55, 0.40, 0.90) * (hazeGlow * (1.0 - sunSide) * fantasyDay * 0.020);
-        #endif
-
-        #if GLEAM_COLOR_STYLE == 6
-            float naturalDay = smoothstep(0.05, 0.35, sunAltitude) * (1.0 - rainAmount) * DAY_SKY_ENHANCE;
-            sky = mix(sky, sky * vec3(0.96, 0.99, 1.04) + vec3(0.035, 0.050, 0.060), exp(-sunSideElevation * 3.5) * naturalDay * 0.6);
-        #endif
-
         float sunVisibility = smoothstep(-0.16, 0.02, sunAltitude);
         float lowSun = 1.0 - smoothstep(0.05, 0.45, max(sunAltitude, 0.0));
         vec3 glowTint = mix(vec3(1.0, 0.90, 0.72), vec3(1.0, 0.58, 0.30), lowSun);
@@ -313,7 +295,7 @@ void main() {
         float moonGlow = hgPhase(cosMoon, 0.60) * 0.08 + hgPhase(cosMoon, 0.30) * 0.05;
         float moonScale = MOON_GLOW * STYLE_MOON_GLOW * moonVisibility * (0.35 + 0.65 * moonFullness) *
             skyNightAmount() * (1.0 - rainAmount);
-        #if GLEAM_NIGHT_LOOK == 2
+        #if YDREAM_NIGHT_LOOK == 2
             float moonAngle = acos(clamp(cosMoon, -1.0, 1.0));
             moonGlow += exp(-moonAngle * 11.0) * 0.17 + exp(-moonAngle * 4.2) * 0.075 + exp(-moonAngle * 1.6) * 0.022;
             moonGlow += (1.0 - smoothstep(0.0, 0.040, abs(moonAngle - 0.384))) * 0.014;
@@ -331,7 +313,7 @@ void main() {
         float nightVisibility = smoothstep(0.25, 0.85, skyNightAmount()) * (1.0 - rainAmount);
 
 
-        #if GLEAM_SUN_DISK == 1
+        #if YDREAM_SUN_DISK == 1
             float diskAngle = sunAngle;
             if (sunDir.z < -0.05 && nfragpos.z < -0.05) {
                 vec2 diskDelta = nfragpos.xy / -nfragpos.z - sunDir.xy / -sunDir.z;
@@ -346,7 +328,7 @@ void main() {
             fullSky += diskColor * (diskEdge * diskVisibility * 3.4 * SUN_DISK_BRIGHTNESS * STYLE_SUN_CORE);
         #endif
 
-        #if GLEAM_SUN_HALO == 1
+        #if YDREAM_SUN_HALO == 1
             if (cosSun > 0.55 && sunAltitude > -0.03) {
                 float haloVisibility = smoothstep(-0.03, 0.22, sunAltitude) * (1.0 - rainAmount) * smoothstep(0.0, 0.10, skyElevation);
                 fullSky += sunHaloLayer(sunAngle, worldDir, frameTimeCounter) * (haloVisibility * 0.17 * SUN_HALO_STRENGTH * STYLE_HALO_MULT);
@@ -363,11 +345,11 @@ void main() {
             }
         #endif
 
-        #if GLEAM_MOON_DISK == 1
+        #if YDREAM_MOON_DISK == 1
             fullSky += moonDiskLayer(nfragpos, moonDir, upVector, cosMoon, moonAltitude, skyElevation, rainAmount);
         #endif
 
-        #if GLEAM_STARS == 1 || GLEAM_AURORA == 1 || GLEAM_SHOOTING == 1
+        #if YDREAM_STARS == 1 || YDREAM_AURORA == 1 || YDREAM_SHOOTING == 1
             if (nightVisibility > 0.002 && skyElevation > -0.02) {
                 float horizonFade = smoothstep(-0.02, 0.10, skyElevation);
                 float pixelAngle = 2.0 * pixelSizeY * gbufferProjectionInverse[1].y;

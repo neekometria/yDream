@@ -8,7 +8,7 @@ uniform mat4 shadowModelViewInverse;
 varying vec2 texcoord;
 varying float is_noshadow;
 
-#if GLEAM_RSM_GI > 0
+#if YDREAM_RSM_GI > 0
     varying vec4 tintColor;
     varying vec3 worldRelPos;
 #endif
@@ -22,14 +22,14 @@ attribute vec4 mc_Entity;
 void main() {
     texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         tintColor = gl_Color;
     #endif
 
     vec4 position = shadowModelViewInverse * shadowProjectionInverse * gl_ModelViewProjectionMatrix * gl_Vertex;
     gl_Position = shadowProjection * shadowModelView * position;
 
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         worldRelPos = position.xyz;
     #endif
 

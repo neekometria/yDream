@@ -305,7 +305,7 @@ void main() {
     #ifdef BLOOM
         if(isEyeInWater == 3) {
             blockColor.rgb =
-                mix(blockColor.rgb, vec3(0.7, 0.8, 1.0) / GLEAM_EXPOSURE, clamp(screen_distance, 0.0, 1.0));
+                mix(blockColor.rgb, vec3(0.7, 0.8, 1.0) / YDREAM_EXPOSURE, clamp(screen_distance, 0.0, 1.0));
         }
     #else
         if(isEyeInWater == 3) {
@@ -315,7 +315,7 @@ void main() {
     #endif
 
     #ifdef BLOOM
-        vec3 bloomSource = min(blockColor.rgb * GLEAM_EXPOSURE, vec3(8.0));
+        vec3 bloomSource = min(blockColor.rgb * YDREAM_EXPOSURE, vec3(8.0));
         float bloomPeak = max(max(bloomSource.r, bloomSource.g), bloomSource.b);
         float bloomMeasure = max(luma(bloomSource), bloomPeak * 0.62);
         float bloomSkyLift = step(0.9999, d) * 0.15;

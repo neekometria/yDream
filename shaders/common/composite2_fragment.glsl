@@ -2,7 +2,7 @@
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;
-#ifdef GLEAM_LIGHT_BUFFERS
+#ifdef YDREAM_LIGHT_BUFFERS
 const bool colortex2Clear = true;
 #else
 const bool colortex2Clear = false;

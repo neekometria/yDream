@@ -1,6 +1,6 @@
 # Welcome to the annotated edition of MakeUp.
 
-This document describes the architecture of MakeUp UltraFast, the codebase Gleam Shaders is built on. The file organization, buffer layout, and rendering pipeline described here still apply to Gleam; the lighting, color, sky, cloud, water, and atmosphere systems, and the settings menu, have been redesigned on top of it.
+This document describes the architecture of MakeUp UltraFast, the codebase yDream Shaders is built on. The file organization, buffer layout, and rendering pipeline described here still apply to yDream; the lighting, color, sky, cloud, water, and atmosphere systems, and the settings menu, have been redesigned on top of it.
 
 It is my desire that MakeUp can be used as a basis for creating more and better shaders, which is why I am writing this explanatory text about the source code.
 

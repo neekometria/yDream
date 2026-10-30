@@ -9,12 +9,12 @@ uniform mat4 gbufferProjectionInverse;
 uniform float pixelSizeX;
 uniform float pixelSizeY;
 
-#if GLEAM_RSM_GI > 0
+#if YDREAM_RSM_GI > 0
     uniform sampler2D colortex9;
     uniform sampler2D colortex14;
 #endif
 
-#if GLEAM_VOXEL_LIGHT > 0
+#if YDREAM_VOXEL_LIGHT > 0
     uniform sampler2D colortex15;
 #endif
 
@@ -26,7 +26,7 @@ void main() {
     vec4 blockColor = texture2DLod(colortex1, texcoord, 0.0);
     float depth = texture2DLod(depthtex0, texcoord, 0.0).r;
 
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         vec4 giHistory = texture2DLod(colortex14, texcoord, 0.0);
 
         if (depth < 0.99999 && depth > 0.56 && luma(blockColor.rgb) < 1.5) {
@@ -48,7 +48,7 @@ void main() {
         }
     #endif
 
-    #if GLEAM_VOXEL_LIGHT > 0
+    #if YDREAM_VOXEL_LIGHT > 0
         vec4 clHistory = texture2DLod(colortex15, texcoord, 0.0);
 
         if (depth > 0.56) {
@@ -58,18 +58,18 @@ void main() {
 
     blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 50.0));
 
-    #if GLEAM_RSM_GI > 0 && GLEAM_VOXEL_LIGHT > 0
+    #if YDREAM_RSM_GI > 0 && YDREAM_VOXEL_LIGHT > 0
         /* RENDERTARGETS: 1,4,10,13 */
         gl_FragData[0] = blockColor;
         gl_FragData[1] = vec4(blockColor.rgb, 1.0);
         gl_FragData[2] = giHistory;
         gl_FragData[3] = clHistory;
-    #elif GLEAM_RSM_GI > 0
+    #elif YDREAM_RSM_GI > 0
         /* RENDERTARGETS: 1,4,10 */
         gl_FragData[0] = blockColor;
         gl_FragData[1] = vec4(blockColor.rgb, 1.0);
         gl_FragData[2] = giHistory;
-    #elif GLEAM_VOXEL_LIGHT > 0
+    #elif YDREAM_VOXEL_LIGHT > 0
         /* RENDERTARGETS: 1,4,13 */
         gl_FragData[0] = blockColor;
         gl_FragData[1] = vec4(blockColor.rgb, 1.0);

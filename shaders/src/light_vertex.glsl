@@ -73,6 +73,10 @@ if (dot(normal, normal) > 0.0001) {
         // Mars: dusty but clear-enough daylight, slightly pale and neutral.
         directLightColor = vec3(1.0, 0.92, 0.84) * NORTHSTAR_MARS_LIGHT;
     #endif
+    #if defined NORTHSTAR_MERCURY
+        // Mercury surface: no air, so the direct sunlight matches the Mercury orbit.
+        directLightColor = vec3(1.0, 0.97, 0.92) * NORTHSTAR_MERCURY_IRR_VIEW * NORTHSTAR_LIGHT_STRENGTH;
+    #endif
     #if defined IS_IRIS && defined THE_END && MC_VERSION >= 12109
         directLightColor += (endFlashIntensity * endFlashIntensity * 0.1);
     #endif
@@ -126,7 +130,7 @@ float omniStrength = ((directLightStrength + 1.0) * 0.25) + 0.75;
         omniLight = max(omniLight, vec3(NORTHSTAR_MOON_AMBIENT));
     #endif
 
-    #if GLEAM_AURORA == 1 && !defined UNKNOWN_DIM
+    #if YDREAM_AURORA == 1 && !defined UNKNOWN_DIM
         float auroraNightAmount = skyNightAmount() * (1.0 - rainStrength) * (AURORA_BIOME == 0 ? smoothstep(0.0, 1.0, auroraBiomeFade) : 1.0);
         vec3 auroraDirection = normalize((gbufferModelView * vec4(-0.726, 0.30, -0.687, 0.0)).xyz);
         float auroraFacing = dot(normal, auroraDirection) * 0.5 + 0.5;

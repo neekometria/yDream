@@ -38,7 +38,7 @@ void main() {
         // No air in orbit. The mod tints planet textures with its daylight value, which
         // is zero at night, so they turned black. Use the texture as it is.
         tintColor = vec4(1.0, 1.0, 1.0, gl_Color.a);
-        sky_luma_correction = NORTHSTAR_ORBIT_PLANET_BRIGHTNESS;
+        sky_luma_correction = min(NORTHSTAR_ORBIT_PLANET_BRIGHTNESS * NORTHSTAR_ORBIT_IRR_VIEW * NORTHSTAR_LIGHT_STRENGTH, NORTHSTAR_ORBIT_MAX_BRIGHTNESS);
     #endif
 
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;

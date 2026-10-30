@@ -27,7 +27,7 @@ uniform float aspectRatioInverse;
 
 varying vec2 texcoord;
 
-#if GLEAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
+#if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
     varying vec2 flareSunUV;
     varying float flareVisibility;
 
@@ -83,10 +83,10 @@ void main() {
     #ifdef BLOOM
         vec3 bloom = mipmap_bloom(colortex0, texcoord, dither);
         bloom = mix(vec3(dot(bloom, vec3(0.2126, 0.7152, 0.0722))), bloom, BLOOM_SATURATION);
-        blockColor.rgb += bloom * BLOOM_INTENSITY * GLEAM_STYLE_BLOOM_MULT * STYLE_BLOOM_TINT;
+        blockColor.rgb += bloom * BLOOM_INTENSITY * YDREAM_STYLE_BLOOM_MULT * STYLE_BLOOM_TINT;
     #endif
 
-    #if GLEAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
+    #if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
         if (flareVisibility > 0.002) {
             float flareAspect = 1.0 / aspectRatioInverse;
             vec2 flareAxis = vec2(0.5) - flareSunUV;

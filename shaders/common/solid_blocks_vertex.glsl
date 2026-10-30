@@ -90,7 +90,7 @@ varying vec3 omniLight;
 
 #if defined GBUFFER_TERRAIN || defined GBUFFER_HAND || defined GBUFFER_ENTITIES
     varying float isEmissiveEntity;
-    #if defined GBUFFER_TERRAIN && GLEAM_VOXEL_LIGHT > 0
+    #if defined GBUFFER_TERRAIN && YDREAM_VOXEL_LIGHT > 0
         varying vec3 emitterTint;
     #endif
 #endif
@@ -208,7 +208,7 @@ void main() {
         }
     #endif
 
-    #if defined GBUFFER_TERRAIN && GLEAM_VOXEL_LIGHT > 0
+    #if defined GBUFFER_TERRAIN && YDREAM_VOXEL_LIGHT > 0
         emitterTint = vec3(0.0);
         if (mc_Entity.x == ENTITY_EMMISIVE || mc_Entity.x == ENTITY_S_EMMISIVE || mc_Entity.x == ENTITY_NO_SHADOW_FIRE) {
             emitterTint = vec3(1.0, 0.60, 0.26);

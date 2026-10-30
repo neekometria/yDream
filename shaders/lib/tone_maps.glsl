@@ -1,4 +1,4 @@
-vec3 gleamSigmoid(vec3 color) {
+vec3 ydreamSigmoid(vec3 color) {
     color = 1.4 * color;
     color = color / pow(pow(color, vec3(2.5)) + 1.0, vec3(0.4));
 
@@ -40,9 +40,9 @@ vec3 filmicTone(vec3 color) {
 }
 
 vec3 custom_sigmoid(vec3 color) {
-    #if GLEAM_TONEMAP == 1
-        return gleamSigmoid(color);
-    #elif GLEAM_TONEMAP == 2
+    #if YDREAM_TONEMAP == 1
+        return ydreamSigmoid(color);
+    #elif YDREAM_TONEMAP == 2
         return naturalTone(color);
     #else
         return filmicTone(color);

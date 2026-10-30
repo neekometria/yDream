@@ -16,14 +16,14 @@ uniform float pixelSizeY;
 
 varying vec2 texcoord;
 
-#if GLEAM_RSM_GI > 0
+#if YDREAM_RSM_GI > 0
     #include "/lib/gi_light.glsl"
 #endif
 
 void main() {
     vec4 result = vec4(0.0);
 
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         float depth = texture2DLod(depthtex0, texcoord, 0.0).r;
 
         if (depth < 0.99999 && depth > 0.56) {

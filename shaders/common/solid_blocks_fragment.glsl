@@ -100,7 +100,7 @@ varying vec3 omniLight;
 
 #if defined GBUFFER_TERRAIN || defined GBUFFER_HAND || defined GBUFFER_ENTITIES
     varying float isEmissiveEntity;
-    #if defined GBUFFER_TERRAIN && GLEAM_VOXEL_LIGHT > 0
+    #if defined GBUFFER_TERRAIN && YDREAM_VOXEL_LIGHT > 0
         varying vec3 emitterTint;
     #endif
 #endif
@@ -234,9 +234,9 @@ void main() {
     #endif
 
     vec3 finalCandleColor = candleColor;
-    #ifdef GLEAM_LIGHT_BUFFERS
-        vec3 gleamAlbedo = vec3(0.0);
-        float gleamCandleLuma = 0.0;
+    #ifdef YDREAM_LIGHT_BUFFERS
+        vec3 ydreamAlbedo = vec3(0.0);
+        float ydreamCandleLuma = 0.0;
     #endif
     #if defined GBUFFER_TERRAIN || defined GBUFFER_HAND || defined GBUFFER_ENTITIES
         if(isEmissiveEntityLocal > 0.5) {
@@ -448,9 +448,9 @@ void main() {
             vec3 foliageAlbedo = blockColor.rgb;
         #endif
 
-        #ifdef GLEAM_LIGHT_BUFFERS
-            gleamAlbedo = blockColor.rgb;
-            gleamCandleLuma = luma(finalCandleColor);
+        #ifdef YDREAM_LIGHT_BUFFERS
+            ydreamAlbedo = blockColor.rgb;
+            ydreamCandleLuma = luma(finalCandleColor);
         #endif
 
         blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * 0.125);

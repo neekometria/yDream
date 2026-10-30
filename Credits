@@ -1,4 +1,4 @@
-Gleam Shaders is built on the MakeUp UltraFast codebase by Javier Garduño
+yDream Shaders is built on the MakeUp UltraFast codebase by Javier Garduño
 (https://github.com/javiergcim/MakeUpUltraFast), distributed under the
 GNU Lesser General Public License v3.0. The base architecture, and the
 lower-level techniques credited below, come from that project.
@@ -45,7 +45,7 @@ they have been removed or replaced by own functions.
 ------
 
 MakeUp UltraFast's original author is not a graphics developer and made
-that shader out of curiosity and personal use. Gleam Shaders adapts and
+that shader out of curiosity and personal use. yDream Shaders adapts and
 extends that codebase with its own lighting, color, sky, cloud, water,
 and atmosphere systems.
 

@@ -1,6 +1,6 @@
 #ifdef WATER_F
     blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-    #if GLEAM_VOXEL_LIGHT > 0
+    #if YDREAM_VOXEL_LIGHT > 0
         float glassPeak = max(max(glassAlbedo.r, glassAlbedo.g), glassAlbedo.b);
         float glassSaturation = (glassPeak - min(min(glassAlbedo.r, glassAlbedo.g), glassAlbedo.b)) / max(glassPeak, 0.001);
         float glassMask = step(1.5, blockType) * (1.0 - step(2.5, blockType)) * smoothstep(0.16, 0.34, glassSaturation) * smoothstep(0.50, 0.80, lmcoord.x);
@@ -31,16 +31,16 @@
             blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
             gl_FragData[0] = blockColor;
             gl_FragData[1] = blockColor;
-        #elif defined GBUFFER_TERRAIN && defined GLEAM_LIGHT_BUFFERS
+        #elif defined GBUFFER_TERRAIN && defined YDREAM_LIGHT_BUFFERS
             /* RENDERTARGETS: 1,2,9 */
             blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
             gl_FragData[0] = blockColor;
-            #if GLEAM_VOXEL_LIGHT > 0
-                gl_FragData[1] = vec4(emitterTint * isEmissiveEntity, gleamCandleLuma);
+            #if YDREAM_VOXEL_LIGHT > 0
+                gl_FragData[1] = vec4(emitterTint * isEmissiveEntity, ydreamCandleLuma);
             #else
-                gl_FragData[1] = vec4(0.0, 0.0, 0.0, gleamCandleLuma);
+                gl_FragData[1] = vec4(0.0, 0.0, 0.0, ydreamCandleLuma);
             #endif
-            gl_FragData[2] = vec4(gleamAlbedo, 1.0);
+            gl_FragData[2] = vec4(ydreamAlbedo, 1.0);
         #else
             /* DRAWBUFFERS:1 */
             blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));

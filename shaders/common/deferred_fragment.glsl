@@ -31,15 +31,15 @@ uniform int frameCounter;
     uniform sampler2D noisetex;
     uniform vec3 cameraPosition;
     uniform vec3 sunPosition;
-#elif GLEAM_VOXEL_LIGHT > 0
+#elif YDREAM_VOXEL_LIGHT > 0
     uniform vec3 cameraPosition;
 #endif
 
-#ifdef GLEAM_LIGHT_BUFFERS
+#ifdef YDREAM_LIGHT_BUFFERS
     uniform sampler2D colortex9;
 #endif
 
-#if GLEAM_VOXEL_LIGHT > 0
+#if YDREAM_VOXEL_LIGHT > 0
     uniform sampler2D colortex8;
 #endif
 
@@ -59,7 +59,7 @@ uniform mat4 gbufferProjectionInverse;
 uniform float pixelSizeX;
 uniform float pixelSizeY;
 
-#if AO == 1 || (V_CLOUDS != 0 && !defined UNKNOWN_DIM) || defined GLEAM_SS_ANY
+#if AO == 1 || (V_CLOUDS != 0 && !defined UNKNOWN_DIM) || defined YDREAM_SS_ANY
     uniform mat4 gbufferProjection;
     uniform float frameTimeCounter;
     uniform sampler2D colortex2;
@@ -86,7 +86,7 @@ varying vec3 upVector;
     #include "/lib/depth_dh.glsl"
 #endif
 
-#if AO == 1 || (V_CLOUDS != 0 && !defined UNKNOWN_DIM) || defined GLEAM_SS_ANY
+#if AO == 1 || (V_CLOUDS != 0 && !defined UNKNOWN_DIM) || defined YDREAM_SS_ANY
     #include "/lib/dither.glsl"
 #endif
 
@@ -94,7 +94,7 @@ varying vec3 upVector;
     #include "/lib/ao.glsl"
 #endif
 
-#ifdef GLEAM_SS_ANY
+#ifdef YDREAM_SS_ANY
     #include "/lib/screen_light.glsl"
 #endif
 
@@ -115,7 +115,7 @@ void main() {
 
     vec3 eyeDirection = vec3(1.0);
 
-    #if AO == 1 || (V_CLOUDS != 0 && !defined UNKNOWN_DIM) || defined GLEAM_SS_ANY
+    #if AO == 1 || (V_CLOUDS != 0 && !defined UNKNOWN_DIM) || defined YDREAM_SS_ANY
         #if AA_TYPE > 0
             float dither = shiftedSemiblue(gl_FragCoord.xy);
         #else
@@ -142,7 +142,7 @@ void main() {
                     vec3 cloudLightDir = normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * cloudLightSign;
 
                     #if !defined NORTHSTAR_CLOUDS_OFF
-                        #if GLEAM_CIRRUS == 1
+                        #if YDREAM_CIRRUS == 1
                             blockColor.rgb = get_cirrus(eyeDirection, blockColor.rgb, bright, cloudColor, darkCloudColor);
                         #endif
                         float northstarCloudUmbral = umbral;
@@ -170,32 +170,32 @@ void main() {
         #endif
     #endif
 
-    #if GLEAM_VOXEL_LIGHT > 0
+    #if YDREAM_VOXEL_LIGHT > 0
         vec3 colorLightSurface = vec3(0.0);
         vec3 colorLightGlow = vec3(0.0);
     #endif
 
-    #ifdef GLEAM_SS_ANY
+    #ifdef YDREAM_SS_ANY
         if (linearDepth < 0.9999 && depth > 0.56) {
             vec3 slOriginal = blockColor.rgb;
             vec3 vlFieldDebug = vec3(0.0);
 
-            #if GLEAM_VOXEL_LIGHT > 0
+            #if YDREAM_VOXEL_LIGHT > 0
                 colorLightSurface = vlApply(blockColor.rgb, texcoord, slViewPos(texcoord, depth), vlFieldDebug) - blockColor.rgb;
             #endif
 
-            #if SS_DEBUG == 2 && GLEAM_VOXEL_LIGHT > 0
+            #if SS_DEBUG == 2 && YDREAM_VOXEL_LIGHT > 0
                 blockColor.rgb = abs(colorLightSurface) * 10.0;
                 colorLightSurface = vec3(0.0);
-            #elif SS_DEBUG == 3 && GLEAM_VOXEL_LIGHT > 0
+            #elif SS_DEBUG == 3 && YDREAM_VOXEL_LIGHT > 0
                 blockColor.rgb = texture2DLod(colortex2, texcoord, 0.0).rgb;
-            #elif SS_DEBUG == 4 && GLEAM_VOXEL_LIGHT > 0
+            #elif SS_DEBUG == 4 && YDREAM_VOXEL_LIGHT > 0
                 blockColor.rgb = vlFieldDebug;
             #endif
         }
     #endif
 
-    #ifdef GLEAM_VL_GLOW
+    #ifdef YDREAM_VL_GLOW
         if (depth > 0.56) {
             colorLightGlow = vlGlow(texcoord, depth, fract(fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) + float(frameCounter) * 0.6180339887));
         }
@@ -220,7 +220,7 @@ void main() {
             final_ao = mix(dbao(dither), 1.0, ao_att);
         }
         blockColor.rgb *= final_ao;
-        #if GLEAM_VOXEL_LIGHT > 0
+        #if YDREAM_VOXEL_LIGHT > 0
             colorLightSurface *= final_ao;
         #endif
     #endif
@@ -238,7 +238,7 @@ void main() {
 
     blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
 
-    #if GLEAM_VOXEL_LIGHT > 0
+    #if YDREAM_VOXEL_LIGHT > 0
         vec4 colorLightOut = vec4(0.0);
 
         if (depth > 0.56) {

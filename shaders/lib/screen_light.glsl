@@ -36,7 +36,7 @@ vec3 slSnapAxis(vec3 n) {
     return vec3(0.0, 0.0, sign(n.z));
 }
 
-#if GLEAM_VOXEL_LIGHT > 0
+#if YDREAM_VOXEL_LIGHT > 0
 float vlMax3(vec3 v) {
     return max(v.r, max(v.g, v.b));
 }
@@ -107,7 +107,7 @@ vec3 vlApply(vec3 color, vec2 uv, vec3 viewPos, out vec3 fieldOut) {
 }
 #endif
 
-#ifdef GLEAM_VL_GLOW
+#ifdef YDREAM_VL_GLOW
 vec3 vlFetchSoft(vec3 cell) {
     vec3 base = floor(cell);
     vec3 f = cell - base;
@@ -139,11 +139,11 @@ vec3 vlGlow(vec2 uv, float depthValue, float noise) {
     }
 
     float maxDistance = min(surfaceDistance, 30.0);
-    float stepsInverse = 1.0 / float(GLEAM_VL_GLOW_STEPS);
+    float stepsInverse = 1.0 / float(YDREAM_VL_GLOW_STEPS);
 
     vec3 accumulated = vec3(0.0);
 
-    for (int i = 0; i < GLEAM_VL_GLOW_STEPS; i++) {
+    for (int i = 0; i < YDREAM_VL_GLOW_STEPS; i++) {
         float lowEdge = float(i) * stepsInverse;
         float highEdge = float(i + 1) * stepsInverse;
         float centerT = (float(i) + noise) * stepsInverse;

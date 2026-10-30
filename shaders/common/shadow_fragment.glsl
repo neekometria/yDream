@@ -5,7 +5,7 @@ uniform sampler2D tex;
 varying vec2 texcoord;
 varying float is_noshadow;
 
-#if GLEAM_RSM_GI > 0
+#if YDREAM_RSM_GI > 0
     varying vec4 tintColor;
     varying vec3 worldRelPos;
 #endif
@@ -26,11 +26,11 @@ void main() {
 
     vec4 blockColor = texture2D(tex, texcoord);
 
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         blockColor.rgb *= tintColor.rgb;
     #endif
 
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         /* DRAWBUFFERS:01 */
         gl_FragData[0] = blockColor;
         gl_FragData[1] = vec4(worldRelPos, 1.0);

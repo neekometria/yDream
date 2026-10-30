@@ -1,4 +1,4 @@
-#define GLEAM_SHADERS
+#define YDREAM_SHADERS
 
 #define ENTITY_SMALLGRASS     10031.0
 #define ENTITY_LOWERGRASS     10175.0
@@ -27,8 +27,8 @@
 #define ENTITY_ORE            10420.0
 #define ENTITY_ORE_BRIGHT     10421.0
 
-#define GLEAM_COLOR_STYLE 3 // [3]
-#define GLEAM_QUALITY 3 // [3]
+#define YDREAM_COLOR_STYLE 3 // [3]
+#define YDREAM_QUALITY 3 // [3]
 
 #define SKY_SATURATION 1.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5]
 #define SUN_GLOW 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0]
@@ -265,11 +265,41 @@
     #define NORTHSTAR_ORBIT_RADIUS 1.0
 #endif
 #define NORTHSTAR_ORBIT_PLANET_BRIGHTNESS 1.0 // [0.5 0.75 1.0 1.25 1.5]
-#define NORTHSTAR_ORBIT_SUN_SCALE 3.0 // [1.0 1.5 2.0 2.5 3.0 4.0 6.0]
-#define NORTHSTAR_MERCURY_REALISTIC_SUN 1 // [0 1]
-#if defined NORTHSTAR_ORBIT_MERCURY && NORTHSTAR_MERCURY_REALISTIC_SUN == 1
-    #define NORTHSTAR_ORBIT_REALISTIC_SUN
+// Sun size per orbit: 1.0 is the true apparent size of the Sun from that orbit.
+#define NORTHSTAR_SUN_SCALE_EARTH 1.0 // [0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0]
+#define NORTHSTAR_SUN_SCALE_MARS 1.0 // [0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0]
+#define NORTHSTAR_SUN_SCALE_MERCURY 0.75 // [0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0]
+#define NORTHSTAR_SUN_SCALE_VENUS 1.0 // [0.5 0.75 1.0 1.5 2.0 3.0 4.0 6.0]
+// Light strength on orbits and on the Mercury surface.
+#define NORTHSTAR_LIGHT_STRENGTH 1.0 // [0.25 0.5 1.0 1.5 2.0 3.0]
+#if defined NORTHSTAR_ORBIT_MERCURY
+    #define NORTHSTAR_ORBIT_SUN_SCALE_USED NORTHSTAR_SUN_SCALE_MERCURY
+#elif defined NORTHSTAR_ORBIT_VENUS
+    #define NORTHSTAR_ORBIT_SUN_SCALE_USED NORTHSTAR_SUN_SCALE_VENUS
+#elif defined NORTHSTAR_ORBIT_MARS
+    #define NORTHSTAR_ORBIT_SUN_SCALE_USED NORTHSTAR_SUN_SCALE_MARS
+#else
+    #define NORTHSTAR_ORBIT_SUN_SCALE_USED NORTHSTAR_SUN_SCALE_EARTH
 #endif
+// Irradiance relative to Earth, 1 / r^2. Mercury's surface and its orbit use the same value.
+// Solar flux at each planet, NASA Planetary Fact Sheet (W/m^2). Earth = 1367.6.
+#if defined NORTHSTAR_ORBIT_MERCURY
+    #define NORTHSTAR_ORBIT_FLUX 9126.6
+#elif defined NORTHSTAR_ORBIT_VENUS
+    #define NORTHSTAR_ORBIT_FLUX 2613.9
+#elif defined NORTHSTAR_ORBIT_MARS
+    #define NORTHSTAR_ORBIT_FLUX 589.2
+#else
+    #define NORTHSTAR_ORBIT_FLUX 1367.6
+#endif
+#define NORTHSTAR_ORBIT_IRRADIANCE (NORTHSTAR_ORBIT_FLUX / 1367.6)
+#define NORTHSTAR_MERCURY_IRRADIANCE (9126.6 / 1367.6)
+// Exposure curve for real irradiance: 1.0 is linear (physical, blows out at Mercury), lower compresses bright orbits.
+#define NORTHSTAR_IRRADIANCE_CURVE 0.5 // [0.35 0.5 0.75 1.0]
+#define NORTHSTAR_ORBIT_IRR_VIEW (pow(NORTHSTAR_ORBIT_IRRADIANCE, NORTHSTAR_IRRADIANCE_CURVE))
+#define NORTHSTAR_MERCURY_IRR_VIEW (pow(NORTHSTAR_MERCURY_IRRADIANCE, NORTHSTAR_IRRADIANCE_CURVE))
+// Upper limit for planet and sun textures in orbit, relative to Earth-level brightness.
+#define NORTHSTAR_ORBIT_MAX_BRIGHTNESS 1.0 // [0.75 1.0 1.25 1.5]
 #define NORTHSTAR_MOON_ZENITH_R 0.004 // [0.0 0.002 0.003 0.004 0.006 0.008 0.009 0.010 0.012 0.015 0.016 0.018 0.020 0.025 0.027 0.028 0.030 0.034 0.035 0.040 0.045 0.075 0.095 0.10 0.14 0.16 0.17 0.20 0.27 0.31 0.40 0.46 0.60 0.78 0.80 1.0]
 #define NORTHSTAR_MOON_ZENITH_G 0.006 // [0.0 0.002 0.003 0.004 0.006 0.008 0.009 0.010 0.012 0.015 0.016 0.018 0.020 0.025 0.027 0.028 0.030 0.034 0.035 0.040 0.045 0.075 0.095 0.10 0.14 0.16 0.17 0.20 0.27 0.31 0.40 0.46 0.60 0.78 0.80 1.0]
 #define NORTHSTAR_MOON_ZENITH_B 0.012 // [0.0 0.002 0.003 0.004 0.006 0.008 0.009 0.010 0.012 0.015 0.016 0.018 0.020 0.025 0.027 0.028 0.030 0.034 0.035 0.040 0.045 0.075 0.095 0.10 0.14 0.16 0.17 0.20 0.27 0.31 0.40 0.46 0.60 0.78 0.80 1.0]
@@ -337,17 +367,17 @@
 // #define IMAGE_SHARPENING
 #define SHARPENING 0.4 // [0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 
-#define GLEAM_EXPOSURE 1.0 // [0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6]
-#define GLEAM_SUN_INTENSITY 1.0 // [0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4]
-#define GLEAM_MOON_INTENSITY 1.0 // [0.5 0.7 0.9 1.0 1.2 1.4 1.6 1.8 2.0]
-#define GLEAM_HAZE 1.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5]
+#define YDREAM_EXPOSURE 1.0 // [0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6]
+#define YDREAM_SUN_INTENSITY 1.0 // [0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4]
+#define YDREAM_MOON_INTENSITY 1.0 // [0.5 0.7 0.9 1.0 1.2 1.4 1.6 1.8 2.0]
+#define YDREAM_HAZE 1.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5]
 #define CLOUD_BRIGHTNESS 1.0 // [0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4]
 #define CLOUD_DENSITY 1.0 // [0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4]
 #define CLOUD_SHADOW_STRENGTH 1.0 // [0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0]
 #define FOLIAGE_SATURATION 1.0 // [0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4]
 #define FOLIAGE_BRIGHTNESS 1.0 // [0.7 0.8 0.9 1.0 1.1 1.2 1.3]
-#define GLEAM_CONTRAST 1.0 // [0.8 0.85 0.9 0.95 1.0 1.05 1.1 1.15 1.2]
-#define GLEAM_SATURATION 1.05 // [0.6 0.7 0.8 0.9 1.0 1.05 1.1 1.2 1.3 1.4]
+#define YDREAM_CONTRAST 1.0 // [0.8 0.85 0.9 0.95 1.0 1.05 1.1 1.15 1.2]
+#define YDREAM_SATURATION 1.05 // [0.6 0.7 0.8 0.9 1.0 1.05 1.1 1.2 1.3 1.4]
 #define VIGNETTE_STRENGTH 0.28 // [0.1 0.15 0.2 0.25 0.28 0.3 0.35 0.4 0.45 0.5 0.55 0.6]
 #define RAIN_ATMOSPHERE_STRENGTH 1.0 // [0.5 0.7 0.85 1.0 1.15 1.3 1.5]
 #define RAIN_OPACITY 1.0 // [0.4 0.6 0.8 1.0 1.2 1.4]
@@ -477,14 +507,14 @@
 #define NV_COLOR_B 1.0 // [0.0 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.11 0.12 0.13 0.14 0.15 0.16 0.17 0.18 0.19 0.2 0.21 0.22 0.23 0.24 0.25 0.26 0.27 0.28 0.29 0.3 0.31 0.32 0.33 0.34 0.35 0.36 0.37 0.38 0.39 0.4 0.41 0.42 0.43 0.44 0.45 0.46 0.47 0.48 0.49 0.5 0.51 0.52 0.53 0.54 0.55 0.56 0.57 0.58 0.59 0.6 0.61 0.62 0.63 0.64 0.65 0.66 0.67 0.68 0.69 0.7 0.71 0.72 0.73 0.74 0.75 0.76 0.77 0.78 0.79 0.8 0.81 0.82 0.83 0.84 0.85 0.86 0.87 0.88 0.89 0.9 0.91 0.92 0.93 0.94 0.95 0.96 0.97 0.98 0.99 1.0]
 #define OMNI_TINT_CUSTOM 0.3 // [0.0 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.11 0.12 0.13 0.14 0.15 0.16 0.17 0.18 0.19 0.2 0.21 0.22 0.23 0.24 0.25 0.26 0.27 0.28 0.29 0.3 0.31 0.32 0.33 0.34 0.35 0.36 0.37 0.38 0.39 0.4 0.41 0.42 0.43 0.44 0.45 0.46 0.47 0.48 0.49 0.5 0.51 0.52 0.53 0.54 0.55 0.56 0.57 0.58 0.59 0.6 0.61 0.62 0.63 0.64 0.65 0.66 0.67 0.68 0.69 0.7 0.71 0.72 0.73 0.74 0.75 0.76 0.77 0.78 0.79 0.8 0.81 0.82 0.83 0.84 0.85 0.86 0.87 0.88 0.89 0.9 0.91 0.92 0.93 0.94 0.95 0.96 0.97 0.98 0.99 1.0 1.01 1.02 1.03 1.04 1.05 1.06 1.07 1.08 1.09 1.1 1.11 1.12 1.13 1.14 1.15 1.16 1.17 1.18 1.19 1.2 1.21 1.22 1.23 1.24 1.25 1.26 1.27 1.28 1.29 1.3 1.31 1.32 1.33 1.34 1.35 1.36 1.37 1.38 1.39 1.4 1.41 1.42 1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.5]
 
-#if GLEAM_COLOR_STYLE == 0
+#if YDREAM_COLOR_STYLE == 0
     #define ZENITH_SKY_RAIN_COLOR vec3(.72, .84, .96)
     #define HORIZON_SKY_RAIN_COLOR vec3(0.38, 0.42, 0.47)
     #define STYLE_CLOUD_TYPE 0
     #define CLOUD_VOL_STYLE 0
     #define VANILLA_WATER
     #define WATER_COLOR_SOURCE 1
-    #define GLEAM_WATER_TURBULENCE 2.4
+    #define YDREAM_WATER_TURBULENCE 2.4
     #define STYLE_REFLECTION 1
     #define STYLE_WATER_FRESNEL 2.0
     #define STYLE_FOAM 0
@@ -507,13 +537,13 @@
     #define STYLE_AERIAL 0
     #define STYLE_WETNESS 1
     #define STYLE_SKY_MODEL 0
-    #define GLEAM_STYLE_EXPOSURE_MULT 1.0
-    #define GLEAM_STYLE_SUN_MULT 1.0
-    #define GLEAM_STYLE_MOON_MULT 1.0
-    #define GLEAM_STYLE_SATURATION_MULT 1.0
-    #define GLEAM_STYLE_CONTRAST_MULT 1.0
-    #define GLEAM_STYLE_HAZE_MULT 1.0
-    #define GLEAM_STYLE_BLOOM_MULT 0.55
+    #define YDREAM_STYLE_EXPOSURE_MULT 1.0
+    #define YDREAM_STYLE_SUN_MULT 1.0
+    #define YDREAM_STYLE_MOON_MULT 1.0
+    #define YDREAM_STYLE_SATURATION_MULT 1.0
+    #define YDREAM_STYLE_CONTRAST_MULT 1.0
+    #define YDREAM_STYLE_HAZE_MULT 1.0
+    #define YDREAM_STYLE_BLOOM_MULT 0.55
     #define STYLE_CLOUD_GLOW_MULT 1.0
     #define STYLE_CLOUD_CONTRAST 1.0
     #define STYLE_SUN_GLOW 0.40
@@ -537,13 +567,13 @@
     #define STYLE_SPLIT_SHADOW vec3(0.0)
     #define STYLE_SPLIT_HIGH vec3(0.0)
     #define STYLE_SPLIT_STRENGTH 0.0
-#elif GLEAM_COLOR_STYLE == 2
+#elif YDREAM_COLOR_STYLE == 2
     #define ZENITH_SKY_RAIN_COLOR vec3(.55, .62, .71)
     #define HORIZON_SKY_RAIN_COLOR vec3(0.34, 0.38, 0.43)
     #define STYLE_CLOUD_TYPE 2
     #define CLOUD_VOL_STYLE 0
     #define WATER_COLOR_SOURCE 0
-    #define GLEAM_WATER_TURBULENCE 0.85
+    #define YDREAM_WATER_TURBULENCE 0.85
     #define STYLE_REFLECTION 2
     #define STYLE_WATER_FRESNEL 5.0
     #define STYLE_FOAM 1
@@ -566,13 +596,13 @@
     #define STYLE_AERIAL 1
     #define STYLE_WETNESS 1
     #define STYLE_SKY_MODEL 1
-    #define GLEAM_STYLE_EXPOSURE_MULT 1.14
-    #define GLEAM_STYLE_SUN_MULT 1.08
-    #define GLEAM_STYLE_MOON_MULT 1.35
-    #define GLEAM_STYLE_SATURATION_MULT 1.16
-    #define GLEAM_STYLE_CONTRAST_MULT 1.05
-    #define GLEAM_STYLE_HAZE_MULT 1.0
-    #define GLEAM_STYLE_BLOOM_MULT 0.72
+    #define YDREAM_STYLE_EXPOSURE_MULT 1.14
+    #define YDREAM_STYLE_SUN_MULT 1.08
+    #define YDREAM_STYLE_MOON_MULT 1.35
+    #define YDREAM_STYLE_SATURATION_MULT 1.16
+    #define YDREAM_STYLE_CONTRAST_MULT 1.05
+    #define YDREAM_STYLE_HAZE_MULT 1.0
+    #define YDREAM_STYLE_BLOOM_MULT 0.72
     #define STYLE_CLOUD_GLOW_MULT 1.0
     #define STYLE_CLOUD_CONTRAST 1.2
     #define STYLE_SUN_GLOW 0.17
@@ -597,13 +627,13 @@
     #define STYLE_SPLIT_HIGH vec3(0.24, 0.16, 0.07)
     #define STYLE_SPLIT_STRENGTH 0.14
     #define STYLE_COOL_GRADE 0.12
-#elif GLEAM_COLOR_STYLE == 3
+#elif YDREAM_COLOR_STYLE == 3
     #define ZENITH_SKY_RAIN_COLOR vec3(.55, .64, .74)
     #define HORIZON_SKY_RAIN_COLOR vec3(0.30, 0.34, 0.39)
     #define STYLE_CLOUD_TYPE 2
     #define CLOUD_VOL_STYLE 0
     #define WATER_COLOR_SOURCE 0
-    #define GLEAM_WATER_TURBULENCE 0.85
+    #define YDREAM_WATER_TURBULENCE 0.85
     #define STYLE_REFLECTION 2
     #define STYLE_WATER_FRESNEL 3.5
     #define STYLE_FOAM 1
@@ -626,13 +656,13 @@
     #define STYLE_AERIAL 1
     #define STYLE_WETNESS 1
     #define STYLE_SKY_MODEL 0
-    #define GLEAM_STYLE_EXPOSURE_MULT 1.1
-    #define GLEAM_STYLE_SUN_MULT 1.1
-    #define GLEAM_STYLE_MOON_MULT 1.7
-    #define GLEAM_STYLE_SATURATION_MULT 0.94
-    #define GLEAM_STYLE_CONTRAST_MULT 1.06
-    #define GLEAM_STYLE_HAZE_MULT 0.9
-    #define GLEAM_STYLE_BLOOM_MULT 1.1
+    #define YDREAM_STYLE_EXPOSURE_MULT 1.1
+    #define YDREAM_STYLE_SUN_MULT 1.1
+    #define YDREAM_STYLE_MOON_MULT 1.7
+    #define YDREAM_STYLE_SATURATION_MULT 0.94
+    #define YDREAM_STYLE_CONTRAST_MULT 1.06
+    #define YDREAM_STYLE_HAZE_MULT 0.9
+    #define YDREAM_STYLE_BLOOM_MULT 1.1
     #define STYLE_CLOUD_GLOW_MULT 1.1
     #define STYLE_CLOUD_CONTRAST 1.1
     #define STYLE_SUN_GLOW 1.15
@@ -656,72 +686,13 @@
     #define STYLE_SPLIT_SHADOW vec3(0.05, 0.16, 0.24)
     #define STYLE_SPLIT_HIGH vec3(0.26, 0.15, 0.06)
     #define STYLE_SPLIT_STRENGTH 0.30
-#elif GLEAM_COLOR_STYLE == 5
-    #define ZENITH_SKY_RAIN_COLOR vec3(.45, .55, .68)
-    #define HORIZON_SKY_RAIN_COLOR vec3(0.32, 0.36, 0.42)
-    #define STYLE_CLOUD_TYPE 1
-    #define CLOUD_VOL_STYLE 0
-    #define WATER_COLOR_SOURCE 0
-    #define GLEAM_WATER_TURBULENCE 1.6
-    #define STYLE_REFLECTION 1
-    #define STYLE_WATER_FRESNEL 3.0
-    #define STYLE_FOAM 1
-    #define STYLE_GLITTER 1
-    #define STYLE_DEPTH_TINT 0.5
-    #define STYLE_WATER_COLOR vec3(0.04, 0.46, 0.74)
-    #define STYLE_STARS 1
-    #define STYLE_AURORA 0
-    #define STYLE_SHOOTING 1
-    #define STYLE_SUN_DISK 1
-    #define STYLE_SUN_HALO 0
-    #define STYLE_HALO_MULT 0.9
-    #define STYLE_CIRRUS 1
-    #define STYLE_LENS_FLARE 0
-    #define STYLE_LETTERBOX 0
-    #define STYLE_OUTLINES 1
-    #define STYLE_CEL 0
-    #define STYLE_NIGHT_LOOK 1
-    #define STYLE_MOON_DISK 1
-    #define STYLE_AERIAL 1
-    #define STYLE_WETNESS 1
-    #define STYLE_SKY_MODEL 0
-    #define GLEAM_STYLE_EXPOSURE_MULT 1.0
-    #define GLEAM_STYLE_SUN_MULT 1.0
-    #define GLEAM_STYLE_MOON_MULT 1.1
-    #define GLEAM_STYLE_SATURATION_MULT 1.20
-    #define GLEAM_STYLE_CONTRAST_MULT 1.07
-    #define GLEAM_STYLE_HAZE_MULT 0.5
-    #define GLEAM_STYLE_BLOOM_MULT 0.40
-    #define STYLE_CLOUD_GLOW_MULT 1.0
-    #define STYLE_CLOUD_CONTRAST 1.2
-    #define STYLE_SUN_GLOW 0.40
-    #define STYLE_SUN_CORE 1.3
-    #define STYLE_MOON_GLOW 0.5
-    #define STYLE_TWILIGHT 1.25
-    #define STYLE_VIGNETTE 0
-    #define STYLE_GRAIN 0
-    #define STYLE_VIBRANCE 0.14
-    #define STYLE_SHADOW_TYPE 1
-    #define STYLE_SUN_RADIUS 3.6
-    #define STYLE_MOON_RADIUS 3.6
-    #define STYLE_FLARE_STRENGTH 0.0
-    #define STYLE_ANAMORPHIC_MULT 0.0
-    #define STYLE_BLOOM_TINT vec3(1.0)
-    #define STYLE_TONEMAP 1
-    #define STYLE_AMBIENT_MULT 1.0
-    #define STYLE_GODRAY_MULT 0.8
-    #define STYLE_GROUND_FOG 0
-    #define STYLE_FOG_MULT 0.6
-    #define STYLE_SPLIT_SHADOW vec3(0.14, 0.14, 0.42)
-    #define STYLE_SPLIT_HIGH vec3(0.30, 0.20, 0.08)
-    #define STYLE_SPLIT_STRENGTH 0.10
-#elif GLEAM_COLOR_STYLE == 99
+#elif YDREAM_COLOR_STYLE == 99
     #define ZENITH_SKY_RAIN_COLOR vec3(.62, .70, .86)
     #define HORIZON_SKY_RAIN_COLOR vec3(0.40, 0.40, 0.50)
     #define STYLE_CLOUD_TYPE 1
     #define CLOUD_VOL_STYLE 0
     #define WATER_COLOR_SOURCE 0
-    #define GLEAM_WATER_TURBULENCE 1.05
+    #define YDREAM_WATER_TURBULENCE 1.05
     #define STYLE_REFLECTION 2
     #define STYLE_WATER_FRESNEL 3.0
     #define STYLE_FOAM 1
@@ -744,13 +715,13 @@
     #define STYLE_AERIAL 1
     #define STYLE_WETNESS 1
     #define STYLE_SKY_MODEL 0
-    #define GLEAM_STYLE_EXPOSURE_MULT 1.0
-    #define GLEAM_STYLE_SUN_MULT 1.0
-    #define GLEAM_STYLE_MOON_MULT 1.0
-    #define GLEAM_STYLE_SATURATION_MULT 1.0
-    #define GLEAM_STYLE_CONTRAST_MULT 1.0
-    #define GLEAM_STYLE_HAZE_MULT 1.0
-    #define GLEAM_STYLE_BLOOM_MULT 1.0
+    #define YDREAM_STYLE_EXPOSURE_MULT 1.0
+    #define YDREAM_STYLE_SUN_MULT 1.0
+    #define YDREAM_STYLE_MOON_MULT 1.0
+    #define YDREAM_STYLE_SATURATION_MULT 1.0
+    #define YDREAM_STYLE_CONTRAST_MULT 1.0
+    #define YDREAM_STYLE_HAZE_MULT 1.0
+    #define YDREAM_STYLE_BLOOM_MULT 1.0
     #define STYLE_CLOUD_GLOW_MULT 1.0
     #define STYLE_CLOUD_CONTRAST 1.0
     #define STYLE_SUN_GLOW 1.0
@@ -774,126 +745,6 @@
     #define STYLE_SPLIT_SHADOW vec3(0.0)
     #define STYLE_SPLIT_HIGH vec3(0.0)
     #define STYLE_SPLIT_STRENGTH 0.0
-#elif GLEAM_COLOR_STYLE == 6
-    #define ZENITH_SKY_RAIN_COLOR vec3(.58, .65, .74)
-    #define HORIZON_SKY_RAIN_COLOR vec3(0.42, 0.46, 0.52)
-    #define STYLE_CLOUD_TYPE 1
-    #define CLOUD_VOL_STYLE 0
-    #define WATER_COLOR_SOURCE 0
-    #define GLEAM_WATER_TURBULENCE 0.95
-    #define STYLE_REFLECTION 2
-    #define STYLE_WATER_FRESNEL 3.5
-    #define STYLE_FOAM 1
-    #define STYLE_GLITTER 1
-    #define STYLE_DEPTH_TINT 1.0
-    #define STYLE_WATER_COLOR vec3(0.12, 0.46, 0.68)
-    #define STYLE_STARS 1
-    #define STYLE_AURORA 0
-    #define STYLE_SHOOTING 1
-    #define STYLE_SUN_DISK 1
-    #define STYLE_SUN_HALO 0
-    #define STYLE_HALO_MULT 1.0
-    #define STYLE_CIRRUS 1
-    #define STYLE_LENS_FLARE 0
-    #define STYLE_LETTERBOX 0
-    #define STYLE_OUTLINES 0
-    #define STYLE_CEL 0
-    #define STYLE_NIGHT_LOOK 1
-    #define STYLE_MOON_DISK 1
-    #define STYLE_AERIAL 1
-    #define STYLE_WETNESS 1
-    #define STYLE_SKY_MODEL 0
-    #define GLEAM_STYLE_EXPOSURE_MULT 1.03
-    #define GLEAM_STYLE_SUN_MULT 1.0
-    #define GLEAM_STYLE_MOON_MULT 1.0
-    #define GLEAM_STYLE_SATURATION_MULT 1.03
-    #define GLEAM_STYLE_CONTRAST_MULT 1.03
-    #define GLEAM_STYLE_HAZE_MULT 1.0
-    #define GLEAM_STYLE_BLOOM_MULT 0.70
-    #define STYLE_CLOUD_GLOW_MULT 1.0
-    #define STYLE_CLOUD_CONTRAST 1.0
-    #define STYLE_SUN_GLOW 0.85
-    #define STYLE_SUN_CORE 1.0
-    #define STYLE_MOON_GLOW 1.0
-    #define STYLE_TWILIGHT 0.9
-    #define STYLE_VIGNETTE 0
-    #define STYLE_GRAIN 0
-    #define STYLE_VIBRANCE 0.10
-    #define STYLE_SHADOW_TYPE 2
-    #define STYLE_SUN_RADIUS 3.1
-    #define STYLE_MOON_RADIUS 3.3
-    #define STYLE_FLARE_STRENGTH 1.0
-    #define STYLE_ANAMORPHIC_MULT 0.6
-    #define STYLE_BLOOM_TINT vec3(1.0)
-    #define STYLE_TONEMAP 1
-    #define STYLE_AMBIENT_MULT 1.05
-    #define STYLE_GODRAY_MULT 0.9
-    #define STYLE_GROUND_FOG 1
-    #define STYLE_FOG_MULT 0.9
-    #define STYLE_SPLIT_SHADOW vec3(0.06, 0.14, 0.28)
-    #define STYLE_SPLIT_HIGH vec3(0.16, 0.13, 0.08)
-    #define STYLE_SPLIT_STRENGTH 0.10
-    #define STYLE_COOL_GRADE 0.15
-#else
-    #define ZENITH_SKY_RAIN_COLOR vec3(.62, .70, .86)
-    #define HORIZON_SKY_RAIN_COLOR vec3(0.40, 0.40, 0.50)
-    #define STYLE_CLOUD_TYPE 1
-    #define CLOUD_VOL_STYLE 0
-    #define WATER_COLOR_SOURCE 0
-    #define GLEAM_WATER_TURBULENCE 1.05
-    #define STYLE_REFLECTION 2
-    #define STYLE_WATER_FRESNEL 3.0
-    #define STYLE_FOAM 1
-    #define STYLE_GLITTER 1
-    #define STYLE_DEPTH_TINT 1.0
-    #define STYLE_WATER_COLOR vec3(0.03, 0.20, 0.44)
-    #define STYLE_STARS 1
-    #define STYLE_AURORA 1
-    #define STYLE_SHOOTING 1
-    #define STYLE_SUN_DISK 1
-    #define STYLE_SUN_HALO 0
-    #define STYLE_HALO_MULT 1.0
-    #define STYLE_CIRRUS 1
-    #define STYLE_LENS_FLARE 0
-    #define STYLE_LETTERBOX 0
-    #define STYLE_OUTLINES 0
-    #define STYLE_CEL 0
-    #define STYLE_NIGHT_LOOK 2
-    #define STYLE_MOON_DISK 1
-    #define STYLE_AERIAL 1
-    #define STYLE_WETNESS 1
-    #define STYLE_SKY_MODEL 0
-    #define GLEAM_STYLE_EXPOSURE_MULT 1.0
-    #define GLEAM_STYLE_SUN_MULT 1.0
-    #define GLEAM_STYLE_MOON_MULT 1.45
-    #define GLEAM_STYLE_SATURATION_MULT 1.07
-    #define GLEAM_STYLE_CONTRAST_MULT 1.07
-    #define GLEAM_STYLE_HAZE_MULT 1.18
-    #define GLEAM_STYLE_BLOOM_MULT 1.3
-    #define STYLE_CLOUD_GLOW_MULT 1.05
-    #define STYLE_CLOUD_CONTRAST 1.06
-    #define STYLE_SUN_GLOW 1.0
-    #define STYLE_SUN_CORE 1.0
-    #define STYLE_MOON_GLOW 1.0
-    #define STYLE_TWILIGHT 1.25
-    #define STYLE_VIGNETTE 0
-    #define STYLE_GRAIN 0
-    #define STYLE_VIBRANCE 0.26
-    #define STYLE_SHADOW_TYPE 2
-    #define STYLE_SUN_RADIUS 3.1
-    #define STYLE_MOON_RADIUS 3.3
-    #define STYLE_FLARE_STRENGTH 1.0
-    #define STYLE_ANAMORPHIC_MULT 0.7
-    #define STYLE_BLOOM_TINT vec3(1.02, 0.97, 1.06)
-    #define STYLE_TONEMAP 1
-    #define STYLE_AMBIENT_MULT 1.05
-    #define STYLE_GODRAY_MULT 1.1
-    #define STYLE_GROUND_FOG 1
-    #define STYLE_FOG_MULT 1.0
-    #define STYLE_SPLIT_SHADOW vec3(0.08, 0.10, 0.34)
-    #define STYLE_SPLIT_HIGH vec3(0.26, 0.19, 0.10)
-    #define STYLE_SPLIT_STRENGTH 0.34
-    #define STYLE_COOL_GRADE 0.42
 #endif
 
 #ifndef STYLE_COOL_GRADE
@@ -935,89 +786,89 @@
     #define CLOUD_SHADOWS_ON
 #endif
 
-#if (GLEAM_COLOR_STYLE == 1 || GLEAM_COLOR_STYLE == 3 || GLEAM_COLOR_STYLE == 6) && !defined IMAGE_SHARPENING
+#if YDREAM_COLOR_STYLE == 3 && !defined IMAGE_SHARPENING
     #define IMAGE_SHARPENING
 #endif
 
 #if STARS == 0
-    #define GLEAM_STARS STYLE_STARS
+    #define YDREAM_STARS STYLE_STARS
 #elif STARS == 1
-    #define GLEAM_STARS 0
+    #define YDREAM_STARS 0
 #else
-    #define GLEAM_STARS 1
+    #define YDREAM_STARS 1
 #endif
 
-#if GLEAM_QUALITY == 5 && STARS != 1
-    #undef GLEAM_STARS
-    #define GLEAM_STARS 1
+#if YDREAM_QUALITY == 5 && STARS != 1
+    #undef YDREAM_STARS
+    #define YDREAM_STARS 1
 #endif
 
 #if AURORA == 0
-    #define GLEAM_AURORA STYLE_AURORA
+    #define YDREAM_AURORA STYLE_AURORA
 #elif AURORA == 1
-    #define GLEAM_AURORA 0
+    #define YDREAM_AURORA 0
 #else
-    #define GLEAM_AURORA 1
+    #define YDREAM_AURORA 1
 #endif
 
-#if GLEAM_QUALITY == 5 && AURORA != 1
-    #undef GLEAM_AURORA
-    #define GLEAM_AURORA 1
+#if YDREAM_QUALITY == 5 && AURORA != 1
+    #undef YDREAM_AURORA
+    #define YDREAM_AURORA 1
 #endif
 
 #if SHOOTING_STARS == 0
-    #define GLEAM_SHOOTING STYLE_SHOOTING
+    #define YDREAM_SHOOTING STYLE_SHOOTING
 #elif SHOOTING_STARS == 1
-    #define GLEAM_SHOOTING 0
+    #define YDREAM_SHOOTING 0
 #else
-    #define GLEAM_SHOOTING 1
+    #define YDREAM_SHOOTING 1
 #endif
 
-#if GLEAM_QUALITY == 5 && SHOOTING_STARS != 1
-    #undef GLEAM_SHOOTING
-    #define GLEAM_SHOOTING 1
+#if YDREAM_QUALITY == 5 && SHOOTING_STARS != 1
+    #undef YDREAM_SHOOTING
+    #define YDREAM_SHOOTING 1
 #endif
 
 #if SUN_STYLE == 0
-    #define GLEAM_SUN_DISK STYLE_SUN_DISK
+    #define YDREAM_SUN_DISK STYLE_SUN_DISK
 #elif SUN_STYLE == 1
-    #define GLEAM_SUN_DISK 0
+    #define YDREAM_SUN_DISK 0
 #else
-    #define GLEAM_SUN_DISK 1
+    #define YDREAM_SUN_DISK 1
 #endif
 
 #if SUN_HALO == 0
-    #define GLEAM_SUN_HALO STYLE_SUN_HALO
+    #define YDREAM_SUN_HALO STYLE_SUN_HALO
 #elif SUN_HALO == 1
-    #define GLEAM_SUN_HALO 0
+    #define YDREAM_SUN_HALO 0
 #else
-    #define GLEAM_SUN_HALO 1
+    #define YDREAM_SUN_HALO 1
 #endif
 
 #if WATER_FOAM == 0
-    #define GLEAM_FOAM STYLE_FOAM
+    #define YDREAM_FOAM STYLE_FOAM
 #elif WATER_FOAM == 1
-    #define GLEAM_FOAM 0
+    #define YDREAM_FOAM 0
 #else
-    #define GLEAM_FOAM 1
+    #define YDREAM_FOAM 1
 #endif
 
-#if GLEAM_QUALITY == 5 && WATER_FOAM != 1
-    #undef GLEAM_FOAM
-    #define GLEAM_FOAM 1
+#if YDREAM_QUALITY == 5 && WATER_FOAM != 1
+    #undef YDREAM_FOAM
+    #define YDREAM_FOAM 1
 #endif
 
 #if SUN_GLITTER == 0
-    #define GLEAM_GLITTER STYLE_GLITTER
+    #define YDREAM_GLITTER STYLE_GLITTER
 #elif SUN_GLITTER == 1
-    #define GLEAM_GLITTER 0
+    #define YDREAM_GLITTER 0
 #else
-    #define GLEAM_GLITTER 1
+    #define YDREAM_GLITTER 1
 #endif
 
-#if GLEAM_QUALITY == 5 && SUN_GLITTER != 1
-    #undef GLEAM_GLITTER
-    #define GLEAM_GLITTER 1
+#if YDREAM_QUALITY == 5 && SUN_GLITTER != 1
+    #undef YDREAM_GLITTER
+    #define YDREAM_GLITTER 1
 #endif
 
 #if AERIAL_PERSPECTIVE == 0
@@ -1028,7 +879,7 @@
     #define AERIAL_STATE 1
 #endif
 
-#if GLEAM_QUALITY == 5 && AERIAL_PERSPECTIVE != 1
+#if YDREAM_QUALITY == 5 && AERIAL_PERSPECTIVE != 1
     #undef AERIAL_STATE
     #define AERIAL_STATE 1
 #endif
@@ -1050,21 +901,21 @@
 #endif
 
 #if CIRRUS == 0
-    #define GLEAM_CIRRUS STYLE_CIRRUS
+    #define YDREAM_CIRRUS STYLE_CIRRUS
 #elif CIRRUS == 1
-    #define GLEAM_CIRRUS 0
+    #define YDREAM_CIRRUS 0
 #else
-    #define GLEAM_CIRRUS 1
+    #define YDREAM_CIRRUS 1
 #endif
 
-#if GLEAM_QUALITY == 5 && CIRRUS != 1
-    #undef GLEAM_CIRRUS
-    #define GLEAM_CIRRUS 1
+#if YDREAM_QUALITY == 5 && CIRRUS != 1
+    #undef YDREAM_CIRRUS
+    #define YDREAM_CIRRUS 1
 #endif
 
-#if GLEAM_QUALITY <= 1
-    #undef GLEAM_CIRRUS
-    #define GLEAM_CIRRUS 0
+#if YDREAM_QUALITY <= 1
+    #undef YDREAM_CIRRUS
+    #define YDREAM_CIRRUS 0
 #else
     #define CLOUD_SELF_SHADOW
 #endif
@@ -1073,7 +924,7 @@
     #define AURORA_AZ_OUTER 1.55
     #define AURORA_AZ_INNER 0.45
     #define AURORA_HEIGHT_MAX 0.85
-    #if GLEAM_QUALITY <= 1
+    #if YDREAM_QUALITY <= 1
         #define AURORA_LAYERS 2
     #else
         #define AURORA_LAYERS 3
@@ -1082,7 +933,7 @@
     #define AURORA_AZ_OUTER 3.0
     #define AURORA_AZ_INNER 1.2
     #define AURORA_HEIGHT_MAX 0.95
-    #if GLEAM_QUALITY <= 1
+    #if YDREAM_QUALITY <= 1
         #define AURORA_LAYERS 3
     #else
         #define AURORA_LAYERS 5
@@ -1091,7 +942,7 @@
     #define AURORA_AZ_OUTER 3.05
     #define AURORA_AZ_INNER 1.8
     #define AURORA_HEIGHT_MAX 1.0
-    #if GLEAM_QUALITY <= 1
+    #if YDREAM_QUALITY <= 1
         #define AURORA_LAYERS 4
     #else
         #define AURORA_LAYERS 7
@@ -1099,56 +950,56 @@
 #endif
 
 #if LENS_FLARE == 0
-    #define GLEAM_LENS_FLARE STYLE_LENS_FLARE
+    #define YDREAM_LENS_FLARE STYLE_LENS_FLARE
 #elif LENS_FLARE == 1
-    #define GLEAM_LENS_FLARE 0
+    #define YDREAM_LENS_FLARE 0
 #else
-    #define GLEAM_LENS_FLARE 1
+    #define YDREAM_LENS_FLARE 1
 #endif
 
-#if GLEAM_QUALITY == 5 && LENS_FLARE == 0 && (GLEAM_COLOR_STYLE == 2 || GLEAM_COLOR_STYLE == 3)
-    #undef GLEAM_LENS_FLARE
-    #define GLEAM_LENS_FLARE 1
+#if YDREAM_QUALITY == 5 && LENS_FLARE == 0 && (YDREAM_COLOR_STYLE == 2 || YDREAM_COLOR_STYLE == 3)
+    #undef YDREAM_LENS_FLARE
+    #define YDREAM_LENS_FLARE 1
 #endif
 
 #if LETTERBOX == 0
-    #define GLEAM_LETTERBOX STYLE_LETTERBOX
+    #define YDREAM_LETTERBOX STYLE_LETTERBOX
 #elif LETTERBOX == 1
-    #define GLEAM_LETTERBOX 0
+    #define YDREAM_LETTERBOX 0
 #else
-    #define GLEAM_LETTERBOX 1
+    #define YDREAM_LETTERBOX 1
 #endif
 
 #if CEL_SHADING == 0
-    #define GLEAM_CEL STYLE_CEL
+    #define YDREAM_CEL STYLE_CEL
 #elif CEL_SHADING == 1
-    #define GLEAM_CEL 0
+    #define YDREAM_CEL 0
 #else
-    #define GLEAM_CEL 1
+    #define YDREAM_CEL 1
 #endif
 
 #if OUTLINES == 0
-    #define GLEAM_OUTLINES STYLE_OUTLINES
+    #define YDREAM_OUTLINES STYLE_OUTLINES
 #elif OUTLINES == 1
-    #define GLEAM_OUTLINES 0
+    #define YDREAM_OUTLINES 0
 #else
-    #define GLEAM_OUTLINES 1
+    #define YDREAM_OUTLINES 1
 #endif
 
 #define ANAMORPHIC_STREAK_MULT (0.14 * STYLE_ANAMORPHIC_MULT)
 
 #if NIGHT_LOOK == 0
-    #define GLEAM_NIGHT_LOOK STYLE_NIGHT_LOOK
+    #define YDREAM_NIGHT_LOOK STYLE_NIGHT_LOOK
 #else
-    #define GLEAM_NIGHT_LOOK NIGHT_LOOK
+    #define YDREAM_NIGHT_LOOK NIGHT_LOOK
 #endif
 
 #if MOON_STYLE == 0
-    #define GLEAM_MOON_DISK STYLE_MOON_DISK
+    #define YDREAM_MOON_DISK STYLE_MOON_DISK
 #elif MOON_STYLE == 1
-    #define GLEAM_MOON_DISK 0
+    #define YDREAM_MOON_DISK 0
 #else
-    #define GLEAM_MOON_DISK 1
+    #define YDREAM_MOON_DISK 1
 #endif
 
 #if !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
@@ -1181,7 +1032,7 @@
     #define GROUND_FOG_STATE 1
 #endif
 
-#if GLEAM_QUALITY == 5 && GROUND_FOG != 1
+#if YDREAM_QUALITY == 5 && GROUND_FOG != 1
     #undef GROUND_FOG_STATE
     #define GROUND_FOG_STATE 1
 #endif
@@ -1191,25 +1042,25 @@
 #endif
 
 #if VIGNETTE_MODE == 0
-    #define GLEAM_STYLE_VIGNETTE STYLE_VIGNETTE
+    #define YDREAM_STYLE_VIGNETTE STYLE_VIGNETTE
 #elif VIGNETTE_MODE == 1
-    #define GLEAM_STYLE_VIGNETTE 0
+    #define YDREAM_STYLE_VIGNETTE 0
 #else
-    #define GLEAM_STYLE_VIGNETTE 1
+    #define YDREAM_STYLE_VIGNETTE 1
 #endif
 
 #if FILM_GRAIN == 0
-    #define GLEAM_GRAIN STYLE_GRAIN
+    #define YDREAM_GRAIN STYLE_GRAIN
 #elif FILM_GRAIN == 1
-    #define GLEAM_GRAIN 0
+    #define YDREAM_GRAIN 0
 #else
-    #define GLEAM_GRAIN 1
+    #define YDREAM_GRAIN 1
 #endif
 
 #if TONEMAP == 0
-    #define GLEAM_TONEMAP STYLE_TONEMAP
+    #define YDREAM_TONEMAP STYLE_TONEMAP
 #else
-    #define GLEAM_TONEMAP TONEMAP
+    #define YDREAM_TONEMAP TONEMAP
 #endif
 
 #if WATER_REFLECTIONS == 0
@@ -1222,7 +1073,7 @@
     #define REFLECTION_SLIDER 2
 #endif
 
-#if GLEAM_QUALITY == 5 && WATER_REFLECTIONS != 1
+#if YDREAM_QUALITY == 5 && WATER_REFLECTIONS != 1
     #undef REFLECTION_SLIDER
     #define REFLECTION_SLIDER 2
 #endif
@@ -1235,69 +1086,69 @@
     #define WATER_COLOR vec3(0.02, 0.30, 0.42)
 #elif WATER_COLOR_PRESET == 4
     #define WATER_COLOR vec3(0.03, 0.26, 0.22)
-#elif WATER_COLOR_PRESET == 5 || GLEAM_COLOR_STYLE == 99
+#elif WATER_COLOR_PRESET == 5 || YDREAM_COLOR_STYLE == 99
     #define WATER_COLOR vec3(WATER_COLOR_R, WATER_COLOR_G, WATER_COLOR_B)
 #else
     #define WATER_COLOR STYLE_WATER_COLOR
 #endif
 
-#define GLEAM_WATER_DEPTH_TINT (STYLE_DEPTH_TINT * WATER_DEPTH_TINT)
+#define YDREAM_WATER_DEPTH_TINT (STYLE_DEPTH_TINT * WATER_DEPTH_TINT)
 
-#if GLEAM_QUALITY == 0
-    #define GLEAM_BLOOM_SAMPLES 1.5
-    #define GLEAM_RAYMARCH_STEPS 6
-    #define GLEAM_GODRAY_STEPS 3
-    #define GLEAM_AOSTEPS 3
-    #define GLEAM_AO_STRENGTH 0.50
-    #define GLEAM_CLOUD_STEPS_AVG 4
-#elif GLEAM_QUALITY == 1
-    #define GLEAM_BLOOM_SAMPLES 2.0
-    #define GLEAM_RAYMARCH_STEPS 8
-    #define GLEAM_GODRAY_STEPS 4
-    #define GLEAM_AOSTEPS 4
-    #define GLEAM_AO_STRENGTH 0.60
-    #define GLEAM_CLOUD_STEPS_AVG 6
-#elif GLEAM_QUALITY == 3
-    #define GLEAM_BLOOM_SAMPLES 4.0
-    #define GLEAM_RAYMARCH_STEPS 24
-    #define GLEAM_GODRAY_STEPS 10
-    #define GLEAM_AOSTEPS 10
-    #define GLEAM_AO_STRENGTH 0.80
-    #define GLEAM_CLOUD_STEPS_AVG 16
+#if YDREAM_QUALITY == 0
+    #define YDREAM_BLOOM_SAMPLES 1.5
+    #define YDREAM_RAYMARCH_STEPS 6
+    #define YDREAM_GODRAY_STEPS 3
+    #define YDREAM_AOSTEPS 3
+    #define YDREAM_AO_STRENGTH 0.50
+    #define YDREAM_CLOUD_STEPS_AVG 4
+#elif YDREAM_QUALITY == 1
+    #define YDREAM_BLOOM_SAMPLES 2.0
+    #define YDREAM_RAYMARCH_STEPS 8
+    #define YDREAM_GODRAY_STEPS 4
+    #define YDREAM_AOSTEPS 4
+    #define YDREAM_AO_STRENGTH 0.60
+    #define YDREAM_CLOUD_STEPS_AVG 6
+#elif YDREAM_QUALITY == 3
+    #define YDREAM_BLOOM_SAMPLES 4.0
+    #define YDREAM_RAYMARCH_STEPS 24
+    #define YDREAM_GODRAY_STEPS 10
+    #define YDREAM_AOSTEPS 10
+    #define YDREAM_AO_STRENGTH 0.80
+    #define YDREAM_CLOUD_STEPS_AVG 16
     #define MATERIAL_GLOSS
     #define CLOUD_REFLECTION
-#elif GLEAM_QUALITY == 4
-    #define GLEAM_BLOOM_SAMPLES 4.0
-    #define GLEAM_RAYMARCH_STEPS 32
-    #define GLEAM_GODRAY_STEPS 12
-    #define GLEAM_AOSTEPS 14
-    #define GLEAM_AO_STRENGTH 0.85
-    #define GLEAM_CLOUD_STEPS_AVG 22
+#elif YDREAM_QUALITY == 4
+    #define YDREAM_BLOOM_SAMPLES 4.0
+    #define YDREAM_RAYMARCH_STEPS 32
+    #define YDREAM_GODRAY_STEPS 12
+    #define YDREAM_AOSTEPS 14
+    #define YDREAM_AO_STRENGTH 0.85
+    #define YDREAM_CLOUD_STEPS_AVG 22
     #define MATERIAL_GLOSS
     #define CLOUD_REFLECTION
-#elif GLEAM_QUALITY == 5
-    #define GLEAM_BLOOM_SAMPLES 18.0
-    #define GLEAM_RAYMARCH_STEPS 128
-    #define GLEAM_GODRAY_STEPS 40
-    #define GLEAM_AOSTEPS 40
-    #define GLEAM_AO_STRENGTH 0.96
-    #define GLEAM_CLOUD_STEPS_AVG 80
+#elif YDREAM_QUALITY == 5
+    #define YDREAM_BLOOM_SAMPLES 18.0
+    #define YDREAM_RAYMARCH_STEPS 128
+    #define YDREAM_GODRAY_STEPS 40
+    #define YDREAM_AOSTEPS 40
+    #define YDREAM_AO_STRENGTH 0.96
+    #define YDREAM_CLOUD_STEPS_AVG 80
     #define MATERIAL_GLOSS
     #define CLOUD_REFLECTION
     #define SCREENSHOT_MODE
 #else
-    #define GLEAM_BLOOM_SAMPLES 3.0
-    #define GLEAM_RAYMARCH_STEPS 16
-    #define GLEAM_GODRAY_STEPS 7
-    #define GLEAM_AOSTEPS 6
-    #define GLEAM_AO_STRENGTH 0.70
-    #define GLEAM_CLOUD_STEPS_AVG 10
+    #define YDREAM_BLOOM_SAMPLES 3.0
+    #define YDREAM_RAYMARCH_STEPS 16
+    #define YDREAM_GODRAY_STEPS 7
+    #define YDREAM_AOSTEPS 6
+    #define YDREAM_AO_STRENGTH 0.70
+    #define YDREAM_CLOUD_STEPS_AVG 10
     #define MATERIAL_GLOSS
     #define CLOUD_REFLECTION
 #endif
 
 #define AA_TYPE AA_MODE
-#if GLEAM_QUALITY == 5 || PERFORMANCE_MODE == 0
+#if YDREAM_QUALITY == 5 || PERFORMANCE_MODE == 0
     #define PERF_PCT 100
 #elif PERFORMANCE_MODE == 1
     #define PERF_PCT 85
@@ -1309,50 +1160,50 @@
 
 #define PERF_STEPS(n, slider) max(1, ((n) * PERF_PCT * (slider) + 5000) / 10000)
 
-#if PERFORMANCE_MODE >= 2 && GLEAM_QUALITY != 5
-    #define BLOOM_SAMPLES min(GLEAM_BLOOM_SAMPLES, 2.0)
+#if PERFORMANCE_MODE >= 2 && YDREAM_QUALITY != 5
+    #define BLOOM_SAMPLES min(YDREAM_BLOOM_SAMPLES, 2.0)
 #else
-    #define BLOOM_SAMPLES GLEAM_BLOOM_SAMPLES
+    #define BLOOM_SAMPLES YDREAM_BLOOM_SAMPLES
 #endif
-#define RAYMARCH_STEPS PERF_STEPS(GLEAM_RAYMARCH_STEPS, PERF_REFLECTIONS)
-#define GODRAY_STEPS PERF_STEPS(GLEAM_GODRAY_STEPS, PERF_GODRAYS)
-#define AOSTEPS PERF_STEPS(GLEAM_AOSTEPS, PERF_AO)
-#define AO_STRENGTH GLEAM_AO_STRENGTH
+#define RAYMARCH_STEPS PERF_STEPS(YDREAM_RAYMARCH_STEPS, PERF_REFLECTIONS)
+#define GODRAY_STEPS PERF_STEPS(YDREAM_GODRAY_STEPS, PERF_GODRAYS)
+#define AOSTEPS PERF_STEPS(YDREAM_AOSTEPS, PERF_AO)
+#define AO_STRENGTH YDREAM_AO_STRENGTH
 
-#if GLEAM_QUALITY == 0 || defined NETHER || defined THE_END || defined UNKNOWN_DIM
-    #define GLEAM_RSM_GI 0
+#if YDREAM_QUALITY == 0 || defined NETHER || defined THE_END || defined UNKNOWN_DIM
+    #define YDREAM_RSM_GI 0
 #else
-    #define GLEAM_RSM_GI SS_GI
+    #define YDREAM_RSM_GI SS_GI
 #endif
 
-#if GLEAM_QUALITY == 0
-    #define GLEAM_VOXEL_LIGHT 0
+#if YDREAM_QUALITY == 0
+    #define YDREAM_VOXEL_LIGHT 0
 #else
-    #define GLEAM_VOXEL_LIGHT COLORED_LIGHT
+    #define YDREAM_VOXEL_LIGHT COLORED_LIGHT
 #endif
 
-#define GLEAM_SS_COLORLIGHT 0
+#define YDREAM_SS_COLORLIGHT 0
 
-#if GLEAM_VOXEL_LIGHT > 0
-    #define GLEAM_VL_GLOW
-    #define GLEAM_VL_GLOW_STEPS 16
+#if YDREAM_VOXEL_LIGHT > 0
+    #define YDREAM_VL_GLOW
+    #define YDREAM_VL_GLOW_STEPS 16
 #endif
 
-#if GLEAM_RSM_GI > 0 || GLEAM_VOXEL_LIGHT > 0
-    #define GLEAM_SS_ANY
+#if YDREAM_RSM_GI > 0 || YDREAM_VOXEL_LIGHT > 0
+    #define YDREAM_SS_ANY
 #endif
 
-#if GLEAM_RSM_GI == 2
+#if YDREAM_RSM_GI == 2
     #define GI_TAPS 10
 #else
     #define GI_TAPS 6
 #endif
 
-#if CLOUD_LIGHTING == 2 || (CLOUD_LIGHTING == 0 && GLEAM_COLOR_STYLE == 2)
+#if CLOUD_LIGHTING == 2 || (CLOUD_LIGHTING == 0 && YDREAM_COLOR_STYLE == 2)
     #define CLOUD_LIGHT_ENHANCED
 #endif
-#define CLOUD_STEPS_AVG PERF_STEPS(GLEAM_CLOUD_STEPS_AVG, PERF_CLOUDS)
-#define WATER_TURBULENCE GLEAM_WATER_TURBULENCE
+#define CLOUD_STEPS_AVG PERF_STEPS(YDREAM_CLOUD_STEPS_AVG, PERF_CLOUDS)
+#define WATER_TURBULENCE YDREAM_WATER_TURBULENCE
 #define VOL_LIGHT GODRAYS
 #define CHEAP_GODRAY_SAMPLES 4
 
@@ -1488,7 +1339,7 @@ const float sunPathRotation = -25.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10
 #define SHADOW_QTY_SLIDER 2 // [1 2 3]
 #define SHADOW_LOCK 0 // [0 16 32 64 128 256]
 
-#if GLEAM_QUALITY == 5
+#if YDREAM_QUALITY == 5
     #undef SHADOW_DISTANCE_SLIDER
     #define SHADOW_DISTANCE_SLIDER 2
     #undef SHADOW_QTY_SLIDER
@@ -1513,7 +1364,7 @@ const float sunPathRotation = -25.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10
     const bool shadowtex0Clear = false;
     const bool shadowtex1Clear = false;
     const bool shadowcolor0Clear = false;
-    #if GLEAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         const bool shadowcolor1Clear = true;
         /*
         const int shadowcolor1Format = RGBA16F;
@@ -1522,7 +1373,7 @@ const float sunPathRotation = -25.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10
         const bool shadowcolor1Clear = false;
     #endif
 
-    #if !defined NO_SHADOWS || GLEAM_RSM_GI > 0
+    #if !defined NO_SHADOWS || YDREAM_RSM_GI > 0
         #if SHADOW_DISTANCE_SLIDER == 0
             #if SHADOW_QTY_SLIDER == 1
                 #define SHADOW_LIMIT 75.0
@@ -1623,8 +1474,8 @@ const float centerDepthHalflife = 0.66;
     #define TRANSITION_DH_INF 0.90
 #endif
 
-#if GLEAM_RSM_GI > 0 || GLEAM_VOXEL_LIGHT > 0
-    #define GLEAM_LIGHT_BUFFERS
+#if YDREAM_RSM_GI > 0 || YDREAM_VOXEL_LIGHT > 0
+    #define YDREAM_LIGHT_BUFFERS
 #endif
 
 #if METEOR_SHOWER == 1

@@ -33,15 +33,6 @@ float cloudNightAmount = (1.0 - smoothstep(-0.18, 0.02, sunElevation)) * (1.0 - 
 cloudColor = mix(cloudColor, vec3(0.50, 0.60, 0.84) * 0.30, cloudNightAmount * 0.80);
 darkCloudColor = mix(darkCloudColor, vec3(0.024, 0.036, 0.090), cloudNightAmount * 0.85);
 
-#if GLEAM_COLOR_STYLE == 1
-    cloudColor *= vec3(1.06, 1.0, 0.94);
-    darkCloudColor *= mix(vec3(0.90, 0.94, 1.12), vec3(0.97, 0.88, 1.10), cloudTwilight);
-#elif GLEAM_COLOR_STYLE == 3
+#if YDREAM_COLOR_STYLE == 3
     darkCloudColor *= 0.90;
-#elif GLEAM_COLOR_STYLE == 5
-    cloudColor *= vec3(1.08, 1.06, 1.03);
-    darkCloudColor = mix(darkCloudColor, cloudLitBase * vec3(0.60, 0.72, 1.0), 0.75);
-#elif GLEAM_COLOR_STYLE == 6
-    cloudColor *= vec3(1.03, 1.03, 1.02);
-    darkCloudColor = mix(darkCloudColor, cloudLitBase * vec3(0.72, 0.80, 0.96), 0.55);
 #endif

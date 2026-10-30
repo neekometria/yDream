@@ -78,7 +78,7 @@ void main() {
         vec3 skyDetail = texture2D(gaux3, gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY)).rgb;
         float starAmount = clamp(star_data.a * 2.0, 0.0, 1.0);
 
-        #if GLEAM_STARS == 2 && !defined THE_END && !defined NETHER
+        #if YDREAM_STARS == 2 && !defined THE_END && !defined NETHER
             skyDetail = mix(skyDetail, vec3(1.9), starAmount);
         #endif
 

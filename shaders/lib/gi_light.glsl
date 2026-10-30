@@ -141,7 +141,7 @@ vec4 giResolve(sampler2D historyTex, vec4 current, vec2 uv, float keepBase) {
 }
 #endif
 
-#if defined GI_PASS_BLUR && GLEAM_RSM_GI > 0
+#if defined GI_PASS_BLUR && YDREAM_RSM_GI > 0
 vec3 giBlur(vec2 uv) {
     vec4 center = texture2DLod(colortex14, uv, 0.0);
 

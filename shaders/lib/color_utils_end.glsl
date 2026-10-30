@@ -2,7 +2,7 @@ uniform float dayMoment;
 uniform float dayMixer;
 uniform float nightMixer;
 
-#if GLEAM_COLOR_STYLE == 0
+#if YDREAM_COLOR_STYLE == 0
     #define OMNI_TINT 0.45
     #define LIGHT_SUNSET_COLOR (vec3(0.190, 0.095, 0.045) * END_SCENE_LIGHT)
     #define LIGHT_DAY_COLOR (vec3(0.190, 0.095, 0.045) * END_SCENE_LIGHT)
@@ -15,7 +15,7 @@ uniform float nightMixer;
     #define HORIZON_SUNSET_COLOR END_SKY_HORIZON
     #define HORIZON_DAY_COLOR END_SKY_HORIZON
     #define HORIZON_NIGHT_COLOR END_SKY_HORIZON
-#elif GLEAM_COLOR_STYLE == 2 || GLEAM_COLOR_STYLE == 3
+#elif YDREAM_COLOR_STYLE == 2 || YDREAM_COLOR_STYLE == 3
     #define OMNI_TINT 0.42
     #define LIGHT_SUNSET_COLOR (vec3(0.190, 0.095, 0.045) * END_SCENE_LIGHT)
     #define LIGHT_DAY_COLOR (vec3(0.190, 0.095, 0.045) * END_SCENE_LIGHT)
@@ -49,11 +49,11 @@ uniform float nightMixer;
 #include "/lib/day_blend.glsl"
 
 #if VOL_LIGHT == 1 || (VOL_LIGHT == 2 && defined SHADOW_CASTING)
-    #define FOG_DENSITY (1.0 * GLEAM_HAZE)
+    #define FOG_DENSITY (1.0 * YDREAM_HAZE)
 #else
-    #define FOG_DAY (1.0 * GLEAM_HAZE)
-    #define FOG_SUNSET (1.0 * GLEAM_HAZE)
-    #define FOG_NIGHT (1.0 * GLEAM_HAZE)
+    #define FOG_DAY (1.0 * YDREAM_HAZE)
+    #define FOG_SUNSET (1.0 * YDREAM_HAZE)
+    #define FOG_NIGHT (1.0 * YDREAM_HAZE)
 #endif
 
 #include "/lib/color_conversion.glsl"

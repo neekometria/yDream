@@ -491,7 +491,7 @@ vec3 auroraCurtains(vec3 worldDir, float time, float reveal) {
     return accum * (azimuthMask * 1.15 * reveal * reveal * (3.0 - 2.0 * reveal));
 }
 
-#if !defined THE_END && GLEAM_MOON_DISK == 1
+#if !defined THE_END && YDREAM_MOON_DISK == 1
 vec3 moonDiskLayer(vec3 nfragpos, vec3 moonDir, vec3 upVector, float cosMoon, float moonAltitude, float skyElevation, float rainAmount) {
     float moonRadius = radians(STYLE_MOON_RADIUS * MOON_SIZE);
     vec3 result = vec3(0.0);
@@ -603,19 +603,19 @@ vec4 rainbowArc(vec3 viewDir, vec3 antiSolar) {
 vec3 customStarsLayer(vec3 worldDir, float pixelAngle, float time, float densityScale) {
     vec3 layer = vec3(0.0);
 
-    #if GLEAM_STARS == 1 || GLEAM_NIGHT_LOOK == 2
+    #if YDREAM_STARS == 1 || YDREAM_NIGHT_LOOK == 2
         float cluster = starCluster(worldDir);
         float clusterDensity = mix(0.40, 1.65, cluster) * STAR_DENSITY * densityScale;
     #endif
 
-    #if GLEAM_STARS == 1
-        #if GLEAM_COLOR_STYLE == 0
+    #if YDREAM_STARS == 1
+        #if YDREAM_COLOR_STYLE == 0
             layer += starField(worldDir, pixelAngle, time, 0.10 * clusterDensity, 0.0, 105.0) * STAR_BRIGHTNESS;
         #else
-            #if GLEAM_NIGHT_LOOK == 2
+            #if YDREAM_NIGHT_LOOK == 2
                 layer += starField(worldDir, pixelAngle, time, 0.30 * clusterDensity,
                     min(0.40 * STAR_TWINKLE, 1.0), 105.0) * (STAR_BRIGHTNESS * 1.35);
-                #if GLEAM_QUALITY >= 2
+                #if YDREAM_QUALITY >= 2
                     layer += starField(worldDir, pixelAngle, time, 0.55 * clusterDensity,
                         min(0.55 * STAR_TWINKLE, 1.0), 210.0) * (STAR_BRIGHTNESS * 0.42);
                 #endif
@@ -625,7 +625,7 @@ vec3 customStarsLayer(vec3 worldDir, float pixelAngle, float time, float density
             #endif
         #endif
 
-        #if GLEAM_COLOR_STYLE != 0
+        #if YDREAM_COLOR_STYLE != 0
             if (HERO_STARS > 0.001) {
                 layer += heroStars(worldDir, pixelAngle, time, HERO_STARS, HERO_STAR_SIZE, STAR_SPARKLE) *
                     (STAR_BRIGHTNESS * 1.15);
@@ -642,25 +642,25 @@ vec3 customStarsLayer(vec3 worldDir, float pixelAngle, float time, float density
 vec3 nightSkyLayer(vec3 worldDir, float pixelAngle, float time, float auroraReveal) {
     vec3 layer = vec3(0.0);
 
-    #if GLEAM_STARS == 1 || GLEAM_NIGHT_LOOK == 2
+    #if YDREAM_STARS == 1 || YDREAM_NIGHT_LOOK == 2
         float cluster = starCluster(worldDir);
         float clusterDensity = mix(0.40, 1.65, cluster) * STAR_DENSITY;
     #endif
 
-    #if GLEAM_NIGHT_LOOK == 2
+    #if YDREAM_NIGHT_LOOK == 2
         layer += starDust(worldDir, cluster) * (0.09 * NEBULA_STRENGTH);
-        #if GLEAM_QUALITY >= 1
+        #if YDREAM_QUALITY >= 1
             layer += airglow(worldDir, time) * (0.115 * NIGHT_AIRGLOW);
         #endif
     #endif
 
-    #if GLEAM_STARS == 1
-        #if GLEAM_COLOR_STYLE == 0
+    #if YDREAM_STARS == 1
+        #if YDREAM_COLOR_STYLE == 0
             layer += starField(worldDir, pixelAngle, time, 0.10 * clusterDensity, 0.0, 105.0) * STAR_BRIGHTNESS;
         #else
-            #if GLEAM_NIGHT_LOOK == 2
+            #if YDREAM_NIGHT_LOOK == 2
                 layer += starField(worldDir, pixelAngle, time, 0.30 * clusterDensity, min(0.40 * STAR_TWINKLE, 1.0), 105.0) * (STAR_BRIGHTNESS * 1.35);
-                #if GLEAM_QUALITY >= 2
+                #if YDREAM_QUALITY >= 2
                     layer += starField(worldDir, pixelAngle, time, 0.55 * clusterDensity, min(0.55 * STAR_TWINKLE, 1.0), 210.0) * (STAR_BRIGHTNESS * 0.42);
                 #endif
             #else
@@ -669,7 +669,7 @@ vec3 nightSkyLayer(vec3 worldDir, float pixelAngle, float time, float auroraReve
         #endif
     #endif
 
-    #if GLEAM_COLOR_STYLE != 0 && GLEAM_STARS == 1
+    #if YDREAM_COLOR_STYLE != 0 && YDREAM_STARS == 1
         if (HERO_STARS > 0.001) {
             layer += heroStars(worldDir, pixelAngle, time, HERO_STARS, HERO_STAR_SIZE, STAR_SPARKLE) * (STAR_BRIGHTNESS * 1.15);
         }
@@ -679,7 +679,7 @@ vec3 nightSkyLayer(vec3 worldDir, float pixelAngle, float time, float auroraReve
         }
     #endif
 
-    #if GLEAM_SHOOTING == 1 || METEOR_SHOWER == 1
+    #if YDREAM_SHOOTING == 1 || METEOR_SHOWER == 1
         for (int shootIndex = 0; shootIndex < SHOOTING_AMOUNT + FUN_METEOR_EXTRA; shootIndex++) {
             float shootHue;
             float shootTrail = shootingStarTrail(worldDir, time, 6.0 / (SHOOTING_FREQUENCY * FUN_METEOR_RATE), float(shootIndex), SHOOTING_LENGTH, SHOOTING_SPEED, pixelAngle, shootHue);
@@ -687,7 +687,7 @@ vec3 nightSkyLayer(vec3 worldDir, float pixelAngle, float time, float auroraReve
         }
     #endif
 
-    #if GLEAM_AURORA == 1
+    #if YDREAM_AURORA == 1
         layer += auroraCurtains(worldDir, time, auroraReveal) * (AURORA_INTENSITY * 0.45);
     #endif
 
