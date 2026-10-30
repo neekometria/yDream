@@ -5,13 +5,14 @@ yDream is a shader pack for people who want Minecraft to look beautiful without 
 Requires Iris 1.5.1 or newer, or OptiFine.
 Tested only on Minecraft NeoForge 1.21.1
 
+## Check it out [Gleam](https://modrinth.com/mod/gleam-shaders)!
+yDream is based on [Gleam](https://modrinth.com/mod/gleam-shaders) and only works the way I want it to thanks to the beautiful custom stars and clouds created by Gleam's author, [FihMC](https://modrinth.com/user/FihMC)
+
 ## Pick your look
 
 yDream has four styles. You can combine any style with a color scheme, a performance profile and the individual settings.
 
 - **Cinematic** is the default: a cool filmic grade with film grain, a vignette, soft shadows and strong godrays, built for screenshots and atmosphere.
-- **Vanilla** keeps Minecraft's own sun, moon, stars and blocky clouds, then cleans up the lighting around them.
-- **Realistic** aims for a photograph: a physically shaped daytime sky, a small sun and moon at believable size, neutral color and a natural tone curve.
 - **Custom** lets you set every sky, light and water color yourself.
 
 Ten color schemes change the whole palette (sky, light, sunsets, night and aurora): Golden Hour, Arctic, Neon Dusk, Crimson Ember, Pastel Dream, Tropical Lagoon, Violet Twilight, Misty Forest, Desert Gold and Midnight Blue. Choose "Style default" to keep the style's own colors.
@@ -20,12 +21,12 @@ Ten color schemes change the whole palette (sky, light, sunsets, night and auror
 - Cosmonautics Compability
 - Ad Astra Compability
 - Clouds fixes
+- Better TAA
+- Better overworld tonemapping
 
 - *more mods compability*
 
 ## Performance
-
-Six quality profiles set a complete preset in one click: **Potato**, **Swift**, **Standard**, **Polished**, **Ultra** and **Showcase**. Showcase maxes out every effect and forces the shadow sliders to their highest values. It is meant for screenshots only and is not suitable for normal play.
 
 Performance mode trades a little detail for frame rate: **Quality** (full steps), **Balanced**, **Fast** (the default) and **Max FPS**. Fast and Max FPS reduce the ray steps used for clouds, reflections, godrays and ambient occlusion.
 
