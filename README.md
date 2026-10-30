@@ -1,12 +1,48 @@
-# yDream Shaders
+ <div align="center">
+  <img src="./yDream.png" alt="yDream Shaders" width="900">
 
-yDream is a shader pack for people who want Minecraft to look beautiful without needing a monster GPU. It is built on the fast rendering core of [MakeUp UltraFast](https://github.com/javiergcim/MakeUpUltraFast) by Javier Garduño, but the sky, clouds, water, lighting, color and planetary atmospheres are all its own. Almost everything can be changed in the settings.
+  <p>
+    <strong>Ad Astra Per Aspera.</strong>
+  </p>
 
-Requires Iris 1.5.1 or newer, or OptiFine.
-Tested only on Minecraft NeoForge 1.21.1
+  <p>
+    A cinematic and highly customizable visual experience for Minecraft.
+    Explore new skies, dynamic lighting, volumetric clouds and planetary atmospheres
+    without needing a monster GPU.
+  </p>
 
-## Check it out [Gleam](https://modrinth.com/mod/gleam-shaders)!
-yDream is based on [Gleam](https://modrinth.com/mod/gleam-shaders) and only works the way I want it to thanks to the beautiful custom stars and clouds created by Gleam's author, [FihMC](https://modrinth.com/user/FihMC)
+  <p>
+    <img src="https://img.shields.io/badge/Minecraft-1.21.1-brightgreen?style=for-the-badge" alt="Minecraft 1.21.1">
+    <img src="https://img.shields.io/badge/NeoForge-Tested-blue?style=for-the-badge" alt="Tested on NeoForge">
+    <img src="https://img.shields.io/badge/Iris-1.5.1%2B-purple?style=for-the-badge" alt="Iris 1.5.1 or newer">
+    <img src="https://img.shields.io/badge/OptiFine-Compatible-orange?style=for-the-badge" alt="OptiFine compatible">
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/Distant%20Horizons-Supported-blue?style=flat-square" alt="Distant Horizons Supported">
+    <img src="https://img.shields.io/badge/Voxy-Supported-blue?style=flat-square" alt="Voxy Supported">
+    <img src="https://img.shields.io/badge/Northstar-Integration-9cf?style=flat-square" alt="Northstar Integration">
+  </p>
+
+  <p>
+    <a href="#pick-your-look">Customization</a> ·
+    <a href="#performance">Performance</a> ·
+    <a href="#sky-and-night">Sky & Atmosphere</a> ·
+    <a href="#dimensions">Dimensions</a> ·
+    <a href="#compatibility">Compatibility</a>
+  </p>
+
+</div>
+
+---
+
+> [!IMPORTANT]
+> **yDream Shaders** requires **Iris 1.5.1 or newer**, or **OptiFine**.
+> Tested on Minecraft **1.21.1 with NeoForge**.
+
+> [!NOTE]
+> Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javiergcim/MakeUpUltraFast), with custom visual systems and atmospheric features. Also based on [Gleam Shaders](https://modrinth.com/mod/gleam-shaders), with credits to its [original creator](https://modrinth.com/user/FihMC).
+
 
 ## Pick your look
 
@@ -24,7 +60,7 @@ Ten color schemes change the whole palette (sky, light, sunsets, night and auror
 - Better TAA
 - Better overworld tonemapping
 
-- *more mods compability*
+- *more mods integrations*
 
 ## Performance
 
