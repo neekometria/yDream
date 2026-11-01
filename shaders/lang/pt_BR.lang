@@ -927,4 +927,7 @@ option.DH_COLOR_BRIGHTNESS.comment=Multiplicador de brilho do terreno LOD. Dimin
 option.DH_SHADOWS=§bLOD recebe sombras
 option.DH_SHADOWS.comment=Permite que o terreno LOD leia o shadow map, então árvores e morros dos chunks reais projetam sombra nos LODs próximos. Os LODs em si não são desenhados no shadow map.
 option.DH_SHADOW_DISTANCE=§bDistância das sombras do LOD
-option.DH_SHADOW_DISTANCE.comment=Distância máxima da câmera em que o terreno LOD recebe sombras. É limitada pela distância normal de sombras e some suavemente na borda.
+option.DH_SHADOW_DISTANCE.comment=Distância máxima da câmera em que o terreno LOD recebe sombras do sol, de 16 a 2048 blocos. Dentro do alcance do mapa de sombras, usa o mapa; além dele, as sombras são traçadas na tela e somem nesta distância.
+
+option.YDREAM_TAA_DEBUG=Visualização de depuração do TAA
+option.YDREAM_TAA_DEBUG.comment=0 desligado, 1 histórico válido/inválido, 2 idade, 3 movimento, 4 cru × TAA divididos

@@ -927,4 +927,7 @@ option.DH_COLOR_BRIGHTNESS.comment=Overall brightness multiplier for the LOD ter
 option.DH_SHADOWS=§bLOD receives shadows
 option.DH_SHADOWS.comment=Lets the LOD terrain sample the shadow map, so trees and hills in the real chunks cast their shadows onto the near LODs. The LODs themselves are not rendered into the shadow map.
 option.DH_SHADOW_DISTANCE=§bLOD shadow distance
-option.DH_SHADOW_DISTANCE.comment=Maximum distance from the camera where LOD terrain receives shadows. It is clamped to the normal shadow distance and fades out at the edge.
+option.DH_SHADOW_DISTANCE.comment=Maximum distance from the camera where LOD terrain receives sunlight shadows, from 16 to 2048 blocks. Inside the shadow map range the shadow map is used; beyond it the shadows are traced on screen, and they fade out at this distance.
+
+option.YDREAM_TAA_DEBUG=TAA debug view
+option.YDREAM_TAA_DEBUG.comment=0 off, 1 history valid/invalid, 2 age, 3 motion, 4 raw vs TAA split

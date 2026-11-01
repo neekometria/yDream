@@ -919,4 +919,7 @@ option.DH_COLOR_BRIGHTNESS.comment=LOD地形全体の明るさ倍率。遠景が
 option.DH_SHADOWS=§bLODが影を受ける
 option.DH_SHADOWS.comment=LOD地形がシャドウマップを参照し、実際のチャンクの木や丘の影が近くのLODに落ちるようにします。LOD自体はシャドウマップに描画されません。
 option.DH_SHADOW_DISTANCE=§bLODの影の距離
-option.DH_SHADOW_DISTANCE.comment=LOD地形が影を受ける最大距離。通常の影の距離で制限され、境界では滑らかに消えます。
+option.DH_SHADOW_DISTANCE.comment=LOD地形が太陽の影を受ける最大距離（16〜2048ブロック）。影マップの範囲内では影マップを使い、その外では画面上で影を追跡し、この距離で消えます。
+
+option.YDREAM_TAA_DEBUG=TAAデバッグ表示
+option.YDREAM_TAA_DEBUG.comment=0 オフ, 1 履歴の有効/無効, 2 履歴の経過, 3 動き, 4 元画像とTAAの分割

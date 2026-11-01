@@ -1,196 +1,193 @@
-#ifndef YDREAM_SATURATE
-#define YDREAM_SATURATE(x) clamp(x, 0.0, 1.0)
+// Temporal anti-aliasing resolve used by composite2.
+//
+// The history buffer (colortex3) stores the resolved frame in RGB, tone-mapped
+// with Reinhard, and the pixel age in A divided by TAA_MAX_AGE. Keeping the
+// history in tone-mapped space and the age normalised makes the pass independent
+// of the buffer precision, and no depth is stored in the history anymore.
+//
+// Per pixel:
+//   - the history is sampled with a 9-tap Catmull-Rom filter;
+//   - the 3x3 neighbourhood of the current frame, converted to YCoCg, bounds the
+//     history with a variance-based AABB, so stale colour is rejected;
+//   - the blend weight depends on the view distance and on how many frames the
+//     pixel has accumulated, and an off-centre term reduces blur in motion.
+
+#define TAA_MAX_AGE 64.0
+
+vec3 taa_reinhard(vec3 c) {
+    return c / (c + 1.0);
+}
+
+vec3 taa_reinhard_inverse(vec3 c) {
+    return c / max(1.0 - min(c, vec3(0.999)), vec3(0.001));
+}
+
+vec3 taa_rgb_to_ycocg(vec3 c) {
+    return vec3(
+         0.25 * c.r + 0.5 * c.g + 0.25 * c.b,
+         0.5 * c.r - 0.5 * c.b,
+        -0.25 * c.r + 0.5 * c.g - 0.25 * c.b
+    );
+}
+
+vec3 taa_ycocg_to_rgb(vec3 c) {
+    return vec3(
+        c.x + c.y - c.z,
+        c.x + c.z,
+        c.x - c.y - c.z
+    );
+}
+
+float taa_linear_step(float a, float b, float x) {
+    return clamp((x - a) / (b - a), 0.0, 1.0);
+}
+
+// Current frame colour in the tone-mapped YCoCg space used for the neighbourhood.
+vec3 taa_fetch_ycocg(vec2 uv) {
+    vec3 c = max(texture2DLod(colortex1, uv, 0.0).rgb, vec3(0.0));
+    return taa_rgb_to_ycocg(taa_reinhard(c));
+}
+
+// 9-tap Catmull-Rom filter built from bilinear taps. Sharper than bilinear, so
+// the accumulated history does not blur more and more over time.
+vec3 taa_catmull_rom(sampler2D tex, vec2 uv, vec2 res) {
+    vec2 samplePos = uv * res;
+    vec2 texPos1 = floor(samplePos - 0.5) + 0.5;
+    vec2 f = samplePos - texPos1;
+
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+
+    vec2 w12 = w1 + w2;
+    vec2 offset12 = w2 / w12;
+
+    vec2 texPos0 = (texPos1 - 1.0) / res;
+    vec2 texPos3 = (texPos1 + 2.0) / res;
+    vec2 texPos12 = (texPos1 + offset12) / res;
+
+    vec3 result = vec3(0.0);
+    result += texture2DLod(tex, vec2(texPos0.x, texPos0.y), 0.0).rgb * (w0.x * w0.y);
+    result += texture2DLod(tex, vec2(texPos12.x, texPos0.y), 0.0).rgb * (w12.x * w0.y);
+    result += texture2DLod(tex, vec2(texPos3.x, texPos0.y), 0.0).rgb * (w3.x * w0.y);
+    result += texture2DLod(tex, vec2(texPos0.x, texPos12.y), 0.0).rgb * (w0.x * w12.y);
+    result += texture2DLod(tex, vec2(texPos12.x, texPos12.y), 0.0).rgb * (w12.x * w12.y);
+    result += texture2DLod(tex, vec2(texPos3.x, texPos12.y), 0.0).rgb * (w3.x * w12.y);
+    result += texture2DLod(tex, vec2(texPos0.x, texPos3.y), 0.0).rgb * (w0.x * w3.y);
+    result += texture2DLod(tex, vec2(texPos12.x, texPos3.y), 0.0).rgb * (w12.x * w3.y);
+    result += texture2DLod(tex, vec2(texPos3.x, texPos3.y), 0.0).rgb * (w3.x * w3.y);
+    return result;
+}
+
+// AABB clipping towards the centre of the box, in YCoCg space. Clips the history
+// along the line to the centre instead of hard-clamping each channel, which keeps
+// the hue of the history intact.
+vec3 taa_clip_aabb(vec3 history, vec3 minColor, vec3 maxColor) {
+    vec3 pClip = 0.5 * (maxColor + minColor);
+    vec3 eClip = max(0.5 * (maxColor - minColor), vec3(1e-3));
+    vec3 vClip = history - pClip;
+    vec3 aUnit = abs(vClip / eClip);
+    float maxUnit = max(aUnit.x, max(aUnit.y, aUnit.z));
+    return maxUnit > 1.0 ? pClip + vClip / maxUnit : history;
+}
+
+// Resolves one frame.
+//   currentLinear  this frame's scene colour (linear, already jitter-free in value)
+//   texcoordUv     pixel centre of this frame
+//   previousUV     where this pixel was in the previous frame (jittered sample space)
+//   previousValid  false when the reprojection leaves the screen or history is not ready
+//   historyAge     number of frames accumulated by the history pixel
+//   viewDistance   view distance of the closest sample, used for the blend weight
+void taa_resolve(
+    vec3 currentLinear,
+    vec2 texcoordUv,
+    vec2 previousUV,
+    bool previousValid,
+    float historyAge,
+    float viewDistance,
+    out vec3 outLinear,
+    out vec3 outHistory,
+    out float outAge
+) {
+    vec2 ps = vec2(pixelSizeX, pixelSizeY);
+    vec2 res = vec2(1.0 / pixelSizeX, 1.0 / pixelSizeY);
+
+    vec3 currentReinhard = taa_reinhard(max(currentLinear, vec3(0.0)));
+    vec3 centre = taa_rgb_to_ycocg(currentReinhard);
+
+    vec3 north = taa_fetch_ycocg(texcoordUv + vec2(0.0, ps.y));
+    vec3 south = taa_fetch_ycocg(texcoordUv - vec2(0.0, ps.y));
+    vec3 west = taa_fetch_ycocg(texcoordUv - vec2(ps.x, 0.0));
+    vec3 east = taa_fetch_ycocg(texcoordUv + vec2(ps.x, 0.0));
+
+    vec3 minCross = min(min(min(north, south), min(west, east)), centre);
+    vec3 maxCross = max(max(max(north, south), max(west, east)), centre);
+
+    vec3 minColor = minCross;
+    vec3 maxColor = maxCross;
+    vec3 sum = centre + north + south + west + east;
+    vec3 sumSq = centre * centre + north * north + south * south + west * west + east * east;
+    float invCount = 0.2;
+
+#if ATAA_QUALITY != 0
+    vec3 northWest = taa_fetch_ycocg(texcoordUv + vec2(-ps.x, ps.y));
+    vec3 northEast = taa_fetch_ycocg(texcoordUv + vec2(ps.x, ps.y));
+    vec3 southWest = taa_fetch_ycocg(texcoordUv + vec2(-ps.x, -ps.y));
+    vec3 southEast = taa_fetch_ycocg(texcoordUv + vec2(ps.x, -ps.y));
+
+    // Soft minimum and maximum: average of the cross and the full 3x3 bounds.
+    vec3 minCorner = min(min(northWest, northEast), min(southWest, southEast));
+    vec3 maxCorner = max(max(northWest, northEast), max(southWest, southEast));
+    minColor = 0.5 * (minCross + min(minCross, minCorner));
+    maxColor = 0.5 * (maxCross + max(maxCross, maxCorner));
+
+    sum += northWest + northEast + southWest + southEast;
+    sumSq += northWest * northWest + northEast * northEast
+           + southWest * southWest + southEast * southEast;
+    invCount = 1.0 / 9.0;
 #endif
 
-vec3 taaToneIn(vec3 c) {
-    return c / (1.0 + luma(c));
-}
+    float distanceFactor = 1.0 - exp2(-0.025 * viewDistance);
 
-vec3 taaToneOut(vec3 c) {
-    return c / max(1.0 - min(luma(c), 0.995), 0.005);
-}
+    // Variance clipping: tighten the box to the local mean and spread.
+    vec3 mu = sum * invCount;
+    vec3 sigma = sqrt(max(sumSq * invCount - mu * mu, vec3(0.0)));
+    float gamma = mix(0.75, 1.25, taa_linear_step(0.25, 1.0, distanceFactor));
+    minColor = max(minColor, mu - gamma * sigma);
+    maxColor = min(maxColor, mu + gamma * sigma);
+    minColor = min(minColor, maxColor);
 
-vec3 taaClipToBox(vec3 history, vec3 boxMin, vec3 boxMax) {
-    vec3 boxCenter = 0.5 * (boxMax + boxMin);
-    vec3 boxExtent = 0.5 * (boxMax - boxMin) + 0.00005;
-    vec3 offset = history - boxCenter;
-    vec3 scaled = abs(offset / boxExtent);
-    float maxScaled = max(scaled.x, max(scaled.y, scaled.z));
-    return maxScaled > 1.0 ? boxCenter + offset / maxScaled : history;
-}
+    vec3 resolved = currentReinhard;
+    float pixelAge = 1.0;
 
-// View-space distance of a depth buffer value. TAA only ever compares depths
-// with each other, so linearising them first makes the tolerance independent of
-// the hugely non-linear vanilla depth distribution.
-float taaPlanarDepth(float depthValue) {
-    return (near * far) / max(far - depthValue * (far - near), 0.0000001);
-}
+    if (previousValid) {
+        vec3 history = taa_catmull_rom(colortex3, previousUV, res);
+        vec3 historyY = taa_clip_aabb(taa_rgb_to_ycocg(max(history, vec3(0.0))), minColor, maxColor);
+        vec3 historyRgb = max(taa_ycocg_to_rgb(historyY), vec3(0.0));
 
-// Resolves one frame of TAA/ATAA.
-//
-// The caller reprojects the current pixel into the previous frame; this
-// function decides whether that history still belongs to the same surface and
-// then clips and blends it. The history colour is kept in colortex3, and the
-// previous frame's depth is recovered by sampling depthtex1 at the reprojected
-// position, so no extra metadata buffer is needed.
-//
-// currentDepth is the depth of the pixel being resolved. historyUsed tells the
-// caller whether the history contributed (the DOF path needs that to decide
-// whether it may reuse the history alpha).
-vec4 fastTaa(vec4 currentColor, vec2 previousUV, float currentDepth, out float historyUsed) {
-    historyUsed = 0.0;
+        // Every frame in the history counts the same, so the average converges
+        // fast; distant surfaces get a longer history than close ones.
+        pixelAge = historyAge + 1.0;
+        float blendWeight = mix(0.35, 0.10, distanceFactor);
+        float alpha = max(1.0 / pixelAge, blendWeight);
 
-    // colortex3 is not cleared, so it holds garbage on the first frames after a
-    // pack reload or a dimension change. Skipping the blend until it has been
-    // written once avoids a one-frame flash of noise.
-    if (frameCounter < 2) {
-        return currentColor;
-    }
-
-    vec2 pixelSize = vec2(pixelSizeX, pixelSizeY);
-
-    if (previousUV.x < 0.0 || previousUV.y < 0.0 || previousUV.x > 1.0 || previousUV.y > 1.0) {
-        return currentColor;
-    }
-
-    float historyDepth = texture2DLod(depthtex1, previousUV, 0.0).r;
-
-    bool currentSky = currentDepth >= 0.9999;
-    bool historySky = historyDepth >= 0.9999;
-
-    // Sky and geometry must never share history. The sky is reprojected with a
-    // rotation only, so mixing the two smears every silhouette into the sky.
-    if (currentSky != historySky) {
-        return currentColor;
-    }
-
-    float currentPlanar = 0.0;
-    float depthError = 0.0;
-    float depthTolerance = 1.0;
-    float depthConfidence = 1.0;
-
-    if (!currentSky) {
-        currentPlanar = taaPlanarDepth(currentDepth);
-        float historyPlanar = taaPlanarDepth(historyDepth);
-        depthError = abs(currentPlanar - historyPlanar);
-        // 1.5% of the distance plus 5 cm: enough for reprojection error, depth
-        // precision and the sub-pixel jitter, tight enough to reject real
-        // disocclusions.
-        depthTolerance = currentPlanar * 0.015 + 0.05;
-
-        // A depth mismatch usually means a disocclusion, but rejecting the
-        // history outright makes the jittered frames alternate between
-        // "blended" and "raw", which reads as the whole image shaking. Instead
-        // measure how far off the history is and fade it out smoothly. Only a
-        // clear disocclusion (several times the tolerance) drops it entirely.
-        depthConfidence = 1.0 - smoothstep(depthTolerance, depthTolerance * 5.0, depthError);
-
-        if (depthConfidence <= 0.0) {
-            return currentColor;
-        }
-    }
-
-    vec3 previous = texture2DLod(colortex3, previousUV, 0.0).rgb;
-
-    vec3 c = taaToneIn(currentColor.rgb);
-    vec3 h = taaToneIn(previous);
-
-    vec3 nLeft = taaToneIn(texture2DLod(colortex1, texcoord + vec2(-pixelSizeX, 0.0), 0.0).rgb);
-    vec3 nRight = taaToneIn(texture2DLod(colortex1, texcoord + vec2(pixelSizeX, 0.0), 0.0).rgb);
-    vec3 nDown = taaToneIn(texture2DLod(colortex1, texcoord + vec2(0.0, -pixelSizeY), 0.0).rgb);
-    vec3 nUp = taaToneIn(texture2DLod(colortex1, texcoord + vec2(0.0, pixelSizeY), 0.0).rgb);
-
-    #if ATAA_QUALITY != 0
-        vec3 nUl = taaToneIn(texture2DLod(colortex1, texcoord + vec2(-pixelSizeX, pixelSizeY), 0.0).rgb);
-        vec3 nUr = taaToneIn(texture2DLod(colortex1, texcoord + vec2(pixelSizeX, pixelSizeY), 0.0).rgb);
-        vec3 nDl = taaToneIn(texture2DLod(colortex1, texcoord + vec2(-pixelSizeX, -pixelSizeY), 0.0).rgb);
-        vec3 nDr = taaToneIn(texture2DLod(colortex1, texcoord + vec2(pixelSizeX, -pixelSizeY), 0.0).rgb);
-
-        vec3 sum = c + nLeft + nRight + nDown + nUp + nUl + nUr + nDl + nDr;
-        vec3 sumSq = c * c + nLeft * nLeft + nRight * nRight + nDown * nDown + nUp * nUp +
-            nUl * nUl + nUr * nUr + nDl * nDl + nDr * nDr;
-        const float invCount = 0.1111111111;
-
-        vec3 mean = sum * invCount;
-        vec3 stdDev = sqrt(max(sumSq * invCount - mean * mean, vec3(0.0)));
-
-        vec3 colorMax = max(max(max(nLeft, nRight), max(nDown, nUp)), max(max(nUl, nUr), max(max(nDl, nDr), c)));
-        vec3 colorMin = min(min(min(nLeft, nRight), min(nDown, nUp)), min(min(nUl, nUr), min(min(nDl, nDr), c)));
-    #else
-        vec3 sum = c + nLeft + nRight + nDown + nUp;
-        vec3 sumSq = c * c + nLeft * nLeft + nRight * nRight + nDown * nDown + nUp * nUp;
-        const float invCount = 0.2;
-
-        vec3 mean = sum * invCount;
-        vec3 stdDev = sqrt(max(sumSq * invCount - mean * mean, vec3(0.0)));
-
-        vec3 colorMax = max(max(nLeft, nRight), max(nDown, nUp));
-        vec3 colorMin = min(min(nLeft, nRight), min(nDown, nUp));
-        colorMax = max(colorMax, c);
-        colorMin = min(colorMin, c);
-    #endif
-
-    // ATAA adapts the rejection box to the local contrast. Low contrast areas
-    // keep more history; high contrast edges reject it aggressively.
-    float contrast = luma(colorMax - colorMin);
-    float gamma = mix(1.15, 2.5, YDREAM_SATURATE(contrast * 5.0));
-
-    vec3 boxMin = max(colorMin, mean - stdDev * gamma);
-    vec3 boxMax = min(colorMax, mean + stdDev * gamma);
-    boxMin = min(boxMin, boxMax - 0.0001);
-
-    vec3 clipped = taaClipToBox(h, boxMin, boxMax);
-
-    float clipAmount = YDREAM_SATURATE(distance(h, clipped) / (distance(boxMin, boxMax) + 0.03));
-
-    #if AA_MODE == 1
-        float historyWeight = 0.82;
-    #elif AA_MODE == 5
+#if AA_MODE == 5
         // SMAA T2x resolves after exactly two frames.
-        float historyWeight = 0.50;
-    #elif ATAA_QUALITY == 0
-        float historyWeight = 0.86;
-    #else
-        float historyWeight = 0.92;
-    #endif
+        alpha = 0.5;
+#endif
 
-    historyWeight = mix(historyWeight, min(historyWeight, 0.35), clipAmount);
+        // Off-centre rejection: reduces blur while moving, at the cost of some
+        // aliasing when the history is sampled far from a texel centre.
+        vec2 pixelOffset = 1.0 - abs(2.0 * fract(res * previousUV) - 1.0);
+        float offcenter = sqrt(pixelOffset.x * pixelOffset.y) * 0.25 + 0.75;
+        alpha = 1.0 - (1.0 - alpha) * offcenter;
+        pixelAge *= offcenter;
 
-    // Fast motion and residual depth error both reduce the history share.
-    float motionPixels = length((texcoord - previousUV) / pixelSize);
-    historyWeight *= 1.0 - clamp(motionPixels / 48.0, 0.0, 0.45);
-    historyWeight *= 1.0 - YDREAM_SATURATE(depthError / max(depthTolerance, 0.0001)) * 0.35;
-
-    // Partial depth mismatches (silhouettes, reprojection error) now fade the
-    // history instead of dropping it. Keeping a small share still lets the
-    // jittered samples converge, so the image stops flickering between the
-    // accumulated and the raw frame.
-    historyWeight *= mix(0.10, 1.0, depthConfidence);
-
-    #if AA_MODE != 5
-        // Distant geometry is usually static and benefits from a long history.
-        // Never do this for T2x: it must resolve after exactly two frames.
-        float farFactor = smoothstep(128.0, 512.0, currentPlanar);
-        historyWeight = mix(historyWeight, max(historyWeight, 0.965), farFactor * (1.0 - clipAmount));
-    #endif
-
-    #ifdef MOTION_BLUR
-        historyWeight *= 1.0 - clamp(motionPixels * 0.004, 0.0, 0.25);
-    #endif
-
-    historyUsed = 1.0;
-
-    return vec4(taaToneOut(mix(c, clipped, historyWeight)), currentColor.a);
-}
-
-vec4 fastTaaDepth(vec4 currentColor, vec2 previousUV, float currentDepth, out float historyUsed) {
-    vec4 resolved = fastTaa(currentColor, previousUV, currentDepth, historyUsed);
-    float previousAlpha = currentColor.a;
-
-    if (historyUsed > 0.5) {
-        previousAlpha = texture2DLod(colortex3, previousUV, 0.0).a;
+        resolved = mix(historyRgb, currentReinhard, alpha);
     }
 
-    resolved.a = mix(currentColor.a, previousAlpha, 0.5);
-    return resolved;
+    outHistory = clamp(resolved, vec3(0.0), vec3(0.999));
+    outLinear = clamp(taa_reinhard_inverse(outHistory), vec3(0.0), vec3(50.0));
+    outAge = min(pixelAge, TAA_MAX_AGE);
 }
