@@ -12,6 +12,7 @@ uniform ivec2 eyeBrightnessSmooth;
 uniform mat4 dhProjection;
 uniform mat4 gbufferModelView;
 uniform mat4 gbufferModelViewInverse;
+uniform vec3 cameraPosition;
 uniform vec3 sunPosition;
 uniform int isEyeInWater;
 uniform float dayNightMix;
@@ -49,6 +50,9 @@ varying float visibleSky;
 varying vec2 lmcoord;
 varying float blockType;
 varying float frogAdjust;
+varying float fogSunScatter;
+varying float dhVisibleSky;
+varying float dhSpecialLight;
 
 #if AA_TYPE > 0
     #include "/src/taa_offset.glsl"

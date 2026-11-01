@@ -2,8 +2,18 @@
 
 /*
 const int noisetexFormat = RG8;
+*/
+#if AA_SMAA
+// The SMAA weight pass packs four blending weights into colortex0, so it needs
+// a real alpha channel (R11F_G11F_B10F is RGB only).
+/*
+const int colortex0Format = RGBA16F;
+*/
+#else
+/*
 const int colortex0Format = R11F_G11F_B10F;
 */
+#endif
 #ifdef DOF
 /*
 const int colortex1Format = RGBA16F;
@@ -50,16 +60,12 @@ const bool colortex8Clear = false;
 const int colortex2Format = R8;
 */
 #endif
-#ifdef DOF
+// ATAA needs a floating point history in colortex3. Format directives stay
+// commented out: Iris parses the const line from the preprocessed source
+// (comments are preserved) but the GLSL compiler must not see the RGBA16F
+// identifier.
 /*
 const int colortex3Format = RGBA16F;
-*/
-#else
-/*
-const int colortex3Format = R11F_G11F_B10F;
-*/
-#endif
-/*
 const int gaux1Format = R11F_G11F_B10F;
 const int gaux2Format = R8;
 const int gaux3Format = R11F_G11F_B10F;
@@ -100,15 +106,20 @@ uniform int frameCounter;
     uniform float near;
     uniform float far;
 
-    #if !(AA_TYPE == 3 || defined IMAGE_SHARPENING)
+    #if !(AA_TYPE == 3 || defined IMAGE_SHARPENING || AA_SMAA)
         uniform float pixelSizeX;
         uniform float pixelSizeY;
     #endif
 #endif
 
-#if AA_TYPE == 3 || defined IMAGE_SHARPENING
+#if AA_TYPE == 3 || defined IMAGE_SHARPENING || AA_SMAA
     uniform float pixelSizeX;
     uniform float pixelSizeY;
+#endif
+
+#if AA_SMAA
+    // Blending weights packed by the SMAA weight pass (composite5).
+    uniform sampler2D colortex0;
 #endif
 
 varying vec2 texcoord;
@@ -119,6 +130,10 @@ varying vec2 texcoord;
 #endif
 
 #include "/lib/luma.glsl"
+
+#if AA_SMAA
+    #include "/lib/smaa_blend.glsl"
+#endif
 
 #if AA_TYPE == 3
     #include "/lib/fxaa.glsl"
@@ -201,7 +216,9 @@ void main() {
     #else
         vec3 blockColor;
 
-        #ifdef IMAGE_SHARPENING
+        #if AA_SMAA
+            blockColor = smaaBlend(texcoord);
+        #elif defined IMAGE_SHARPENING
             blockColor = CAS(texcoord);
         #else
             blockColor = texture2D(colortex1, texcoord).rgb;

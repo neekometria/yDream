@@ -87,3 +87,16 @@ yDream v0.11 - Small Cloud Changes
 - Mars cloud density changed to 0.10
 - Clouds now renders if you go above them, still bugged if you are inside them
 - Changed clouds on storms, more color corrected version.
+
+yDream v0.2 - New AA Methods and DH Experimental Support 
+- Five new AA Methods to choose: Off, TAA, ATAA Halton-8, ATAA+FXAA, SMAA 1x and SMAA T2x. Currently all TAA methods are not working. Use SMAA 1x.
+> Off is fastest. 
+> TAA blends frames without jitter. 
+> ATAA adds a Halton jitter pattern and adaptive history rejection, which is the best balance for distant terrain and DH. 
+> ATAA + FXAA cleans up the remaining roughness. 
+> SMAA 1x is a sharp post-process option with no history. 
+> SMAA T2x adds two-frame temporal sampling for the cleanest edges at a small cost.
+- Three AA Quality: Fast checks four neighbours and keeps a long history. Balanced and High also sample the diagonals, which cleans up distant edges for a slightly higher cost.
+- New Atmosphere transition from cloud distance to y=1000 (only tested on overworld)
+- Clouds are now working with DH LOD, minus the water LOD.
+- Experimental water flow (bugged, very experimental)

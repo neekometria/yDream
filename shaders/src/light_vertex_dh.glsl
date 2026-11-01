@@ -13,6 +13,9 @@ visibleSky = clamp(illumination.y, 0.0, 1.0);
     visibleSky = (visibleSky * 0.6) + 0.4;
 #endif
 
+dhVisibleSky = visibleSky;
+dhSpecialLight = 0.0;
+
 float candle_luma = illumination.x * sqrt(illumination.x);
 candleColor = CANDLE_BASELIGHT * (candle_luma + sixthPow(illumination.x * 1.17));
 candleColor = clamp(candleColor, vec3(0.0), vec3(4.0));
@@ -82,6 +85,8 @@ if (isEyeInWater == 0) {
 
 if (dhMaterialId == DH_BLOCK_ILLUMINATED) {
     directLightStrength = 10.0;
+    dhSpecialLight = 1.0;
 } else if (dhMaterialId == DH_BLOCK_LAVA) {
     directLightStrength = 1.0;
+    dhSpecialLight = 1.0;
 }

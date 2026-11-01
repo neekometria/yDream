@@ -182,6 +182,15 @@
 #define PIXELATED_SHADOW_SCALE 128.0 // [32.0 48.0 64.0 96.0 128.0 192.0 256.0 384.0]
 #define SHADOW_BLUR 2.0 // [0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.1 2.2 2.3 2.4 2.5 2.6 2.7 2.8 2.9 3.0]
 #define COLORED_SHADOW
+
+// Distant Horizons LOD terrain. These options only affect the LOD chunks.
+#define DH_TERRAIN_NORMALS 1 // [0 1]
+#define DH_COLOR_MATCH 1 // [0 1]
+#define DH_COLOR_DESATURATE 0.30 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8]
+#define DH_COLOR_BRIGHTNESS 0.90 // [0.60 0.70 0.75 0.80 0.85 0.90 0.95 1.00 1.05 1.10]
+#define DH_SHADOWS 1 // [0 1]
+#define DH_SHADOW_DISTANCE 128 // [32 48 64 96 128 160 192 256]
+
 #define WATER_ABSORPTION 0.10 // [0.02 0.04 0.06 0.08 0.10 0.12 0.14 0.16 0.18 0.20 0.22 0.24 0.26 0.28 0.30 0.32 0.34 0.36 0.38 0.40 0.42 0.44 0.46 0.48 0.50 0.52 0.54 0.56 0.58 0.60 0.62 0.64 0.66 0.68 0.70 0.72 0.74 0.76 0.78 0.80]
 #define WATER_TEXTURE 0 // [0 1]
 #define AVOID_DARK_LEVEL 0.042 // [0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035 0.040 0.042 0.045 0.050 0.055 0.060]
@@ -389,7 +398,8 @@
 #define RAIN_ATMOSPHERE_STRENGTH 1.0 // [0.5 0.7 0.85 1.0 1.15 1.3 1.5]
 #define RAIN_OPACITY 1.0 // [0.4 0.6 0.8 1.0 1.2 1.4]
 
-#define AA_MODE 1 // [0 1 2 3]
+#define AA_MODE 2 // [0 1 2 3 4 5]
+#define ATAA_QUALITY 1 // [0 1 2]
 #define COLOR_SCHEME 0 // [0 1 2 3 4 5 6 7 8 9 10]
 
 #if COLOR_SCHEME == 1
@@ -455,7 +465,11 @@
 #define AURORA_CUSTOM_HIGH_B 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define LENS_FLARE 0 // [0 1 2]
 #define LENS_FLARE_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0]
-#define CIRRUS 0 // [0 1 2]
+#define ATMOSPHERE_LAYER 1 // [0 1]
+#define ATMOSPHERE_START 400 // [200 300 400 500 600]
+#define ATMOSPHERE_END 1000 // [800 900 1000 1100 1200]
+#define ATMOSPHERE_DENSITY 1.0 // [0.5 0.75 1.0 1.25 1.5]
+#define SPACE_STARS 1.0 // [0.0 0.5 1.0 1.5 2.0]
 // #define COLORED_GODRAYS
 #define PBR_MODE 0 // [0 1 2]
 #define INT_PBR_BUMP 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
@@ -534,7 +548,6 @@
     #define STYLE_SUN_DISK 0
     #define STYLE_SUN_HALO 0
     #define STYLE_HALO_MULT 1.0
-    #define STYLE_CIRRUS 0
     #define STYLE_LENS_FLARE 0
     #define STYLE_LETTERBOX 0
     #define STYLE_OUTLINES 0
@@ -593,7 +606,6 @@
     #define STYLE_SUN_DISK 1
     #define STYLE_SUN_HALO 0
     #define STYLE_HALO_MULT 0.85
-    #define STYLE_CIRRUS 1
     #define STYLE_LENS_FLARE 1
     #define STYLE_LETTERBOX 0
     #define STYLE_OUTLINES 0
@@ -653,7 +665,6 @@
     #define STYLE_SUN_DISK 1
     #define STYLE_SUN_HALO 0
     #define STYLE_HALO_MULT 0.8
-    #define STYLE_CIRRUS 1
     #define STYLE_LENS_FLARE 1
     #define STYLE_LETTERBOX 1
     #define STYLE_OUTLINES 0
@@ -712,7 +723,6 @@
     #define STYLE_SUN_DISK 1
     #define STYLE_SUN_HALO 0
     #define STYLE_HALO_MULT 1.0
-    #define STYLE_CIRRUS 1
     #define STYLE_LENS_FLARE 0
     #define STYLE_LETTERBOX 0
     #define STYLE_OUTLINES 0
@@ -907,23 +917,7 @@
     #define WETNESS_EFFECTS_ON
 #endif
 
-#if CIRRUS == 0
-    #define YDREAM_CIRRUS STYLE_CIRRUS
-#elif CIRRUS == 1
-    #define YDREAM_CIRRUS 0
-#else
-    #define YDREAM_CIRRUS 1
-#endif
-
-#if YDREAM_QUALITY == 5 && CIRRUS != 1
-    #undef YDREAM_CIRRUS
-    #define YDREAM_CIRRUS 1
-#endif
-
-#if YDREAM_QUALITY <= 1
-    #undef YDREAM_CIRRUS
-    #define YDREAM_CIRRUS 0
-#else
+#if YDREAM_QUALITY > 1
     #define CLOUD_SELF_SHADOW
 #endif
 
@@ -1154,7 +1148,24 @@
     #define CLOUD_REFLECTION
 #endif
 
-#define AA_TYPE AA_MODE
+// 0 = off, 1 = TAA, 2 = ATAA, 3 = ATAA + FXAA, 4 = SMAA 1x, 5 = SMAA T2x
+#if AA_MODE == 4
+    #define AA_TYPE 0
+    #define AA_SMAA 1
+    #define AA_TEMPORAL 0
+#elif AA_MODE == 5
+    #define AA_TYPE 2
+    #define AA_SMAA 1
+    #define AA_TEMPORAL 1
+#else
+    #define AA_TYPE AA_MODE
+    #define AA_SMAA 0
+    #if AA_MODE > 0
+        #define AA_TEMPORAL 1
+    #else
+        #define AA_TEMPORAL 0
+    #endif
+#endif
 #if YDREAM_QUALITY == 5 || PERFORMANCE_MODE == 0
     #define PERF_PCT 100
 #elif PERFORMANCE_MODE == 1

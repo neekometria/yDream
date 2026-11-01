@@ -5,7 +5,7 @@ uniform float viewWidth;
 
 varying vec4 tintColor;
 
-#if AA_TYPE > 1
+#if AA_TYPE > 0
     #include "/src/taa_offset.glsl"
 #endif
 
@@ -15,7 +15,7 @@ void main() {
     tintColor = gl_Color;
     gl_Position = muFtransform();
 
-    #if AA_TYPE > 1
+    #if AA_TYPE > 0
         gl_Position.xy += taaOffset * gl_Position.w;
     #endif
 }

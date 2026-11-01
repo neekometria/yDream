@@ -47,6 +47,7 @@ uniform int frameCounter;
     uniform sampler2D dhDepthTex0;
     uniform float dhNearPlane;
     uniform float dhFarPlane;
+    uniform mat4 dhProjectionInverse;
 #endif
 
 #if defined DISTANT_HORIZONS && V_CLOUDS != 0 && !defined UNKNOWN_DIM
@@ -58,6 +59,10 @@ uniform mat4 gbufferModelViewInverse;
 uniform mat4 gbufferProjectionInverse;
 uniform float pixelSizeX;
 uniform float pixelSizeY;
+
+#if AA_TYPE > 0
+    uniform vec2 taaOffset;
+#endif
 
 #if AO == 1 || (V_CLOUDS != 0 && !defined UNKNOWN_DIM) || defined YDREAM_SS_ANY
     uniform mat4 gbufferProjection;
@@ -125,15 +130,30 @@ void main() {
 
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
         {
-            vec4 farPlaneClipPos = gbufferModelViewInverse * gbufferProjectionInverse * (vec4(texcoord, 1.0, 1.0) * 2.0 - 1.0);
+            vec2 sampleNdc = texcoord * 2.0 - 1.0;
+            #if AA_TYPE > 0
+                sampleNdc -= taaOffset;
+            #endif
+
+            vec4 farPlaneClipPos = gbufferModelViewInverse * gbufferProjectionInverse * vec4(sampleNdc, 1.0, 1.0);
             eyeDirection = normalize(farPlaneClipPos.xyz);
 
             // Distance to the visible surface along this ray (sky = unlimited).
             float sceneDist = 1e9;
             if (linearDepth <= 0.9999) {
-                vec4 scenePos = gbufferProjectionInverse * (vec4(texcoord, depth, 1.0) * 2.0 - 1.0);
+                vec4 scenePos = gbufferProjectionInverse * vec4(sampleNdc, depth * 2.0 - 1.0, 1.0);
                 sceneDist = length(scenePos.xyz / scenePos.w);
             }
+
+            #ifdef DISTANT_HORIZONS
+                float dhDepth = texture2DLod(dhDepthTex0, texcoord, 0.0).r;
+                if (dhDepth < 0.999999) {
+                    vec4 dhPosition = dhProjectionInverse * vec4(sampleNdc, dhDepth * 2.0 - 1.0, 1.0);
+                    if (abs(dhPosition.w) > 0.000001) {
+                        sceneDist = min(sceneDist, length(dhPosition.xyz / dhPosition.w));
+                    }
+                }
+            #endif
 
             #ifdef THE_END
                 float bright = dot(eyeDirection, vec3(0.0, 0.89442719, 0.4472136));
@@ -149,9 +169,6 @@ void main() {
                     vec3 cloudLightDir = normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * cloudLightSign;
 
                     #if !defined NORTHSTAR_CLOUDS_OFF
-                        #if YDREAM_CIRRUS == 1
-                            if (linearDepth > 0.9999) blockColor.rgb = get_cirrus(eyeDirection, blockColor.rgb, bright, cloudColor, darkCloudColor);
-                        #endif
                         float northstarCloudUmbral = umbral;
                         #if defined NORTHSTAR_MARS
                             // Mars' clouds are thin and high: low density means a higher noise cutoff.

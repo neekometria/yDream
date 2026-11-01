@@ -55,6 +55,9 @@ void main() {
     vec4 cloudRelativePosition = gbufferModelViewInverse * viewPosition;
     cloudRelativePosition.y += CLOUD_PLANE_CENTER - 192.0;
     gl_Position = gl_ModelViewProjectionMatrix * cloudRelativePosition;
+    #if AA_TYPE > 0
+        gl_Position.xy += taaOffset * gl_Position.w;
+    #endif
 
     cloudFinalColor = vec3(1.0);
     cloudFacing = 1.0;

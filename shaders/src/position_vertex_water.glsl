@@ -5,7 +5,7 @@ worldposition = position + vec4(cameraPosition.xyz, 0.0);
 gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
 gl_FogFragCoord = length(viewSpacePos4D.xyz);
 
-#if AA_TYPE > 1
+#if AA_TYPE > 0
     gl_Position.xy += taaOffset * gl_Position.w;
 #endif
 

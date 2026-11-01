@@ -1,5 +1,135 @@
+uniform mat4 gbufferModelViewInverse;
+
 float linearizeDepth(float depth) {
     return gbufferProjection[3][2] / (gbufferProjection[2][2] + 2.0 * depth - 1.0);
+}
+
+vec2 waterFlowDirection = vec2(1.0, 0.0);
+float waterFlowAmount = 0.0;
+
+vec3 bedWorldPosition(vec2 sampleUV, float depthValue) {
+    vec4 clip = vec4(sampleUV * 2.0 - 1.0, depthValue * 2.0 - 1.0, 1.0);
+    vec4 viewPos = gbufferProjectionInverse * clip;
+    viewPos /= viewPos.w;
+    return (gbufferModelViewInverse * vec4(viewPos.xyz, 1.0)).xyz;
+}
+
+// Height gradient of the river bed in world space, sampled around the current
+// pixel at a given screen-space radius. Returns false when the sample crosses
+// a bank, an object or the far plane, because then the slope is meaningless.
+bool bed_height_gradient(vec2 uv, float radiusPixels, float surfaceDepth, out vec2 gradient) {
+    gradient = vec2(0.0);
+
+    vec2 stepUV = vec2(pixelSizeX, pixelSizeY) * radiusPixels;
+    float depthW = texture2D(depthtex0, uv - vec2(stepUV.x, 0.0)).r;
+    float depthE = texture2D(depthtex0, uv + vec2(stepUV.x, 0.0)).r;
+    float depthS = texture2D(depthtex0, uv - vec2(0.0, stepUV.y)).r;
+    float depthN = texture2D(depthtex0, uv + vec2(0.0, stepUV.y)).r;
+
+    if (max(max(depthW, depthE), max(depthS, depthN)) > 0.99999) {
+        return false;
+    }
+
+    // Anything closer than the water surface is a bank, a lily pad or an
+    // object sitting on the water: the bed slope cannot be trusted there.
+    if (min(min(depthW, depthE), min(depthS, depthN)) < surfaceDepth - 0.00002) {
+        return false;
+    }
+
+    vec3 posW = bedWorldPosition(uv - vec2(stepUV.x, 0.0), depthW);
+    vec3 posE = bedWorldPosition(uv + vec2(stepUV.x, 0.0), depthE);
+    vec3 posS = bedWorldPosition(uv - vec2(0.0, stepUV.y), depthS);
+    vec3 posN = bedWorldPosition(uv + vec2(0.0, stepUV.y), depthN);
+
+    // Horizontal displacement of both tap pairs, and the height difference
+    // measured along them.
+    vec2 u = posE.xz - posW.xz;
+    vec2 v = posN.xz - posS.xz;
+    float heightU = posE.y - posW.y;
+    float heightV = posN.y - posS.y;
+
+    float det = u.x * v.y - u.y * v.x;
+    float uLen2 = dot(u, u);
+    float vLen2 = dot(v, v);
+
+    // Grazing angles collapse the screen axes onto almost the same world
+    // direction, so the 2x2 system becomes singular.
+    if (abs(det) < 1e-5 || uLen2 < 0.0025 || vLen2 < 0.0025) {
+        return false;
+    }
+
+    gradient = vec2(
+        (heightU * v.y - heightV * u.y) / det,
+        (heightV * u.x - heightU * v.x) / det
+    );
+
+    return true;
+}
+
+// StreamsReflowing carves a downhill channel, but it still renders as vanilla
+// water. Estimate the downhill direction from the opaque river bed instead of
+// relying on a block id, so the effect also works in unmodified rivers.
+void detect_river_flow(vec3 surfacePos, out vec2 flowDirection, out float flowAmount) {
+    flowDirection = vec2(1.0, 0.0);
+    flowAmount = 0.0;
+
+    vec2 uv = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
+    float surfaceDepth = gl_FragCoord.z;
+
+    // Water is drawn in the translucent pass, so depthtex1 already contains the
+    // surface we are shading. The bed is what the opaque buffer holds.
+    float bedDepth = texture2D(depthtex0, uv).r;
+    if (bedDepth > 0.99999 || bedDepth < surfaceDepth) {
+        return;
+    }
+
+    // bedWorldPosition() returns camera-relative coordinates while surfacePos
+    // is absolute world space, so lift the bed into world space before
+    // measuring the depth below the surface.
+    vec3 bedPos = bedWorldPosition(uv, bedDepth) + cameraPosition;
+    float waterDepth = surfacePos.y - bedPos.y;
+    if (waterDepth < 0.04 || waterDepth > 6.0) {
+        return;
+    }
+
+    // Several radii: a single block step dominates one tap, and nearby pixels
+    // must agree so the direction does not flicker between frames.
+    vec2 gradientSum = vec2(0.0);
+    float weightSum = 0.0;
+
+    for (int i = 0; i < 3; i++) {
+        float radius = 3.0;
+        float tapWeight = 1.0;
+        if (i == 1) {
+            radius = 10.0;
+            tapWeight = 0.7;
+        } else if (i == 2) {
+            radius = 26.0;
+            tapWeight = 0.4;
+        }
+
+        vec2 gradient;
+        if (bed_height_gradient(uv, radius, surfaceDepth, gradient)) {
+            gradientSum += gradient * tapWeight;
+            weightSum += tapWeight;
+        }
+    }
+
+    if (weightSum < 0.001) {
+        return;
+    }
+
+    vec2 gradient = gradientSum / weightSum;
+    float slope = length(gradient);
+    if (slope < 0.003 || slope > 1.5) {
+        return;
+    }
+
+    // The gradient points uphill, so the water flows the other way.
+    flowDirection = normalize(-gradient + vec2(0.00001, 0.0));
+    flowAmount = smoothstep(0.006, 0.06, slope) *
+        smoothstep(0.05, 0.20, waterDepth) *
+        (1.0 - smoothstep(3.0, 6.0, waterDepth));
 }
 
 vec3 fastRaymarch(vec3 direction, vec3 hitPoint, inout float infinite, float dither) {
@@ -118,7 +248,7 @@ vec3 fastRaymarch(vec3 direction, vec3 hitPoint, inout float infinite, float dit
     #endif
 #endif
 
-vec3 normal_waves(vec3 pos) {
+vec3 normal_waves(vec3 pos, vec2 flowDirection, float flowAmount) {
     float speed = frameTimeCounter * .025;
     vec2 wave_1 =
         texture2D(noisetex, ((pos.xy - pos.z * 0.2) * 0.05) + vec2(speed, speed)).rg;
@@ -141,6 +271,32 @@ vec3 normal_waves(vec3 pos) {
     #endif
 
     partialWave *= mix(1.0, 0.22, smoothstep(28.0, 170.0, gl_FogFragCoord));
+
+    if (flowAmount > 0.001) {
+        // Stretch the noise along the downhill axis and scroll it downstream.
+        // The base pattern above is retained so unmodified water still looks
+        // like yDream water.
+        vec2 basePos = pos.xy - pos.z * 0.2;
+        vec2 flowPos = vec2(dot(basePos, flowDirection),
+            dot(basePos, vec2(-flowDirection.y, flowDirection.x)));
+        float flowSpeed = frameTimeCounter * 0.10;
+
+        // Two stretched layers at different speeds: the faster one carries the
+        // motion, the slower one keeps the surface from looking like a
+        // scrolling texture. The frequencies are deliberately low: a strongly
+        // stretched, high-frequency noise repeats across the current and shows
+        // up as thin regular bands on flowing water.
+        vec2 flowWave1 = texture2D(noisetex,
+            flowPos * vec2(0.012, 0.06) - vec2(flowSpeed * 1.7, flowSpeed * 0.22)).rg - 0.5;
+        vec2 flowWave2 = texture2D(noisetex,
+            flowPos * vec2(0.025, 0.10) - vec2(flowSpeed * 2.9, flowSpeed * 0.12)).rg - 0.5;
+
+        vec2 directionalWave = (flowWave1 + flowWave2 * 0.65) * 1.15;
+        // Same distance damping as the base waves, otherwise distant rivers
+        // alias badly and turn into noise.
+        directionalWave *= mix(1.0, 0.30, smoothstep(28.0, 170.0, gl_FogFragCoord));
+        partialWave = mix(partialWave, directionalWave + partialWave * 0.30, flowAmount * 0.90);
+    }
 
     vec3 finalWave = vec3(partialWave, WATER_TURBULENCE - (rainStrength * 0.6 * WATER_TURBULENCE * visibleSky));
 
@@ -180,13 +336,29 @@ vec3 refraction(vec3 fragpos, vec3 color, vec3 refraction) {
         #if YDREAM_FOAM == 1
             vec2 foamPos = worldposition.xz * 0.9 + vec2(frameTimeCounter * 0.06, frameTimeCounter * -0.04);
             float foamBase = texture2D(noisetex, foamPos * 0.11).r * 0.6 + texture2D(noisetex, foamPos.yx * 0.23).g * 0.4;
-            float foamStreak = texture2D(noisetex, foamPos * 0.55 + vec2(frameTimeCounter * 0.12, 0.0)).r * 0.6 +
-                texture2D(noisetex, foamPos.yx * 0.85 - vec2(0.0, frameTimeCounter * 0.09)).g * 0.4;
+            float foamStreak = texture2D(noisetex, foamPos * 0.25 + vec2(frameTimeCounter * 0.12, 0.0)).r * 0.6 +
+                texture2D(noisetex, foamPos.yx * 0.40 - vec2(0.0, frameTimeCounter * 0.09)).g * 0.4;
             float shoreDistance = waterThickness + (foamBase - 0.5) * 0.7;
             float foamShape = (1.0 - smoothstep(0.05, 0.42, shoreDistance));
             float foamDetail = smoothstep(0.32, 0.82, foamStreak);
             foam = foamShape * mix(0.35, 1.0, foamDetail) * (0.55 + 0.45 * foamBase);
             foam *= 1.0 - smoothstep(0.0, 0.02, 0.0 - waterThickness);
+
+            if (waterFlowAmount > 0.001) {
+                vec2 flowFoamPos = vec2(dot(foamPos, waterFlowDirection),
+                    dot(foamPos, vec2(-waterFlowDirection.y, waterFlowDirection.x)));
+                // Two stretched streak layers scrolling downstream at different
+                // speeds, so the current reads as moving water rather than a
+                // static foam texture. Keep the cross-flow frequency low so
+                // the streaks merge into long ripples instead of thin bands.
+                float flowStreak = texture2D(noisetex,
+                    flowFoamPos * vec2(0.05, 0.10) - vec2(frameTimeCounter * 0.18, 0.0)).r;
+                flowStreak = max(flowStreak, texture2D(noisetex,
+                    flowFoamPos * vec2(0.09, 0.18) - vec2(frameTimeCounter * 0.31, 0.0)).g * 0.85);
+                flowStreak = smoothstep(0.55, 0.92, flowStreak);
+                float flowFoam = flowStreak * waterFlowAmount * (1.0 - smoothstep(0.10, 0.48, shoreDistance));
+                foam = max(foam, flowFoam * 0.45);
+            }
         #endif
     } else {
         water_absortion = 0.0;

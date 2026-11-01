@@ -1,4 +1,4 @@
- <div align="center">
+<div align="center">
   <img src="https://raw.githubusercontent.com/neekometria/yDream/refs/heads/main/yDream.png" alt="yDream Shaders" width="900">
 
   <p>
@@ -14,25 +14,29 @@
   <p>
     <img src="https://img.shields.io/badge/Minecraft-1.21.1-brightgreen?style=for-the-badge" alt="Minecraft 1.21.1">
     <img src="https://img.shields.io/badge/NeoForge-Tested-blue?style=for-the-badge" alt="Tested on NeoForge">
-    <img src="https://img.shields.io/badge/Iris-1.5.1%2B-purple?style=for-the-badge" alt="Iris 1.5.1 or newer">
-    <img src="https://img.shields.io/badge/OptiFine-Compatible-orange?style=for-the-badge" alt="OptiFine compatible">
+    <img src="https://img.shields.io/badge/Iris-1.8.1%2B-purple?style=for-the-badge" alt="Iris 1.8.1 or newer">
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/Distant%20Horizons-Supported-blue?style=flat-square" alt="Distant Horizons Supported">
-    <img src="https://img.shields.io/badge/Voxy-Supported-blue?style=flat-square" alt="Voxy Supported">
-    <img src="https://img.shields.io/badge/Northstar-Integration-9cf?style=flat-square" alt="Northstar Integration">
+    <img src="https://img.shields.io/badge/Distant%20Horizons-Experimental-yellow?style=flat-square" alt="Distant Horizons Experimental">
+    <img src="https://img.shields.io/badge/Voxy-Planned-orange?style=flat-square" alt="Voxy Planned">
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/Northstar-Integrated-brightgreen?style=flat-square" alt="Northstar Integrated">
+    <img src="https://img.shields.io/badge/Cosmonautics-Planned-orange?style=flat-square" alt="Cosmonautics Planned">
+    <img src="https://img.shields.io/badge/Ad%20Astra-Planned-orange?style=flat-square" alt="Ad Astra Planned">
+    <img src="https://img.shields.io/badge/Aeronautics-Planned-orange?style=flat-square" alt="Aeronautics Planned">
   </p>
 
   <p>
     <img src="https://img.shields.io/badge/Language-PT%2FEN%2FJP-blue?style=flat-square" alt="Portuguese, English and Japanese">
   </p>
-
 </div>
 
 ---
 
-> **yDream Shaders** requires **Iris 1.5.1 or newer**, or **OptiFine**.
+> **yDream Shaders** targets **Iris 1.8.1 or newer**, or **OptiFine**.
 > Tested on Minecraft **1.21.1 with NeoForge**.
 > Created with Create Aeronautics in mind.
 
@@ -48,17 +52,12 @@ Ten color schemes change the whole palette (sky, light, sunsets, night and auror
 
 ## TODO
 - Clouds adjustment
-- True atmosphere after clouds
-- Cosmonautics Compability
-- Ad Astra Compability
-- Better TAA
+- Further TAA ghosting refinement
 - Better overworld tonemapping
 
-- *more mods integrations*
-
 ## Compatibility
-
-- Distant Horizons and Voxy are supported.
+ (nerdy stuff ahead)
+- **Distant Horizons:** LOD depth participates in fog and volumetric-cloud occlusion, so clouds are clipped by distant terrain instead of appearing behind it, and DH water is hidden correctly under the cloud deck. TAA reprojection also accounts for DH depth. The LOD terrain recomputes per-face normals and can receive the shadow map within a configurable distance, so the hand-off between real chunks and LODs is much harder to spot. A colour-match option desaturates and dims the flat DH palette to approach the textured terrain.
 - **Northstar planets (requires the Northstar mod):** Mercury, Venus, Mars, the Moon and the orbital dimensions each have their own atmosphere presets, sky colors, haze and sun size.
 - **Moon:** sky colors, haze, neutral sunlight and a small shadow floor.
 - **Mars:** a tawny dust-haze sky with a blue aureole around the sun, adjustable dust optical depth and daylight strength. Stars low on the horizon are dimmed by the dust.
@@ -72,6 +71,8 @@ Ten color schemes change the whole palette (sky, light, sunsets, night and auror
 Performance mode trades a little detail for frame rate: **Quality** (full steps), **Balanced**, **Fast** (the default) and **Max FPS**. Fast and Max FPS reduce the ray steps used for clouds, reflections, godrays and ambient occlusion.
 
 Fine-tuning sliders control cloud, godray, reflection and ambient occlusion detail, along with shadow quality and distance. Heavy experimental features such as sun bounce light and global illumination are under Experimental and cost extra frame rate.
+
+The anti-aliasing options include temporal TAA/ATAA and SMAA 1x/T2x. SMAA uses standard lookup textures and fullscreen passes; it works on the GTX 750 Ti and does not require OpenGL 4.3.
 
 All screenshots were taken using a GTX 750TI.
 Simple benchmarks show a 5%–10% performance improvement compared to Gleam using the Polished and default preset.
@@ -102,6 +103,8 @@ Some of the code is inspired by work from:
 - Interleaved noise from [*Next Generation Post Processing in Call of Duty: Advanced Warfare*](http://advances.realtimerendering.com/s2014/index.html).
 - delu and TinyTexel, phi noise ([Shadertoy](https://www.shadertoy.com/view/Nst3R7)).
 - atyuwen, Dither 13 and Dither 17 ([Shadertoy](https://www.shadertoy.com/view/wl3cWX)).
+- Jorge Jimenez, Jose I. Echevarria, Tiago Sousa and Diego Gutierrez, SMAA (*Enhanced Subpixel Morphological Antialiasing*, 2012) and its [reference implementation](https://github.com/iryoku/smaa), MIT licensed. The SMAA 1x/T2x passes and the area/search lookup textures come from that work.
+- [dmnsgn/shaders-smaa](https://github.com/dmnsgn/shaders-smaa), MIT licensed GLSL port used as a reference for the SMAA passes.
 
 The NASA Planetary Fact Sheet provided the solar and atmospheric values used for the Northstar planets.
 

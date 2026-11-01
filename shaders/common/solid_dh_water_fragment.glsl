@@ -13,8 +13,12 @@ uniform float pixelSizeX;
 uniform float pixelSizeY;
 uniform float near;
 uniform float far;
-uniform sampler2D gaux1;
-uniform sampler2D gaux4;
+uniform sampler2D colortex4;
+uniform sampler2D colortex7;
+// water.glsl and water_dh.glsl read the previous frame's opaque scene through
+// gaux1. That alias only exists for the gbuffers/deferred programs, so point it
+// at colortex4 (the buffer the deferred pass copies the opaque scene into).
+#define gaux1 colortex4
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferProjection;
 uniform sampler2D noisetex;
@@ -73,6 +77,7 @@ varying float visibleSky;
 varying vec2 lmcoord;
 varying float blockType;
 varying float frogAdjust;
+varying float fogSunScatter;
 
 #include "/lib/projection_utils.glsl"
 #include "/lib/basic_utils.glsl"
@@ -80,6 +85,45 @@ varying float frogAdjust;
 #include "/lib/water_dh.glsl"
 #include "/lib/depth.glsl"
 #include "/lib/luma.glsl"
+#include "/lib/fog_blend.glsl"
+
+#if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+    // Same test as the vanilla water shader: the volumetric clouds have no
+    // geometry in the depth buffer, so a DH water surface seen through the
+    // cloud deck would be painted straight on top of it. The cloud field is
+    // sampled where the view ray crosses the cloud layer and the water is
+    // dropped when that spot is opaque.
+    float waterCloudDensity(vec3 pos) {
+        float value = texture2D(gaux2, (pos.xz * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_HI_FACTOR)).r;
+        value += texture2D(gaux2, (pos.zx * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_LOW_FACTOR)).r;
+        return smoothstep(0.05, 0.95, value * 0.5);
+    }
+
+    bool cloudInFrontOfWater(vec3 waterPos) {
+        if (cameraPosition.y <= CLOUD_PLANE_SUP) {
+            return false;
+        }
+
+        vec3 ray = waterPos - cameraPosition;
+        if (ray.y > -0.001) {
+            return false;
+        }
+
+        float umbral = ((1.0 - smoothstep(0.0, 1.0, rainStrength)) * 0.3) + 0.22;
+        float threshold = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
+        float density = 0.0;
+
+        for (int i = 0; i < 3; i++) {
+            float height = mix(CLOUD_PLANE + 6.0, CLOUD_PLANE_SUP - 6.0, (float(i) + 0.5) / 3.0);
+            float t = (height - cameraPosition.y) / ray.y;
+            if (t > 0.0 && t < 1.0) {
+                density = max(density, waterCloudDensity(cameraPosition + ray * t));
+            }
+        }
+
+        return density > threshold;
+    }
+#endif
 
 void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
@@ -102,6 +146,14 @@ void main() {
         discard;
         return;
     }
+
+    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+        bool isWaterBlock = blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5;
+        if (isEyeInWater == 0 && isWaterBlock && cloudInFrontOfWater(position.xyz + cameraPosition)) {
+            discard;
+            return;
+        }
+    #endif
 
     #ifdef VANILLA_WATER
         vec3 waterNormalBase = vec3(0.0, 0.0, 1.0);

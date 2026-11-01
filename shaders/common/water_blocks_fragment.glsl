@@ -50,9 +50,7 @@ uniform vec3 cameraPosition;
 #endif
 
 
-#if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER
-    uniform mat4 gbufferModelViewInverse;
-#endif
+// gbufferModelViewInverse is declared in lib/water.glsl (included below), so it is not redeclared here.
 
 uniform float blindness;
 
@@ -114,6 +112,44 @@ varying vec3 horizonSkyColor;
 #include "/lib/dither.glsl"
 #include "/lib/water.glsl"
 
+#if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+    // Volumetric clouds are composited by the deferred pass, which runs before
+    // the translucent water. When the camera looks down through the cloud deck
+    // the water would be painted right on top of the cloud tops, because the
+    // clouds have no geometry in the depth buffer to reject it.
+    float waterCloudDensity(vec3 pos) {
+        float value = texture2D(gaux2, (pos.xz * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_HI_FACTOR)).r;
+        value += texture2D(gaux2, (pos.zx * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_LOW_FACTOR)).r;
+        return smoothstep(0.05, 0.95, value * 0.5);
+    }
+
+    bool cloudInFrontOfWater(vec3 waterPos) {
+        // Only when the camera is clearly above the deck: inside or below it the
+        // water is visible through the clouds (or fogged) as usual.
+        if (cameraPosition.y <= CLOUD_PLANE_SUP) {
+            return false;
+        }
+
+        vec3 ray = waterPos - cameraPosition;
+        if (ray.y > -0.001) {
+            return false;
+        }
+
+        float threshold = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
+        float density = 0.0;
+
+        for (int i = 0; i < 3; i++) {
+            float height = mix(CLOUD_PLANE + 6.0, CLOUD_PLANE_SUP - 6.0, (float(i) + 0.5) / 3.0);
+            float t = (height - cameraPosition.y) / ray.y;
+            if (t > 0.0 && t < 1.0) {
+                density = max(density, waterCloudDensity(cameraPosition + ray * t));
+            }
+        }
+
+        return density > threshold;
+    }
+#endif
+
 #if defined SHADOW_CASTING && !defined NETHER
     #include "/lib/shadow_frag.glsl"
 #endif
@@ -129,6 +165,12 @@ varying vec3 horizonSkyColor;
 #endif
 
 void main() {
+    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+        if (isEyeInWater == 0 && blockType > 2.5 && cloudInFrontOfWater(worldposition.xyz)) {
+            discard;
+        }
+    #endif
+
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
 
     #if SHADOW_TYPE == 1 || defined DISTANT_HORIZONS || (defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER) || SSR_TYPE > 0
@@ -145,7 +187,13 @@ void main() {
     vec3 realLight;
     vec3 glassAlbedo = vec3(0.0);
 
-    vec3 waterNormalBase = normal_waves(worldposition.xzy);
+    vec2 riverFlowDirection;
+    float riverFlowAmount;
+    detect_river_flow(worldposition.xyz, riverFlowDirection, riverFlowAmount);
+    waterFlowDirection = riverFlowDirection;
+    waterFlowAmount = riverFlowAmount;
+
+    vec3 waterNormalBase = normal_waves(worldposition.xzy, waterFlowDirection, waterFlowAmount);
 
     vec3 surfaceNormal;
     if(blockType > 2.5) {

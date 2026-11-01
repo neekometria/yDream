@@ -12,6 +12,9 @@ void main() {
     texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    #if AA_TYPE > 0
+        gl_Position.xy += taaOffset * gl_Position.w;
+    #endif
     vec4 homopos = gbufferProjectionInverse * vec4(gl_Position.xyz / gl_Position.w, 1.0);
     vec3 viewPos = homopos.xyz / homopos.w;
     gl_FogFragCoord = length(viewPos.xyz);

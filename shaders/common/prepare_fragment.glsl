@@ -14,9 +14,7 @@ uniform float pixelSizeX;
 uniform float pixelSizeY;
 uniform float frameTimeCounter;
 
-#if defined THE_END || defined NETHER
-    uniform vec3 cameraPosition;
-#endif
+uniform vec3 cameraPosition;
 
 #if !defined THE_END && !defined NETHER
     uniform float rainStrength;
@@ -358,6 +356,41 @@ void main() {
                 vec3 nightLayer = nightSkyLayer(worldDir, pixelAngle, frameTimeCounter, auroraReveal);
 
                 fullSky += nightLayer * (nightVisibility * horizonFade);
+            }
+        #endif
+    #endif
+
+    #if !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
+        #if ATMOSPHERE_LAYER == 1
+            float atmosphereAltitude = max(cameraPosition.y, 0.0);
+            float atmosphereLayer = smoothstep(float(ATMOSPHERE_START), float(ATMOSPHERE_END), atmosphereAltitude);
+            atmosphereLayer = pow(atmosphereLayer, max(ATMOSPHERE_DENSITY, 0.001));
+            float spaceAmount = smoothstep(float(ATMOSPHERE_END) - 40.0, float(ATMOSPHERE_END) + 60.0, atmosphereAltitude);
+
+            // The atmosphere thins out between ATMOSPHERE_START and
+            // ATMOSPHERE_END. Keep the sun, moon and other bright emitters
+            // readable instead of simply dimming the whole sky.
+            float skyLuma = luma(fullSky);
+            float emissiveKeep = smoothstep(0.65, 2.2, skyLuma);
+            vec3 thinnedSky = fullSky * mix(1.0, 0.05, atmosphereLayer);
+            fullSky = mix(thinnedSky, fullSky, emissiveKeep * 0.88);
+            fogSky *= mix(1.0, 0.42, atmosphereLayer);
+
+            if (spaceAmount > 0.001) {
+                float spacePixelAngle = 2.0 * pixelSizeY * gbufferProjectionInverse[1].y;
+                vec3 spaceStars = starField(worldDir, spacePixelAngle, frameTimeCounter,
+                    0.34, min(0.45 * STAR_TWINKLE, 1.0), 115.0) * (STAR_BRIGHTNESS * SPACE_STARS);
+                #if YDREAM_QUALITY >= 2
+                    spaceStars += starField(worldDir, spacePixelAngle, frameTimeCounter,
+                        0.55, min(0.55 * STAR_TWINKLE, 1.0), 220.0) * (STAR_BRIGHTNESS * 0.42 * SPACE_STARS);
+                #endif
+
+                // In space the atmosphere is almost gone, but the sun and moon
+                // must stay visible: keep the bright emitters at full strength
+                // while the air glow fades to black.
+                vec3 spaceSky = mix(fullSky * 0.025, fullSky, emissiveKeep) + spaceStars;
+                fullSky = mix(fullSky, spaceSky, spaceAmount);
+                fogSky = mix(fogSky, fogSky * 0.04, spaceAmount);
             }
         #endif
     #endif

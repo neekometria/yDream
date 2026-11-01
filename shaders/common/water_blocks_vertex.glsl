@@ -87,7 +87,7 @@ varying vec3 horizonSkyColor;
 attribute vec4 mc_Entity;
 attribute vec4 at_tangent;
 
-#if AA_TYPE > 1
+#if AA_TYPE > 0
     #include "/src/taa_offset.glsl"
 #endif
 
