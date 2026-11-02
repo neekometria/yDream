@@ -99,6 +99,14 @@ Choose **Style default** to keep the shader's original palette.
 
 ---
 
+### Real Star Catalog
+
+Instead of procedurally generated stars, yDream can render the actual night sky using the [HYG astronomical catalog](https://github.com/astronexus/HYG-Database) and the [IAU constellation lines](https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx). Orion, the Big Dipper, Cassiopeia, the Southern Cross and 16 other famous constellations are drawn from real celestial coordinates, so they look the way they do from Earth.
+
+The catalog covers the **500 brightest stars** (down to magnitude ~4) with accurate positions and apparent brightness.
+
+---
+
 ## Compatibility
 
 > Nerdy stuff ahead.
@@ -187,7 +195,9 @@ Some of the code is inspired by work from:
 - **Jorge Jimenez, Jose I. Echevarria, Tiago Sousa** and **Diego Gutierrez** — SMAA (*Enhanced Subpixel Morphological Antialiasing*, 2012) and its [reference implementation](https://github.com/iryoku/smaa), MIT licensed. The SMAA 1x/T2x passes and area/search lookup textures come from that work.
 - [**dmnsgn/shaders-smaa**](https://github.com/dmnsgn/shaders-smaa) — MIT-licensed GLSL port used as a reference for the SMAA passes.
 
-- Stars and Constellations based on [All Skies Encyclopaedia](https://ase.exopla.net/index.php/Category:88_IAU-Constellations), [HYG-Database](https://github.com/astronexus/HYG-Database) and [three-starmap](https://github.com/mathiasbno/three-starmap)
+- **Star positions and magnitudes** — [HYG Database v4.1](https://github.com/astronexus/HYG-Database) by David Nash (CC BY-SA 4.0).
+- **Constellation lines** — [d3-celestial](https://github.com/ofrohn/d3-celestial) by Olaf Frohn, based on the IAU 88-constellation standard.
+- **IAU reference** — [IAU Constellations FAQ](https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx).
 - The **NASA Planetary Fact Sheet** provided the solar and atmospheric values used for the Northstar planets.
 
 ---
