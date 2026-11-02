@@ -196,7 +196,7 @@ jobs:
               changelog: $changelog,
               dependencies: [],
               game_versions: ["1.21", "1.21.1"],
-              version_type: "release",
+              version_type: "alpha",
               loaders: ["iris", "optifine"],
               featured: false,
               project_id: $project_id,
