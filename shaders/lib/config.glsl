@@ -27,8 +27,8 @@
 #define ENTITY_ORE            10420.0
 #define ENTITY_ORE_BRIGHT     10421.0
 
-#define YDREAM_COLOR_STYLE 3 // [3]
-#define YDREAM_QUALITY 3 // [3]
+#define YDREAM_COLOR_STYLE 3 // [0 2 3 99]
+#define YDREAM_QUALITY 3 // [0 1 2 3 4]
 
 #define SKY_SATURATION 1.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5]
 #define SUN_GLOW 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0]
@@ -96,7 +96,7 @@
 #define GODRAY_WARMTH 1.0 // [0.0 0.5 1.0 1.5 2.0]
 #define GODRAY_SPREAD 1.0 // [0.5 0.75 1.0 1.5 2.0]
 #define GODRAY_SHARPNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
-#define PERFORMANCE_MODE 2 // [0 1 2 3]
+#define PERFORMANCE_MODE 2 // [2 1 0]
 #define PERF_CLOUDS 100 // [50 75 100 125 150]
 #define PERF_GODRAYS 100 // [50 75 100 125 150]
 #define PERF_REFLECTIONS 100 // [50 75 100 125 150]
