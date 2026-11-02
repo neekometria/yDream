@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Build Shader ZIP
         id: build
@@ -41,6 +43,7 @@ jobs:
 
           # Generate automatic version
           TAG="v0.3.${GITHUB_RUN_NUMBER}"
+          VERSION="${TAG#v}"
           ZIP_NAME="yDream-${TAG}.zip"
 
           # Package the shader
@@ -49,11 +52,168 @@ jobs:
             zip -qr "$GITHUB_WORKSPACE/dist/$ZIP_NAME" .
           )
 
+          # Find previous release tag
+          PREVIOUS_TAG="$(git tag --list 'v0.3.*' \
+            --sort=-version:refname | sed -n '1p')"
+
+          # Generate readable changelog
+          CHANGELOG_PATH="dist/CHANGELOG.md"
+
+          {
+            echo "# yDream ${TAG}"
+            echo
+
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              echo "Changes since \`${PREVIOUS_TAG}\`."
+              echo
+
+              # Commit history
+              echo "## Commits"
+              echo
+
+              COMMITS="$(git log --no-merges \
+                --format='- %s (`%h`)' \
+                "${PREVIOUS_TAG}..${GITHUB_SHA}")"
+
+              if [[ -n "$COMMITS" ]]; then
+                printf '%s\n' "$COMMITS"
+              else
+                echo "- No non-merge commits found."
+              fi
+
+              echo
+
+              # Changed files
+              echo "## Changed files"
+              echo
+
+              CHANGES="$(git diff --no-renames --name-status \
+                "$PREVIOUS_TAG" "$GITHUB_SHA")"
+
+              if [[ -n "$CHANGES" ]]; then
+                while IFS=$'\t' read -r STATUS FILE; do
+                  case "$STATUS" in
+                    A) LABEL="Added" ;;
+                    M) LABEL="Modified" ;;
+                    D) LABEL="Removed" ;;
+                    *) LABEL="Changed" ;;
+                  esac
+
+                  printf -- '- **%s:** `%s`\n' "$LABEL" "$FILE"
+                done <<< "$CHANGES"
+              else
+                echo "- No tracked file changes."
+              fi
+
+              echo
+
+              # Diff statistics
+              echo "## Diff summary"
+              echo
+
+              SUMMARY="$(git diff --shortstat \
+                "$PREVIOUS_TAG" "$GITHUB_SHA")"
+
+              if [[ -n "$SUMMARY" ]]; then
+                echo "$SUMMARY"
+              else
+                echo "No line changes detected."
+              fi
+
+              echo
+
+              # Full diff link
+              echo "[View full diff](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${GITHUB_SHA})"
+
+            else
+              # First release
+              echo "## Initial automated release"
+              echo
+              echo "No previous v0.3.x release was found."
+              echo
+              echo "### Recent commits"
+              echo
+
+              git log -15 --no-merges \
+                --format='- %s (`%h`)' "$GITHUB_SHA"
+
+              echo
+              echo "[View commit](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})"
+            fi
+
+            # Build information
+            echo
+            echo "## Build information"
+            echo
+            echo "- Version: \`${VERSION}\`"
+            echo "- Commit: [\`${GITHUB_SHA::7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})"
+
+          } > "$CHANGELOG_PATH"
+
           # Export build information
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "zip=dist/$ZIP_NAME" >> "$GITHUB_OUTPUT"
 
           echo "Created: $ZIP_NAME"
+          echo "Generated: $CHANGELOG_PATH"
+
+      - name: Publish to Modrinth
+        shell: bash
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          VERSION: ${{ steps.build.outputs.version }}
+          ZIP_PATH: ${{ steps.build.outputs.zip }}
+        run: |
+          set -euo pipefail
+
+          # Check authentication
+          if [[ -z "${MODRINTH_TOKEN:-}" ]]; then
+            echo "::error::MODRINTH_TOKEN secret is missing."
+            exit 1
+          fi
+
+          # Resolve project ID
+          PROJECT_ID="$(curl -fsSL \
+            -H "User-Agent: neekometria/yDream/${VERSION} (GitHub Actions)" \
+            "https://api.modrinth.com/v2/project/ydream" \
+            | jq -r '.id')"
+
+          if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "null" ]]; then
+            echo "::error::Could not resolve Modrinth project ID."
+            exit 1
+          fi
+
+          # Generate version metadata
+          jq -n \
+            --arg project_id "$PROJECT_ID" \
+            --arg name "yDream ${VERSION}" \
+            --arg version_number "$VERSION" \
+            --rawfile changelog dist/CHANGELOG.md \
+            '{
+              name: $name,
+              version_number: $version_number,
+              changelog: $changelog,
+              dependencies: [],
+              game_versions: ["1.21", "1.21.1"],
+              version_type: "release",
+              loaders: ["iris", "optifine"],
+              featured: false,
+              project_id: $project_id,
+              file_parts: ["file"],
+              primary_file: "file"
+            }' > dist/modrinth-version.json
+
+          # Upload version and ZIP
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.modrinth.com/v2/version" \
+            --header "Authorization: ${MODRINTH_TOKEN}" \
+            --header "User-Agent: neekometria/yDream/${VERSION} (GitHub Actions)" \
+            --form "data=<dist/modrinth-version.json;type=application/json" \
+            --form "file=@${ZIP_PATH};type=application/zip"
+
+          echo "Published to Modrinth: ${VERSION}"
 
       - name: Publish GitHub Release
         env:
@@ -64,4 +224,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "yDream ${{ steps.build.outputs.tag }}" \
-            --generate-notes
+            --notes-file dist/CHANGELOG.md
