@@ -114,40 +114,13 @@ varying vec3 horizonSkyColor;
 
 #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
     // Volumetric clouds are composited by the deferred pass, which runs before
-    // the translucent water. When the camera looks down through the cloud deck
-    // the water would be painted right on top of the cloud tops, because the
-    // clouds have no geometry in the depth buffer to reject it.
-    float waterCloudDensity(vec3 pos) {
-        float value = texture2D(gaux2, (pos.xz * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_HI_FACTOR)).r;
-        value += texture2D(gaux2, (pos.zx * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_LOW_FACTOR)).r;
-        return smoothstep(0.05, 0.95, value * 0.5);
-    }
-
-    bool cloudInFrontOfWater(vec3 waterPos) {
-        // Only when the camera is clearly above the deck: inside or below it the
-        // water is visible through the clouds (or fogged) as usual.
-        if (cameraPosition.y <= CLOUD_PLANE_SUP) {
-            return false;
-        }
-
-        vec3 ray = waterPos - cameraPosition;
-        if (ray.y > -0.001) {
-            return false;
-        }
-
-        float threshold = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
-        float density = 0.0;
-
-        for (int i = 0; i < 3; i++) {
-            float height = mix(CLOUD_PLANE + 6.0, CLOUD_PLANE_SUP - 6.0, (float(i) + 0.5) / 3.0);
-            float t = (height - cameraPosition.y) / ray.y;
-            if (t > 0.0 && t < 1.0) {
-                density = max(density, waterCloudDensity(cameraPosition + ray * t));
-            }
-        }
-
-        return density > threshold;
-    }
+    // the translucent water. The clouds have no depth geometry, so the water
+    // would otherwise be painted over the cloud tops. The deferred pass stores
+    // the amount of cloud it composited in colortex6; fading the water alpha by
+    // that value follows the real raymarched opacity. The old test re-derived a
+    // binary coverage from the raw noise field with a different threshold, so it
+    // disagreed with the clouds and let LOD water pop through them.
+    uniform sampler2D colortex6;
 #endif
 
 #if defined SHADOW_CASTING && !defined NETHER
@@ -166,8 +139,16 @@ varying vec3 horizonSkyColor;
 
 void main() {
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-        if (isEyeInWater == 0 && blockType > 2.5 && cloudInFrontOfWater(worldposition.xyz)) {
+        float cloudCoverage = 0.0;
+        bool waterCloudFade = isEyeInWater == 0 && blockType > 2.5 && cameraPosition.y > CLOUD_PLANE_SUP;
+        if (waterCloudFade) {
+            cloudCoverage = texture2DLod(colortex6, gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY), 0.0).r;
+        }
+        // A fully opaque cloud hides the water completely; skipping the fragment
+        // here also saves the expensive water shading.
+        if (waterCloudFade && cloudCoverage > 0.999) {
             discard;
+            return;
         }
     #endif
 
@@ -229,7 +210,8 @@ void main() {
 
     #if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER
         if(isEyeInWater == 0) {
-            skyColorReflect = get_cloud(normalize((gbufferModelViewInverse * vec4(reflectWaterVector * far, 1.0)).xyz), skyColorReflect, 0.0, dither, worldposition.xyz, int(CLOUD_STEPS_AVG * 0.5), umbral, cloudColor, darkCloudColor, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9);
+            float reflectCoverage;
+            skyColorReflect = get_cloud(normalize((gbufferModelViewInverse * vec4(reflectWaterVector * far, 1.0)).xyz), skyColorReflect, 0.0, dither, worldposition.xyz, int(CLOUD_STEPS_AVG * 0.5), umbral, cloudColor, darkCloudColor, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9, reflectCoverage);
         }
     #endif
     if(blockType > 2.5) {
@@ -380,6 +362,12 @@ void main() {
         if(draw_umbral > dither) {
             discard;
             return;
+        }
+    #endif
+
+    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+        if (waterCloudFade) {
+            blockColor.a *= 1.0 - cloudCoverage;
         }
     #endif
 

@@ -33,8 +33,11 @@ const bool gaux4Clear = false;
     #define YDREAM_C2_DEPTH
 #endif
 
-// Number of screen-space steps taken towards the sun for each LOD pixel.
-#define YDREAM_DH_SS_STEPS 16
+// Screen-space shadow trace for the LOD terrain. The steps grow geometrically
+// (see c2_dh_sun_visibility) so the whole DH_SHADOW_REACH is covered with a
+// small number of taps, and the whole ray is dithered per pixel and per frame so
+// the bands average out instead of forming fixed screen-space stripes.
+#define YDREAM_DH_SS_STEPS 24
 // Share of a LOD pixel's colour that comes from direct sunlight. Only this share
 // is darkened by the traced shadow, the rest is sky and block light.
 #define YDREAM_DH_SS_DIRECT_SHARE 0.6
@@ -43,6 +46,9 @@ uniform sampler2D colortex1;
 
 #if AA_TYPE > 0
     uniform sampler2D colortex3;
+#endif
+
+#if AA_TYPE > 0 || defined YDREAM_C2_DH_SHADOWS
     uniform int frameCounter;
 #endif
 
@@ -62,12 +68,15 @@ uniform sampler2D colortex1;
     uniform float frameTime;
 #endif
 
+// The projection matrices are unjittered: jitter is applied manually in the
+// vertex shaders. Reprojection therefore removes the current jitter before
+// reconstructing the surface, then restores the previous jitter only when
+// looking up the previous frame's raster-space history.
+
 #ifdef DISTANT_HORIZONS
     uniform sampler2D dhDepthTex1;
     uniform mat4 dhProjection;
     uniform mat4 dhProjectionInverse;
-    uniform mat4 dhModelViewInverse;
-    uniform mat4 dhPreviousModelView;
     uniform mat4 dhPreviousProjection;
 #endif
 
@@ -81,8 +90,11 @@ varying vec2 texcoord;
     #include "/lib/projection_utils.glsl"
 #endif
 
-#ifdef MOTION_BLUR
+#if defined MOTION_BLUR || defined YDREAM_C2_DH_SHADOWS
     #include "/lib/dither.glsl"
+#endif
+
+#ifdef MOTION_BLUR
     #include "/lib/motion_blur.glsl"
 #endif
 
@@ -110,54 +122,16 @@ varying vec2 texcoord;
         return -c2_view_from_depth(projInv, c2_ndc_unjittered(uv), depth).z;
     }
 
-    // Closest sample search. Vanilla geometry always wins over LOD, which only
-    // fills the pixels where the vanilla depth buffer has no geometry.
-    void c2_consider(
-        vec2 uv,
-        inout float bestScore,
-        inout vec2 bestUV,
-        inout float bestDist,
-        inout float bestDepth,
-        inout float bestLod
-    ) {
-        float vanillaDepth = texture2DLod(depthtex1, uv, 0.0).r;
-        float score;
-        float dist;
-        float depth;
-        float lod;
-
-        if (vanillaDepth < 0.9999) {
-            depth = vanillaDepth;
-            dist = c2_linear_distance(uv, vanillaDepth, gbufferProjectionInverse);
-            score = dist;
-            lod = 0.0;
-        } else {
-            #ifdef DISTANT_HORIZONS
-                float lodDepth = texture2DLod(dhDepthTex1, uv, 0.0).r;
-                if (lodDepth >= 0.999999) {
-                    return;
-                }
-                depth = lodDepth;
-                dist = c2_linear_distance(uv, lodDepth, dhProjectionInverse);
-                score = 1e6 + dist;
-                lod = 1.0;
-            #else
-                return;
-            #endif
-        }
-
-        if (score < bestScore) {
-            bestScore = score;
-            bestUV = uv;
-            bestDist = dist;
-            bestDepth = depth;
-            bestLod = lod;
-        }
+    // Same, for a uv that is already unjittered (the screen-space shadow trace
+    // projects the ray with the unjittered dhProjection).
+    float c2_linear_distance_raw(vec2 uv, float depth, mat4 projInv) {
+        return -c2_view_from_depth(projInv, uv * 2.0 - 1.0, depth).z;
     }
 
-    // Unjittered screen position, in the previous frame, of a point seen at the
-    // given unjittered NDC. isSky selects a rotation-only reprojection, because a
-    // point at infinity does not move with the camera translation.
+    // Previous unjittered screen position of a point seen at the given current
+    // unjittered NDC. The caller adds taaOffsetPrevious only when sampling the
+    // previous frame's jittered history buffer. isSky selects a rotation-only
+    // reprojection, because a point at infinity does not move with camera translation.
     vec2 c2_previous_uv(vec2 ndc, float depth, float isLod, float isSky) {
         if (isSky > 0.5) {
             vec4 dirClip = gbufferProjectionInverse * vec4(ndc, 1.0, 1.0);
@@ -174,11 +148,15 @@ varying vec2 texcoord;
         #ifdef DISTANT_HORIZONS
             if (isLod > 0.5) {
                 vec3 lodView = c2_view_from_depth(dhProjectionInverse, ndc, depth);
-                // The 3x3 part of the inverse model-view is a pure rotation, so
-                // this stays valid whatever translation the engine uses.
-                vec3 lodRel = mat3(dhModelViewInverse) * lodView + cameraPosition - previousCameraPosition;
-                vec3 lodPrevView = mat3(dhPreviousModelView) * lodRel;
-                vec4 lodPrevClip = dhPreviousProjection * vec4(lodPrevView, 1.0);
+                // DH vertices use gbufferModelView for view/player conversion
+                // and dhProjection only for projection (see position_vertex_dh.glsl).
+                // Reconstruct with the matching inverse and use the previous
+                // gbuffer model-view plus DH's previous projection.
+                vec4 lodPlayerPos = gbufferModelViewInverse * vec4(lodView, 1.0);
+                vec3 lodRel = lodPlayerPos.xyz / lodPlayerPos.w
+                    + cameraPosition - previousCameraPosition;
+                vec4 lodPrevView = gbufferPreviousModelView * vec4(lodRel, 1.0);
+                vec4 lodPrevClip = dhPreviousProjection * lodPrevView;
                 if (abs(lodPrevClip.w) < 1e-6) {
                     return vec2(-10.0);
                 }
@@ -187,9 +165,16 @@ varying vec2 texcoord;
         #endif
 
         vec3 viewPos = c2_view_from_depth(gbufferProjectionInverse, ndc, depth);
-        vec3 worldRel = mat3(gbufferModelViewInverse) * viewPos + cameraPosition - previousCameraPosition;
-        vec3 prevViewPos = mat3(gbufferPreviousModelView) * worldRel;
-        vec4 prevClip = gbufferPreviousProjection * vec4(prevViewPos, 1.0);
+
+        // Convert the point (not a direction) through the complete matrices.
+        // mat3() discards the eye/player-space translations in both matrices,
+        // so current and previous transforms no longer cancel when the camera
+        // is stationary. That creates a false motion vector on static terrain.
+        vec4 playerPos = gbufferModelViewInverse * vec4(viewPos, 1.0);
+        vec3 worldRel = playerPos.xyz / playerPos.w
+            + cameraPosition - previousCameraPosition;
+        vec4 prevViewPos = gbufferPreviousModelView * vec4(worldRel, 1.0);
+        vec4 prevClip = gbufferPreviousProjection * prevViewPos;
         if (abs(prevClip.w) < 1e-6) {
             return vec2(-10.0);
         }
@@ -198,49 +183,73 @@ varying vec2 texcoord;
 #endif
 
 #ifdef YDREAM_C2_DH_SHADOWS
-    // Distance of the nearest occluder at uv (vanilla first, then LOD), or -1.
+    // Distance of the nearest occluder at an unjittered uv (vanilla first, then
+    // LOD), or -1.
     float c2_occluder_distance(vec2 uv) {
         float vanillaDepth = texture2DLod(depthtex1, uv, 0.0).r;
         if (vanillaDepth < 0.9999) {
-            return c2_linear_distance(uv, vanillaDepth, gbufferProjectionInverse);
+            return c2_linear_distance_raw(uv, vanillaDepth, gbufferProjectionInverse);
         }
         float lodDepth = texture2DLod(dhDepthTex1, uv, 0.0).r;
         if (lodDepth < 0.999999) {
-            return c2_linear_distance(uv, lodDepth, dhProjectionInverse);
+            return c2_linear_distance_raw(uv, lodDepth, dhProjectionInverse);
         }
         return -1.0;
     }
 
-    // Screen-space shadow ray towards the sun. Steps grow geometrically, so the
-    // trace covers the full DH_SHADOW_DISTANCE with a fixed step count.
-    float c2_dh_sun_visibility(vec3 pos, vec3 normal, vec3 lightDir, float dist) {
-        vec3 origin = pos + normal * (0.05 + dist * 0.005);
-        float tStart = max(1.0, dist * 0.02);
-        float tEnd = max(float(DH_SHADOW_DISTANCE), tStart * 2.0);
-        float ratio = tEnd / tStart;
+    // Screen-space shadow ray towards the sun, in DH view space. The steps grow
+    // geometrically so the near cells are sampled finely while the ray still
+    // reaches DH_SHADOW_REACH, which is what lets a whole mountain block the sun
+    // instead of only the few blocks covered by the old fixed 60-block slab.
+    float c2_dh_sun_visibility(vec3 pos, vec3 normal, vec3 lightDir, float dither) {
+        float reach = float(DH_SHADOW_REACH);
+        float growth = 1.14;
+        // Normalise the progression so the last sample lands exactly on reach.
+        float unit = reach * (growth - 1.0) / max(pow(growth, float(YDREAM_DH_SS_STEPS)) - 1.0, 0.001);
+
+        vec3 stepDir = normalize(lightDir);
+        // Dithered start: a per-pixel offset hides the step bands, and the
+        // golden-ratio frame term lets the temporal filter average them out.
+        float startPhase = fract(dither + float(frameCounter) * 0.61803398875);
+        vec3 p = pos + normal * 0.05 + stepDir * (unit * startPhase);
+        float travelled = unit * startPhase;
 
         float visible = 1.0;
         for (int i = 0; i < YDREAM_DH_SS_STEPS; ++i) {
-            float t = tStart * pow(ratio, float(i) / float(YDREAM_DH_SS_STEPS - 1));
-            vec3 p = origin + lightDir * t;
-            if (p.z > -0.05) {
-                break; // behind the camera
+            float stepLen = unit * pow(growth, float(i));
+            p += stepDir * stepLen;
+            travelled += stepLen;
+            if (travelled > reach) {
+                break;
             }
 
             vec4 clip = dhProjection * vec4(p, 1.0);
+            if (clip.w <= 0.0) {
+                break; // behind the camera
+            }
+
             vec2 uvS = clip.xy / clip.w * 0.5 + 0.5;
-            if (any(lessThan(uvS, vec2(0.0))) || any(greaterThan(uvS, vec2(1.0)))) {
+            if (uvS.x < 0.0 || uvS.x > 1.0 || uvS.y < 0.0 || uvS.y > 1.0) {
                 break;
             }
 
             float occluder = c2_occluder_distance(uvS);
-            float rayDist = -p.z;
-            // The occluder must be in front of the ray, within a thickness that
-            // grows with distance (LOD cells are coarse at range).
-            if (occluder > 0.0 && occluder < rayDist - 0.05
-                && rayDist - occluder < rayDist * 0.15 + 3.0) {
-                visible = 0.0;
-                break;
+            if (occluder > 0.0) {
+                float rayDist = -p.z;
+                float zDelta = rayDist - occluder;
+                float bias = 0.15 + rayDist * 0.004;
+                float softWidth = max(0.35, 1.5 * DH_SHADOW_SOFTNESS + rayDist * 0.01);
+                // The ray can step over the point where it enters an occluder, so
+                // a surface up to ~1.5 steps in front of the current sample has
+                // to count. The old window was a fixed 4 blocks: far away a
+                // 20-40 block step jumped deep inside a mountain and the hit was
+                // rejected, which is why mountains never cast a shadow. The
+                // window still grows with the step, so unrelated foreground
+                // geometry remains rejected.
+                float maxFront = stepLen * 1.5 + bias + 0.5;
+                float blocked = smoothstep(bias, bias + softWidth, zDelta) *
+                    (1.0 - smoothstep(maxFront, maxFront + max(softWidth, stepLen * 0.5), zDelta));
+                visible *= 1.0 - blocked;
             }
         }
         return visible;
@@ -274,47 +283,67 @@ void main() {
 
     if (vanillaDepthHere >= 0.9999 && dhRawDepth < 0.999999) {
         float dhDistance = length(dhViewPos);
+        // The shadow map stops at gbufferRange and solid_dh_blocks_fragment fades
+        // its contribution out over the last quarter of that range. Fade this
+        // trace in over the same interval so the two do not double-darken the
+        // LOD pixels that both can reach. Past that point the trace stays at full
+        // strength: its reach is measured along the ray towards the light, not
+        // away from the camera, so a distant LOD fragment can still be shadowed
+        // by a mountain that is closer to the camera than it is.
         float gbufferRange = min(float(DH_SHADOW_DISTANCE), shadowDistance);
-        float dhFarRange = float(DH_SHADOW_DISTANCE);
-
-        // Fades in where the gbuffer shadow map ends, and out at the chosen range.
-        float rangeWeight = smoothstep(gbufferRange, gbufferRange + max(gbufferRange * 0.1, 8.0), dhDistance)
-            * (1.0 - smoothstep(dhFarRange * 0.85, dhFarRange, dhDistance));
+        float rangeWeight = smoothstep(gbufferRange * 0.72, gbufferRange * 0.94, dhDistance);
 
         vec3 sunDir = normalize(sunPosition);
         float facing = clamp(dot(dhNormal, sunDir), 0.0, 1.0);
         float weight = rangeWeight * facing * YDREAM_DH_SS_DIRECT_SHARE;
 
         if (weight > 0.001) {
-            float visibility = c2_dh_sun_visibility(dhViewPos, dhNormal, sunDir, dhDistance);
+            float dither = shiftedRDither(gl_FragCoord.xy);
+            float visibility = c2_dh_sun_visibility(dhViewPos, dhNormal, sunDir, dither);
             blockColor.rgb *= mix(1.0, visibility, weight);
         }
     }
 #endif
 
 #ifdef YDREAM_C2_DEPTH
-    // Closest fragment in a 5-sample cross. Its motion is used for the whole pixel,
-    // so thin geometry does not smear into the sky around it.
-    float bestScore = 1e9;
-    vec2 bestUV = texcoord;
-    float bestDist = 1e4;
-    float bestDepth = 1.0;
-    float bestLod = 0.0;
+    // Reproject the depth belonging to this exact output pixel. Do not select a
+    // nearer depth from neighbouring pixels: that gives this pixel another
+    // surface's motion and can make the history lookup jump by several texels.
+    float motionDepth = vanillaDepthHere;
+    float motionDistance = 1e4;
+    float motionLod = 0.0;
+    float isSky = 1.0;
 
-    c2_consider(texcoord, bestScore, bestUV, bestDist, bestDepth, bestLod);
-    c2_consider(texcoord + vec2(-2.0, -2.0) * ps, bestScore, bestUV, bestDist, bestDepth, bestLod);
-    c2_consider(texcoord + vec2(2.0, -2.0) * ps, bestScore, bestUV, bestDist, bestDepth, bestLod);
-    c2_consider(texcoord + vec2(-2.0, 2.0) * ps, bestScore, bestUV, bestDist, bestDepth, bestLod);
-    c2_consider(texcoord + vec2(2.0, 2.0) * ps, bestScore, bestUV, bestDist, bestDepth, bestLod);
+    if (vanillaDepthHere < 0.9999) {
+        motionDistance = c2_linear_distance(
+            texcoord, vanillaDepthHere, gbufferProjectionInverse);
+        isSky = 0.0;
+    } else {
+        #ifdef DISTANT_HORIZONS
+            float lodDepthHere = texture2DLod(dhDepthTex1, texcoord, 0.0).r;
+            if (lodDepthHere < 0.999999) {
+                motionDepth = lodDepthHere;
+                motionDistance = c2_linear_distance(
+                    texcoord, lodDepthHere, dhProjectionInverse);
+                motionLod = 1.0;
+                isSky = 0.0;
+            }
+        #endif
+    }
 
-    float isSky = bestScore > 1e8 ? 1.0 : 0.0;
+    // The depth sample is from the jittered raster position. Undo this frame's
+    // jitter before reconstructing the 3D point and projecting it into the past.
+    vec2 currentUnjitteredUV = texcoord - 0.5 * taaOffset;
+    vec2 currentUnjitteredNDC = c2_ndc_unjittered(texcoord);
+    vec2 previousUnjitteredUV = c2_previous_uv(
+        currentUnjitteredNDC, motionDepth, motionLod, isSky);
 
-    // Previous unjittered position of the closest sample, and its motion.
-    vec2 previousClosest = c2_previous_uv(c2_ndc_unjittered(bestUV), bestDepth, bestLod, isSky);
-    vec2 motion = previousClosest - (bestUV - 0.5 * taaOffset);
+    // Physical motion excludes the temporal sample pattern.
+    vec2 motion = previousUnjitteredUV - currentUnjitteredUV;
 
-    // Previous position of this pixel, including the jitter of both frames.
-    vec2 previousUV = texcoord + motion + 0.5 * (taaOffsetPrevious - taaOffset);
+    // History is stored at the previous frame's raster position, so restore
+    // that frame's jitter only for the history lookup.
+    vec2 previousUV = previousUnjitteredUV + 0.5 * taaOffsetPrevious;
 
     #if AA_TYPE > 0 || defined MOTION_BLUR
         float zDepth = vanillaDepthHere;
@@ -349,7 +378,7 @@ void main() {
     vec3 outLinear;
     vec3 outHistory;
     float outAge;
-    taa_resolve(blockColor.rgb, texcoord, previousUV, previousValid, historyAge, bestDist,
+    taa_resolve(blockColor.rgb, texcoord, previousUV, previousValid, historyAge, motionDistance,
         outLinear, outHistory, outAge);
 
     /* DRAWBUFFERS:13 */

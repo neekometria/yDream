@@ -23,6 +23,14 @@ uniform float blindness;
     uniform mat4 gbufferModelView;
 #endif
 
+#if defined CLOUD_SHADOWS_ON && DH_CLOUD_SHADOWS == 1 && !defined NETHER && !defined THE_END
+    uniform sampler2D gaux2;
+    uniform float frameTimeCounter;
+    #if DH_TERRAIN_NORMALS != 1
+        uniform vec3 sunPosition;
+    #endif
+#endif
+
 #if DH_SHADOWS == 1 && defined SHADOW_CASTING && !defined NETHER
     uniform sampler2DShadow shadowtex1;
     uniform mat4 shadowModelView;
@@ -55,6 +63,10 @@ varying float dhSpecialLight;
 #include "/lib/luma.glsl"
 #include "/lib/dither.glsl"
 #include "/lib/fog_blend.glsl"
+
+#if defined CLOUD_SHADOWS_ON && DH_CLOUD_SHADOWS == 1 && !defined NETHER && !defined THE_END
+    #include "/lib/cloud_shadow.glsl"
+#endif
 
 #if DH_SHADOWS == 1 && defined SHADOW_CASTING && !defined NETHER
     #include "/lib/shadow_vertex.glsl"
@@ -127,6 +139,16 @@ void main() {
         // Lava and illuminated blocks keep the vertex-shader override.
         if (dhSpecialLight < 0.5) {
             directStrength = geoStrength;
+        }
+    #endif
+
+    // Cloud shadows on the LOD terrain. The real chunks get the same pattern in
+    // their vertex stage, so a cloud bank darkens near and far terrain together
+    // instead of stopping at the LOD transition.
+    #if defined CLOUD_SHADOWS_ON && DH_CLOUD_SHADOWS == 1 && !defined NETHER && !defined THE_END
+        if (dhSpecialLight < 0.5) {
+            vec3 cloudLightDir = normalize(sunPosition) * mix(-1.0, 1.0, step(0.5, dayNightMix));
+            directStrength *= 1.0 - cloud_shadow_amount(position.xyz + cameraPosition, cloudLightDir);
         }
     #endif
 

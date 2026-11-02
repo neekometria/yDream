@@ -37,6 +37,7 @@ uniform ivec2 eyeBrightnessSmooth;
     uniform vec3 sunPosition;
     uniform vec3 moonPosition;
     uniform float dayNightMix;
+    uniform mat4 gbufferProjection;
     uniform mat4 gbufferProjectionInverse;
     uniform mat4 gbufferModelViewInverse;
     uniform mat4 gbufferModelView;
@@ -52,6 +53,7 @@ uniform ivec2 eyeBrightnessSmooth;
     uniform vec3 shadowLightPosition;
     uniform mat4 shadowModelView;
     uniform mat4 shadowProjection;
+    uniform mat4 gbufferProjection;
     uniform sampler2DShadow shadowtex1;
 
     #if defined COLORED_GODRAYS || defined SCREENSHOT_MODE
@@ -84,6 +86,26 @@ varying vec3 directLightColor;
 #include "/lib/basic_utils.glsl"
 #include "/lib/depth.glsl"
 
+#ifdef DISTANT_HORIZONS
+    uniform sampler2D dhDepthTex1;
+#endif
+
+#if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
+    // 1 when no Distant Horizons terrain covers the sampled screen position.
+    // depthtex0/depthtex1 never contain the LOD geometry (the DH programs do not
+    // write gl_FragDepth), so the godray march has to test dhDepthTex1 explicitly
+    // or a LOD mountain in front of the sun lets the whole ray bundle through.
+    float dh_sun_clear(vec2 uv) {
+        vec2 c = clamp(uv, vec2(0.001), vec2(0.999));
+        float clear = step(0.999999, texture2DLod(dhDepthTex1, c, 0.0).r);
+        clear += step(0.999999, texture2DLod(dhDepthTex1, clamp(c + vec2(0.012, 0.0), 0.0, 1.0), 0.0).r);
+        clear += step(0.999999, texture2DLod(dhDepthTex1, clamp(c - vec2(0.012, 0.0), 0.0, 1.0), 0.0).r);
+        clear += step(0.999999, texture2DLod(dhDepthTex1, clamp(c + vec2(0.0, 0.012), 0.0, 1.0), 0.0).r);
+        clear += step(0.999999, texture2DLod(dhDepthTex1, clamp(c - vec2(0.0, 0.012), 0.0, 1.0), 0.0).r);
+        return clear * 0.2;
+    }
+#endif
+
 #if (VOL_LIGHT == 1 || VOL_LIGHT == 2) && !defined NETHER
     float glimmerHash(vec2 p) {
         return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -105,12 +127,7 @@ varying vec3 directLightColor;
     #include "/lib/luma.glsl"
 #endif
 
-#if VOL_LIGHT == 1 && !defined NETHER
-    #include "/lib/dither.glsl"
-    #include "/lib/volumetric_light.glsl"
-#endif
-
-#if VOL_LIGHT == 2 && defined SHADOW_CASTING && !defined NETHER
+#if (VOL_LIGHT == 1 || VOL_LIGHT == 2) && !defined NETHER
     #include "/lib/dither.glsl"
     #include "/lib/volumetric_light.glsl"
 #endif
@@ -196,6 +213,23 @@ void main() {
             }
         #else
             float volumetricLight = ssGodrays(dither);
+        #endif
+
+        // The screen-space march cannot see the LOD terrain either, so gate the
+        // whole shaft on the actual visibility of the light disk. When the sun or
+        // moon sits behind a DH mountain there is no glow in front of it.
+        #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
+            // astroLightPos is the sun/moon as a point at ~100 blocks in view
+            // space, so it projects with w = 1. Do not reuse lightpos here: that
+            // varying is built with a transposed matrix multiply, which makes it
+            // unreliable as a screen coordinate.
+            vec4 astroClip = gbufferProjection * vec4(astroLightPos, 1.0);
+            float astroFront = step(0.001, astroClip.w);
+            vec2 astroUV = astroClip.xy / max(astroClip.w, 0.001) * 0.5 + 0.5;
+            float sunOnScreen = astroFront *
+                step(0.0, astroUV.x) * step(astroUV.x, 1.0) *
+                step(0.0, astroUV.y) * step(astroUV.y, 1.0);
+            volumetricLight *= mix(1.0, dh_sun_clear(astroUV), sunOnScreen);
         #endif
 
         vec4 centerFarPlanePos = modeli_times_projectioni * (vec4(0.5, 0.5, 1.0, 1.0) * 2.0 - 1.0);
@@ -297,7 +331,29 @@ void main() {
                 waterGlimmer = 0.82 + 0.32 * (glimmerA * 0.6 + glimmerB * 0.4);
             }
 
-            blockColor.rgb += volumetricLightColor * beamTint * volumetricLight * waterGlimmer *
+            // Same LOD occlusion gate as the screen-space march. The shadow map
+            // only contains real chunks, so without this the scatter keeps
+            // glowing in front of a LOD mountain that hides the light.
+            #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
+                // Project the same world-space light direction that the phase
+                // term above already uses, instead of assuming a space for
+                // shadowLightPosition. gbufferProjection must be on the left:
+                // "v * M" in GLSL is the transposed product and would put the
+                // sun disk at the wrong screen position.
+                vec3 sunWorldDir = normalize((gbufferModelViewInverse * vec4(shadowLightPosition, 0.0)).xyz);
+                vec3 sunViewDir = mat3(gbufferModelView) * sunWorldDir;
+                vec4 lightClip = gbufferProjection * vec4(sunViewDir, 0.0);
+                float sunFront = step(0.001, lightClip.w);
+                vec2 sunUV = lightClip.xy / max(lightClip.w, 0.001) * 0.5 + 0.5;
+                float sunOnScreen = sunFront *
+                    step(0.0, sunUV.x) * step(sunUV.x, 1.0) *
+                    step(0.0, sunUV.y) * step(sunUV.y, 1.0);
+                float sunDhClear = mix(1.0, dh_sun_clear(sunUV), sunOnScreen);
+            #else
+                float sunDhClear = 1.0;
+            #endif
+
+            blockColor.rgb += volumetricLightColor * beamTint * volumetricLight * waterGlimmer * sunDhClear *
                 (scatterPhase * scatterAmount * scatterStrength);
         #endif
     #endif

@@ -95,7 +95,8 @@ vec3 taa_clip_aabb(vec3 history, vec3 minColor, vec3 maxColor) {
 // Resolves one frame.
 //   currentLinear  this frame's scene colour (linear, already jitter-free in value)
 //   texcoordUv     pixel centre of this frame
-//   previousUV     where this pixel was in the previous frame (jittered sample space)
+//   previousUV     raster-space position of this pixel in the previous frame,
+//                  including that frame's jitter, used to read the history buffer
 //   previousValid  false when the reprojection leaves the screen or history is not ready
 //   historyAge     number of frames accumulated by the history pixel
 //   viewDistance   view distance of the closest sample, used for the blend weight

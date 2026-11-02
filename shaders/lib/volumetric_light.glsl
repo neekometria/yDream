@@ -18,6 +18,12 @@
         vec3 light = vec3(0.0);
         float counted = 0.0;
 
+        #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
+            // Constant for the whole pixel, so evaluate it once instead of on
+            // every ray sample.
+            float dhPixelClear = dh_sun_clear(texcoord);
+        #endif
+
         for (int i = 0; i < GODRAY_STEPS; i++) {
             float currentDistance = exp2(float(i) + dither) - 0.6;
             if (currentDistance > visibleDistance) {
@@ -27,6 +33,15 @@
             float ndcDepth = (far * (currentDistance - near)) / (currentDistance * (far - near));
             vec4 pos = modeli_times_projectioni * (vec4(texcoord, ndcDepth, 1.0) * 2.0 - 1.0);
             vec3 shadowPos = get_volumetric_pos(pos.xyz / pos.w);
+
+            #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
+                // The shadow map knows nothing about the LOD terrain, so a LOD
+                // mountain between the sun and this sample would stay fully lit.
+                if (dhPixelClear < 0.5) {
+                    counted += 1.0;
+                    continue;
+                }
+            #endif
 
             float opaqueLit = shadow2D(shadowtex1, shadowPos).r;
             vec3 sampleColor = vec3(opaqueLit);
@@ -59,8 +74,14 @@
 
         for (int i = 0; i < CHEAP_GODRAY_SAMPLES; i++) {
             depth = texture2D(depthtex1, dither2d).x;
+            float sky = step(comp, depth);
+            #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
+                // depthtex1 has no LOD geometry, so test the DH depth too or a
+                // mountain in front of the sun leaks light into the whole shaft.
+                sky *= dh_sun_clear(dither2d);
+            #endif
             dither2d += ray_step;
-            light += step(comp, depth);
+            light += sky;
         }
 
         return light / CHEAP_GODRAY_SAMPLES;

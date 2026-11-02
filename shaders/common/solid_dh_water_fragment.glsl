@@ -40,10 +40,6 @@ uniform float dhFarPlane;
 uniform vec3 cameraPosition;
 uniform int dhRenderDistance;
 
-#if V_CLOUDS != 0
-    uniform sampler2D gaux2;
-#endif
-
 #if defined SHADOW_CASTING && !defined NETHER
     uniform sampler2DShadow shadowtex1;
     #if defined COLORED_SHADOW
@@ -88,40 +84,32 @@ varying float fogSunScatter;
 #include "/lib/fog_blend.glsl"
 
 #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-    // Same test as the vanilla water shader: the volumetric clouds have no
-    // geometry in the depth buffer, so a DH water surface seen through the
-    // cloud deck would be painted straight on top of it. The cloud field is
-    // sampled where the view ray crosses the cloud layer and the water is
-    // dropped when that spot is opaque.
-    float waterCloudDensity(vec3 pos) {
-        float value = texture2D(gaux2, (pos.xz * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_HI_FACTOR)).r;
-        value += texture2D(gaux2, (pos.zx * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_LOW_FACTOR)).r;
-        return smoothstep(0.05, 0.95, value * 0.5);
-    }
+    // The DH programs run before the deferred pass, so colortex6 still holds the
+    // prepared sky here, not the cloud coverage written later. Derive the
+    // coverage from the same shared cloud field that the raymarch and the ground
+    // shadows use, so the water fades under the same cloud banks.
+    uniform sampler2D gaux2;
+    #include "/lib/cloud_noise.glsl"
 
-    bool cloudInFrontOfWater(vec3 waterPos) {
-        if (cameraPosition.y <= CLOUD_PLANE_SUP) {
-            return false;
-        }
-
+    float dh_water_cloud_coverage(vec3 waterPos) {
         vec3 ray = waterPos - cameraPosition;
         if (ray.y > -0.001) {
-            return false;
+            return 0.0;
         }
 
-        float umbral = ((1.0 - smoothstep(0.0, 1.0, rainStrength)) * 0.3) + 0.22;
-        float threshold = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
-        float density = 0.0;
+        float umbral = clamp(CLOUD_BASE_UMBRAL + (1.0 - smoothstep(0.0, 1.0, rainStrength)) * 0.3, 0.0, 0.99);
+        umbral = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
 
-        for (int i = 0; i < 3; i++) {
-            float height = mix(CLOUD_PLANE + 6.0, CLOUD_PLANE_SUP - 6.0, (float(i) + 0.5) / 3.0);
-            float t = (height - cameraPosition.y) / ray.y;
-            if (t > 0.0 && t < 1.0) {
-                density = max(density, waterCloudDensity(cameraPosition + ray * t));
+        float coverage = 0.0;
+        for (int i = 0; i < 4; i++) {
+            float height = mix(CLOUD_PLANE + 6.0, CLOUD_PLANE_SUP - 6.0, (float(i) + 0.5) / 4.0);
+            float tRay = (height - cameraPosition.y) / ray.y;
+            if (tRay > 0.0 && tRay < 1.0) {
+                float fieldValue = cloud_field((cameraPosition + ray * tRay).xz);
+                coverage = max(coverage, smoothstep(umbral, umbral + 0.14, fieldValue));
             }
         }
-
-        return density > threshold;
+        return coverage;
     }
 #endif
 
@@ -148,8 +136,14 @@ void main() {
     }
 
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-        bool isWaterBlock = blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5;
-        if (isEyeInWater == 0 && isWaterBlock && cloudInFrontOfWater(position.xyz + cameraPosition)) {
+        float cloudCoverage = 0.0;
+        bool waterCloudFade = isEyeInWater == 0
+            && blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5
+            && cameraPosition.y > CLOUD_PLANE_SUP;
+        if (waterCloudFade) {
+            cloudCoverage = dh_water_cloud_coverage(position.xyz + cameraPosition);
+        }
+        if (waterCloudFade && cloudCoverage > 0.999) {
             discard;
             return;
         }
@@ -264,6 +258,12 @@ void main() {
 
         blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * .125);
     }
+
+    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+        if (waterCloudFade) {
+            blockColor.a *= 1.0 - cloudCoverage;
+        }
+    #endif
 
     #include "/src/finalcolor_dh.glsl"
     #include "/src/writebuffers.glsl"

@@ -158,6 +158,10 @@ attribute vec4 mc_Entity;
 
 #include "/lib/luma.glsl"
 
+#if defined CLOUD_SHADOWS_ON && defined CLOUD_SHADOW_APPLY
+    #include "/lib/cloud_shadow.glsl"
+#endif
+
 void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
     vec3 zenithSkyColor;

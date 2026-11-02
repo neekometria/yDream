@@ -116,6 +116,12 @@ void main() {
     float depth = texture2DLod(depthtex0, texcoord, 0).r;
     float linearDepth = ld(depth);
 
+    // Amount of cloud composited over the scene. Stored in colortex6 so the
+    // translucent water (drawn after this pass) can fade by the real opacity.
+    // colortex5 is not usable here: it is aliased to the custom cloud-noise
+    // texture bound as gaux2 in this same pass.
+    float cloudCoverage = 0.0;
+
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
 
     vec3 eyeDirection = vec3(1.0);
@@ -174,7 +180,7 @@ void main() {
                             // Mars' clouds are thin and high: low density means a higher noise cutoff.
                             northstarCloudUmbral = max(umbral, 0.84 - 0.34 * clamp(NORTHSTAR_MARS_CLOUD_DENSITY, 0.05, 0.50));
                         #endif
-                        blockColor.rgb = get_cloud(eyeDirection, blockColor.rgb, bright, dither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir, sceneDist);
+                        blockColor.rgb = get_cloud(eyeDirection, blockColor.rgb, bright, dither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir, sceneDist, cloudCoverage);
                     #endif
                 }
             #endif
@@ -275,13 +281,15 @@ void main() {
             colorLightOut = vec4(clamp(colorLightSurface + colorLightGlow, vec3(-4.0), vec3(8.0)), colorLightDistance);
         }
 
-        /* RENDERTARGETS: 1,4,12 */
+        /* RENDERTARGETS: 1,4,6,12 */
         gl_FragData[0] = vec4(blockColor.rgb, depth);
         gl_FragData[1] = blockColor;
-        gl_FragData[2] = colorLightOut;
+        gl_FragData[2] = vec4(cloudCoverage, 0.0, 0.0, 1.0);
+        gl_FragData[3] = colorLightOut;
     #else
-        /* DRAWBUFFERS:14 */
+        /* DRAWBUFFERS:146 */
         gl_FragData[0] = vec4(blockColor.rgb, depth);
         gl_FragData[1] = blockColor;
+        gl_FragData[2] = vec4(cloudCoverage, 0.0, 0.0, 1.0);
     #endif
 }

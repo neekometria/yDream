@@ -6,16 +6,19 @@ float cloudShape(float v) {
     #endif
 }
 
+#include "/lib/cloud_noise.glsl"
+
 float cloudField(vec2 posXZ) {
-    float fieldValue = texture2D(gaux2, (posXZ * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_HI_FACTOR)).r;
-
-    fieldValue += texture2D(gaux2, (posXZ.yx * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_LOW_FACTOR)).r;
-    fieldValue = smoothstep(0.05, 0.95, fieldValue * 0.5);
-
-    return fieldValue;
+    return cloud_field(posXZ);
 }
 
-vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, vec3 base_pos, int samples, float umbral, vec3 cloudColor, vec3 darkCloudColor, vec3 lightDir, float maxDist) {
+// cloudCoverage is the final amount of cloud composited over the scene (0..1),
+// i.e. exactly the factor used in the last mix. The deferred pass stores it so
+// the translucent water, which is drawn afterwards, can fade itself by the real
+// cloud opacity instead of guessing it from the raw noise field.
+vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, vec3 base_pos, int samples, float umbral, vec3 cloudColor, vec3 darkCloudColor, vec3 lightDir, float maxDist, out float cloudCoverage) {
+    cloudCoverage = 0.0;
+
     #if VOL_LIGHT == 0
         if (maxDist > 1e8) blockColor.rgb *= clamp(bright + ((dither - .5) * .1), 0.0, 1.0) * .3 + 1.0;
     #endif
@@ -76,11 +79,8 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         intersection_pos += (increment * dither);
 
         for (int i = 0; i < samples; i++) {
-            float current_value = texture2D(gaux2, (intersection_pos.xz * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_HI_FACTOR)).r;
-
-            current_value += texture2D(gaux2, (intersection_pos.zx * CLOUD_NOISE_SCALE) + (frameTimeCounter * CLOUD_LOW_FACTOR)).r;
             float detailNoise = texture2D(gaux2, (intersection_pos.xz * 0.0016) - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6)).r;
-            current_value = smoothstep(0.05, 0.95, current_value * 0.5) * 0.82 + detailNoise * 0.18;
+            float current_value = mix(cloud_field(intersection_pos.xz), detailNoise, CLOUD_DETAIL_WEIGHT);
 
             #ifdef CLOUD_LIGHT_ENHANCED
                 float erosionNoise = texture2D(gaux2, (intersection_pos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
@@ -237,7 +237,8 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         cloudColor = mix(cloudColor, blockColor * 1.15 + cloudColor * 0.15, horizonBleed);
 
         float nightCloudSheer = 1.0 - 0.34 * (1.0 - smoothstep(-0.18, 0.02, sunElevation)) * (1.0 - cloud_value) * (1.0 - rainStrength);
-        blockColor = mix(blockColor, cloudColor, cloud_value * nightCloudSheer * horizonFade);
+        cloudCoverage = clamp(cloud_value * nightCloudSheer * horizonFade, 0.0, 1.0);
+        blockColor = mix(blockColor, cloudColor, cloudCoverage);
     }
 
     return blockColor;
