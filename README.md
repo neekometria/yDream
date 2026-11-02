@@ -1,13 +1,13 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/neekometria/yDream/refs/heads/main/yDream.png" alt="yDream Shaders" width="900">
 
-  <p>
-    <strong>Ad Astra Per Aspera.</strong>
-  </p>
+  <h1>yDream Shaders</h1>
+
+  <p><strong>Ad Astra Per Aspera.</strong></p>
 
   <p>
-    A cinematic and highly customizable visual experience for Minecraft.
-    Explore new skies, dynamic lighting, volumetric clouds and planetary atmospheres
+    A cinematic, highly customizable visual experience for Minecraft.<br>
+    Explore new skies, dynamic lighting, volumetric clouds and planetary atmospheres —
     without needing a high-end GPU.
   </p>
 
@@ -30,84 +30,171 @@
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/Language-PT%2FEN%2FJP-blue?style=flat-square" alt="Portuguese, English and Japanese">
+    <img src="https://img.shields.io/badge/Language-PT%20%2F%20EN%20%2F%20JP-blue?style=flat-square" alt="Portuguese, English and Japanese">
+  </p>
+
+  <p>
+    <a href="https://modrinth.com/shader/ydream"><img src="https://img.shields.io/badge/Download-Modrinth-1bd96a?style=for-the-badge&logo=modrinth&logoColor=white" alt="Download on Modrinth"></a>
   </p>
 </div>
 
 ---
 
-> **yDream Shaders** targets **Iris 1.8.1 or newer**, or **OptiFine**.
-> Tested on Minecraft **1.21.1 with NeoForge**.
-> Created with Create Aeronautics in mind.
+## 📖 Table of Contents
 
-> Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javiergcim/MakeUpUltraFast), with custom visual systems and atmospheric features. Also based on [Gleam Shaders](https://modrinth.com/mod/gleam-shaders), with credits to its [original creator](https://modrinth.com/user/FihMC).
+- [Overview](#-overview)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Cinematic Experience](#-cinematic-experience)
+- [Compatibility](#-compatibility)
+- [Performance](#-performance)
+- [Dimensions](#-dimensions)
+- [TODO / Roadmap](#-todo--roadmap)
+- [Credits](#-credits)
+- [License & Usage](#-license--usage)
 
-<img src="https://raw.githubusercontent.com/neekometria/yDream/refs/heads/main/banner_2.png" alt="yDream Shaders" width="900">
+---
+
+## Overview
+
+**yDream Shaders** is a cinematic, highly customizable Minecraft shader pack built for **Iris 1.8.1+** and **OptiFine**. It is tested on **Minecraft 1.21.1 with NeoForge** and is designed with **Create Aeronautics** in mind.
+
+Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javiergcim/MakeUpUltraFast), yDream extends it with custom visual systems and atmospheric features. It also builds on [Gleam Shaders](https://modrinth.com/mod/gleam-shaders), with credits to its [original creator](https://modrinth.com/user/FihMC).
+
+<img src="https://raw.githubusercontent.com/neekometria/yDream/refs/heads/main/banner_2.png" alt="yDream Shaders banner" width="900">
+
+---
+
+## Requirements
+
+| Component | Version |
+|-----------|---------|
+| Minecraft | 1.21.1 |
+| Loader (tested) | NeoForge |
+| Shader loader | Iris **1.8.1+** or OptiFine |
+| GPU (reference) | GTX 750 Ti |
+
+> All screenshots were captured on a **GTX 750 Ti**. The pack is optimized to run on modest hardware.
+
+---
 
 ## Cinematic Experience
 
-yDream has one style, but very customizable.
+yDream has one cohesive style — but it's extremely customizable.
 
-Ten color schemes change the whole palette (sky, light, sunsets, night and aurora): Golden Hour, Arctic, Neon Dusk, Crimson Ember, Pastel Dream, Tropical Lagoon, Violet Twilight, Misty Forest, Desert Gold and Midnight Blue. Choose "Style default" to keep the style's own colors.
+**Ten color schemes** shift the entire palette (sky, light, sunsets, night, aurora):
 
-## TODO
-- Clouds adjustment
-- Further TAA ghosting refinement
-- Better overworld tonemapping
+- Golden Hour
+- Arctic
+- Neon Dusk
+- Crimson Ember
+- Pastel Dream
+- Tropical Lagoon
+- Violet Twilight
+- Misty Forest
+- Desert Gold
+- Midnight Blue
+
+Choose **Style default** to keep the shader's original palette.
+
+---
 
 ## Compatibility
- (nerdy stuff ahead)
-- **Distant Horizons:** LOD depth participates in fog and volumetric-cloud occlusion, so clouds are clipped by distant terrain instead of appearing behind it, and DH water is hidden correctly under the cloud deck. TAA reprojection also accounts for DH depth. The LOD terrain recomputes per-face normals and can receive the shadow map within a configurable distance, so the hand-off between real chunks and LODs is much harder to spot. A colour-match option desaturates and dims the flat DH palette to approach the textured terrain.
-- **Northstar planets (requires the Northstar mod):** Mercury, Venus, Mars, the Moon and the orbital dimensions each have their own atmosphere presets, sky colors, haze and sun size.
-- **Moon:** sky colors, haze, neutral sunlight and a small shadow floor.
-- **Mars:** a tawny dust-haze sky with a blue aureole around the sun, adjustable dust optical depth and daylight strength. Stars low on the horizon are dimmed by the dust.
-- **Venus:** a dense, amber, cloud-filtered sky with a diffuse solar glow. Cloud opacity and warm ground light are adjustable.
-- **Mercury:** a very large apparent sun, with its own sky colors and haze.
-- **Orbit:** planets and the sun are drawn with their correct brightness from the NASA solar flux values, sun size scales with orbital distance, and the planet brightness and maximum brightness are adjustable.
-> Each planet can show or hide the Northstar suns and clouds independently, and planet atmosphere presets can be turned off entirely.
+
+> Nerdy stuff ahead.
+
+### Distant Horizons
+- LOD depth participates in **fog** and **volumetric-cloud occlusion**, so clouds are clipped by distant terrain instead of appearing behind it.
+- DH water is correctly hidden under the cloud deck.
+- TAA reprojection accounts for DH depth.
+- LOD terrain recomputes per-face normals and can receive the shadow map within a configurable distance — the hand-off between real chunks and LODs is much harder to spot.
+- **Color-match option** desaturates and dims the flat DH palette to approach textured terrain.
+
+### Northstar planets (requires the Northstar mod)
+Each of Mercury, Venus, Mars, the Moon and the orbital dimensions has its own atmosphere preset, sky colors, haze and sun size.
+
+- **Moon** — sky colors, haze, neutral sunlight and a small shadow floor.
+- **Mars** — tawny dust-haze sky with a blue aureole around the sun; adjustable dust optical depth and daylight strength; stars low on the horizon are dimmed by dust.
+- **Venus** — dense, amber, cloud-filtered sky with a diffuse solar glow; adjustable cloud opacity and warm ground light.
+- **Mercury** — very large apparent sun, with its own sky colors and haze.
+- **Orbit** — planets and the sun drawn with their correct brightness from the NASA solar flux values; sun size scales with orbital distance; planet brightness and maximum brightness adjustable.
+
+> Each planet can show or hide Northstar suns and clouds independently, and planet atmosphere presets can be turned off entirely.
+
+---
 
 ## Performance
 
-Performance mode trades a little detail for frame rate: **Quality** (full steps), **Balanced**, **Fast** (the default) and **Max FPS**. Fast and Max FPS reduce the ray steps used for clouds, reflections, godrays and ambient occlusion.
+**Performance mode** trades a little detail for frame rate:
 
-Fine-tuning sliders control cloud, godray, reflection and ambient occlusion detail, along with shadow quality and distance. Heavy experimental features such as sun bounce light and global illumination are under Experimental and cost extra frame rate.
+| Mode | Description |
+|------|-------------|
+| **Quality** | Full ray steps |
+| **Balanced** | Moderate ray steps |
+| **Fast** *(default)* | Reduced ray steps for clouds, reflections, godrays and AO |
+| **Max FPS** | Maximum reduction for high refresh-rate play |
 
-The anti-aliasing options include temporal TAA/ATAA and SMAA 1x/T2x. SMAA uses standard lookup textures and fullscreen passes; it works on the GTX 750 Ti and does not require OpenGL 4.3.
+Fine-tuning sliders control cloud, godray, reflection and ambient occlusion detail, along with shadow quality and distance. Heavy experimental features (sun bounce light, global illumination) live under **Experimental** and cost extra frame rate.
 
-All screenshots were taken using a GTX 750TI.
-Simple benchmarks show a 5%–10% performance improvement compared to Gleam using the Polished and default preset.
+**Anti-aliasing options:** temporal TAA/ATAA and SMAA 1x / T2x. SMAA uses standard lookup textures and fullscreen passes.
+
+> Simple benchmarks show a **5%–10% performance improvement** compared to Gleam using the *Polished* and *default* presets.
+
+---
 
 ## Dimensions
 
-**Overworld:** everything above.
+### Overworld
+Everything described above.
 
-**The Nether:** an ember-filled atmosphere with adjustable fog distance, drifting embers (with amount and color modes: fire orange, soul blue, crimson, warped teal or golden), a glowing haze, and star brightness. Nether clouds follow the same volumetric cloud settings as the overworld, and the Nether uses the overworld star layer.
+### The Nether
+- Ember-filled atmosphere with adjustable fog distance.
+- Drifting embers with amount and color modes: **fire orange**, **soul blue**, **crimson**, **warped teal** or **golden**.
+- Glowing haze and adjustable star brightness.
+- Nether clouds follow the same volumetric cloud settings as the overworld.
+- Uses the overworld star layer.
 
-**The End:** a self-contained End atmosphere with three sky palettes (Molten dusk, Violet abyss, Ash and ember), sky depth, horizon glow, vertical heat, and a planetary core you can turn on or off. The core has three palettes (Molten orange, Bright magma, Deep mantle), adjustable size and intensity, optional purple corruption lines with their own count and palette, and a warm scene light.
+### The End (Lore for my ModPack, you can disable)
+A self-contained End atmosphere with:
 
+- **Three sky palettes:** Molten Dusk, Violet Abyss, Ash and Ember.
+- Sky depth, horizon glow, vertical heat.
+- A **planetary core** you can toggle on/off:
+  - Three palettes: Molten Orange, Bright Magma, Deep Mantle.
+  - Adjustable size and intensity.
+  - Optional purple corruption lines (with count and palette).
+  - Warm scene light.
 
-<img src="https://raw.githubusercontent.com/neekometria/yDream/refs/heads/main/banner_3.png" alt="yDream Shaders" width="900">
+---
+
+<img src="https://raw.githubusercontent.com/neekometria/yDream/refs/heads/main/banner_3.png" alt="yDream Shaders banner" width="900">
 
 
 ## Credits
 
-yDream Shaders is built on the MakeUp UltraFast codebase by Javier Garduño ([github.com/javiergcim/MakeUpUltraFast](https://github.com/javiergcim/MakeUpUltraFast)), distributed under the GNU Lesser General Public License v3.0. The base architecture and several lower-level techniques come from that project.
+yDream Shaders is built on the **MakeUp UltraFast** codebase by Javier Garduño ([github.com/javiergcim/MakeUpUltraFast](https://github.com/javiergcim/MakeUpUltraFast)), distributed under the GNU Lesser General Public License v3.0. The base architecture and several lower-level techniques come from that project.
 
-yDream is based on Gleam and only works the way I want it to thanks to the beautiful custom stars and clouds created by Gleam's author, [FihMC](https://modrinth.com/user/FihMC)
+yDream is based on **Gleam** and only works the way it does thanks to the beautiful custom stars and clouds created by Gleam's author, [FihMC](https://modrinth.com/user/FihMC).
 
 Some of the code is inspired by work from:
 
-- Capt Tatsu, enhanced ambient occlusion from [BSL Shaders](https://bitslablab.com/bslshaders/).
-- Emin and gri573, shadow bias technique ([complementary.dev](https://www.complementary.dev/)).
-- Erkaman, TAA based on [a simple TAA implementation](https://gist.github.com/Erkaman).
-- Interleaved noise from [*Next Generation Post Processing in Call of Duty: Advanced Warfare*](http://advances.realtimerendering.com/s2014/index.html).
-- delu and TinyTexel, phi noise ([Shadertoy](https://www.shadertoy.com/view/Nst3R7)).
-- atyuwen, Dither 13 and Dither 17 ([Shadertoy](https://www.shadertoy.com/view/wl3cWX)).
-- Jorge Jimenez, Jose I. Echevarria, Tiago Sousa and Diego Gutierrez, SMAA (*Enhanced Subpixel Morphological Antialiasing*, 2012) and its [reference implementation](https://github.com/iryoku/smaa), MIT licensed. The SMAA 1x/T2x passes and the area/search lookup textures come from that work.
-- [dmnsgn/shaders-smaa](https://github.com/dmnsgn/shaders-smaa), MIT licensed GLSL port used as a reference for the SMAA passes.
+- **Capt Tatsu** — enhanced ambient occlusion from [BSL Shaders](https://bitslablab.com/bslshaders/).
+- **Emin** and **gri573** — shadow bias technique ([complementary.dev](https://www.complementary.dev/)).
+- **Erkaman** — TAA based on [a simple TAA implementation](https://gist.github.com/Erkaman).
+- **Interleaved noise** — from [*Next Generation Post Processing in Call of Duty: Advanced Warfare*](http://advances.realtimerendering.com/s2014/index.html).
+- **delu** and **TinyTexel** — phi noise ([Shadertoy](https://www.shadertoy.com/view/Nst3R7)).
+- **atyuwen** — Dither 13 and Dither 17 ([Shadertoy](https://www.shadertoy.com/view/wl3cWX)).
+- **Jorge Jimenez, Jose I. Echevarria, Tiago Sousa** and **Diego Gutierrez** — SMAA (*Enhanced Subpixel Morphological Antialiasing*, 2012) and its [reference implementation](https://github.com/iryoku/smaa), MIT licensed. The SMAA 1x/T2x passes and area/search lookup textures come from that work.
+- [**dmnsgn/shaders-smaa**](https://github.com/dmnsgn/shaders-smaa) — MIT-licensed GLSL port used as a reference for the SMAA passes.
 
-The NASA Planetary Fact Sheet provided the solar and atmospheric values used for the Northstar planets.
+The **NASA Planetary Fact Sheet** provided the solar and atmospheric values used for the Northstar planets.
 
-## Using and sharing it
+---
 
-You can use, change and share yDream under the GNU Lesser General Public License v3.0 (see `LICENSE`), the same license MakeUp UltraFast uses. If you redistribute it, please keep the credit to MakeUp UltraFast and Javier Garduño. You don't need to ask first, though I'd love to hear about it.
+## License & Usage
+
+You can **use, modify and share** yDream under the **GNU Lesser General Public License v3.0** (see [`LICENSE`](LICENSE)), the same license MakeUp UltraFast uses.
+
+If you redistribute it, please **keep the credit** to MakeUp UltraFast and Javier Garduño. You don't need to ask first — though I'd love to hear about it!
+
+<p align="center"><strong>どんなマイクでも構いません！</strong></p>
