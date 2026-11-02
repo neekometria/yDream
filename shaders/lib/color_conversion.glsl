@@ -142,3 +142,4 @@ vec3 oklabToRgb(vec3 c) {
 
     return linearToSrgb(linearRgb);
 }
+

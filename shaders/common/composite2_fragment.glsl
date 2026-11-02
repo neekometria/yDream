@@ -378,6 +378,16 @@ void main() {
     vec3 outLinear;
     vec3 outHistory;
     float outAge;
+
+    // [FIX] Antes existia aqui um "previousUV = texcoord;" que sobrescrevia a
+    // reprojecao. Isso fazia:
+    //   - o historico ser lido no pixel atual em vez do pixel correspondente
+    //     do frame anterior (fonte principal do ghosting);
+    //   - a idade lida (historyAge) nao corresponder ao historico amostrado;
+    //   - motion == 0 dentro de taa_resolve, entao o off-center rejection
+    //     (que so ativa com motion > 0.5 px) nunca disparava.
+    // previousUV agora chega ao resolve com o valor correto:
+    // previousUnjitteredUV + 0.5 * taaOffsetPrevious.
     taa_resolve(blockColor.rgb, texcoord, previousUV, previousValid, historyAge, motionDistance,
         outLinear, outHistory, outAge);
 
