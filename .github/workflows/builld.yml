@@ -1,0 +1,67 @@
+
+name: Automatic Release
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build Shader ZIP
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STAGING_DIR="$(mktemp -d)"
+          mkdir -p dist
+
+          # Extract tracked project files
+          git archive "$GITHUB_SHA" | tar -x -C "$STAGING_DIR"
+
+          # Remove unwanted files and directories from project root
+          find "$STAGING_DIR" -mindepth 1 -maxdepth 1 \
+            \( \
+              -type f -iname '*.png' \
+              -o -name '.idea' \
+              -o -name '.openidea' \
+            \) -exec rm -rf -- {} +
+
+          # Generate automatic version
+          TAG="v0.3.${GITHUB_RUN_NUMBER}"
+          ZIP_NAME="yDream-${TAG}.zip"
+
+          # Package the shader
+          (
+            cd "$STAGING_DIR"
+            zip -qr "$GITHUB_WORKSPACE/dist/$ZIP_NAME" .
+          )
+
+          # Export build information
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "zip=dist/$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+          echo "Created: $ZIP_NAME"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.build.outputs.tag }}" \
+            "${{ steps.build.outputs.zip }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "yDream ${{ steps.build.outputs.tag }}" \
+            --generate-notes
