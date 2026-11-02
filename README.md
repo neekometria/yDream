@@ -187,7 +187,8 @@ Some of the code is inspired by work from:
 - **Jorge Jimenez, Jose I. Echevarria, Tiago Sousa** and **Diego Gutierrez** — SMAA (*Enhanced Subpixel Morphological Antialiasing*, 2012) and its [reference implementation](https://github.com/iryoku/smaa), MIT licensed. The SMAA 1x/T2x passes and area/search lookup textures come from that work.
 - [**dmnsgn/shaders-smaa**](https://github.com/dmnsgn/shaders-smaa) — MIT-licensed GLSL port used as a reference for the SMAA passes.
 
-The **NASA Planetary Fact Sheet** provided the solar and atmospheric values used for the Northstar planets.
+- Stars and Constellations based on [All Skies Encyclopaedia](https://ase.exopla.net/index.php/Category:88_IAU-Constellations), [HYG-Database](https://github.com/astronexus/HYG-Database) and [three-starmap](https://github.com/mathiasbno/three-starmap)
+- The **NASA Planetary Fact Sheet** provided the solar and atmospheric values used for the Northstar planets.
 
 ---
 

@@ -30,6 +30,12 @@
 #define YDREAM_COLOR_STYLE 3 // [0 2 3 99]
 #define YDREAM_QUALITY 3 // [0 1 2 3 4]
 
+#define REAL_STARS 1                          // [0 1]
+#define REAL_STAR_DENSITY 100                 // [50 100 150 200 300 400 500]
+#define REAL_STAR_TWINKLE 0.4                 // [0.0 0.15 0.3 0.45 0.6 0.75 0.9 1.0]
+#define REAL_CONSTELLATION_COUNT 4            // [2 3 4 5 6 8 10 12 15 20]
+#define REAL_CONSTELLATION_BRIGHTNESS 1.0     // [0.5 0.75 1.0 1.25 1.5 2.0]
+
 #define SKY_SATURATION 1.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5]
 #define SUN_GLOW 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0]
 #define SUN_HALO 0 // [0 1 2]
