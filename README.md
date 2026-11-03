@@ -38,23 +38,6 @@
   </p>
 </div>
 
----
-
-## 📖 Table of Contents
-
-- [Overview](#-overview)
-- [Requirements](#-requirements)
-- [Installation](#-installation)
-- [Cinematic Experience](#-cinematic-experience)
-- [Compatibility](#-compatibility)
-- [Performance](#-performance)
-- [Dimensions](#-dimensions)
-- [TODO / Roadmap](#-todo--roadmap)
-- [Credits](#-credits)
-- [License & Usage](#-license--usage)
-
----
-
 ## Overview
 
 **yDream Shaders** is a cinematic, highly customizable Minecraft shader pack built for **Iris 1.8.1+** and **OptiFine**. It is tested on **Minecraft 1.21.1 with NeoForge** and is designed with **Create Aeronautics** in mind.
@@ -178,28 +161,48 @@ A self-contained End atmosphere with:
 <img src="https://raw.githubusercontent.com/neekometria/yDream/refs/heads/main/banner_3.png" alt="yDream Shaders banner" width="900">
 
 
-## Credits
+# Credits & Licenses
 
 yDream Shaders is built on the **MakeUp UltraFast** codebase by Javier Garduño ([github.com/javiergcim/MakeUpUltraFast](https://github.com/javiergcim/MakeUpUltraFast)), distributed under the GNU Lesser General Public License v3.0. The base architecture and several lower-level techniques come from that project.
 
-yDream is based on **Gleam** and only works the way it does thanks to the beautiful custom stars and clouds created by Gleam's author, [FihMC](https://modrinth.com/user/FihMC).
-
 Some of the code is inspired by work from:
 
-- **Capt Tatsu** — enhanced ambient occlusion from [BSL Shaders](https://bitslablab.com/bslshaders/).
-- **Emin** and **gri573** — shadow bias technique ([complementary.dev](https://www.complementary.dev/)).
-- **Erkaman** — TAA based on [a simple TAA implementation](https://gist.github.com/Erkaman).
-- **Interleaved noise** — from [*Next Generation Post Processing in Call of Duty: Advanced Warfare*](http://advances.realtimerendering.com/s2014/index.html).
-- **delu** and **TinyTexel** — phi noise ([Shadertoy](https://www.shadertoy.com/view/Nst3R7)).
-- **atyuwen** — Dither 13 and Dither 17 ([Shadertoy](https://www.shadertoy.com/view/wl3cWX)).
-- **Jorge Jimenez, Jose I. Echevarria, Tiago Sousa** and **Diego Gutierrez** — SMAA (*Enhanced Subpixel Morphological Antialiasing*, 2012) and its [reference implementation](https://github.com/iryoku/smaa), MIT licensed. The SMAA 1x/T2x passes and area/search lookup textures come from that work.
-- [**dmnsgn/shaders-smaa**](https://github.com/dmnsgn/shaders-smaa) — MIT-licensed GLSL port used as a reference for the SMAA passes.
+## Astronomy data
+- **HYG Database v4.1** — David Nash (AstroNexus). CC BY-SA 4.0.
+  Source: https://github.com/astronexus/HYG-Database
+  Modified: filtered to 500 brightest stars; RA/Dec converted to 3D vectors.
 
-- **Star positions and magnitudes** — [HYG Database v4.1](https://github.com/astronexus/HYG-Database) by David Nash (CC BY-SA 4.0).
-- **Constellation lines** — [d3-celestial](https://github.com/ofrohn/d3-celestial) by Olaf Frohn, based on the IAU 88-constellation standard.
-- **IAU reference** — [IAU Constellations FAQ](https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx).
-- The **NASA Planetary Fact Sheet** provided the solar and atmospheric values used for the Northstar planets.
+- **d3-celestial constellation lines** — Olaf Frohn. BSD-3-Clause.
+  Source: https://github.com/ofrohn/d3-celestial
 
+- **IAU constellation stick figures** — Alan MacRobert et al. CC BY 4.0.
+  Source: https://www.iau.org/public/themes/constellations/
+
+## Algorithms & code
+- **Dave Hoskins — “Hash without Sine”** — MIT License.
+  Source: https://www.shadertoy.com/view/4djSRW
+
+- **SMAA** — Jorge Jimenez, Jose I. Echevarria, Belen Masia,
+  Fernando Navarro, Diego Gutierrez. MIT License.
+  Source: https://github.com/iryoku/smaa
+
+## Academic references (conceptual)
+- Brian Karis, “High Quality Temporal Supersampling”, SIGGRAPH 2014.
+
+- Lasse Jon Fuglsang Pedersen, “Temporal Reprojection Anti-Aliasing in INSIDE”, GDC 2016.
+> The temporal anti-aliasing resolve is conceptually based on Brian Karis’ “High Quality Temporal Supersampling” (SIGGRAPH 2014) and Lasse Jon Fuglsang Pedersen’s “Temporal Reprojection Anti-Aliasing in INSIDE” (GDC 2016). Implementation, reprojection, AABB clipping and age handling were written for yDream.
+
+---
+- Andrew Schneider & Nathan Vos, “The Real-Time Volumetric Cloudscapes of Horizon: Zero Dawn”, SIGGRAPH 2015.
+- Sébastien Hillaire, “Physically Based Sky, Atmosphere & Cloud Rendering in Frostbite”, SIGGRAPH 2016.
+> The volumetric cloud raymarch, erosion and multi-scatter lighting are inspired by Schneider & Vos (Horizon: Zero Dawn, SIGGRAPH 2015) and Sébastien Hillaire (Frostbite, SIGGRAPH 2016). The cloud-shadow projection and LOD occlusion were implemented specifically for yDream.
+
+
+
+
+## Base codebase
+- MakeUp UltraFast (see original project license).
+- Gleam
 ---
 
 ## License & Usage

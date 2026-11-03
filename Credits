@@ -3,24 +3,81 @@ yDream Shaders is built on the MakeUp UltraFast codebase by Javier Garduño
 GNU Lesser General Public License v3.0. The base architecture, and the
 lower-level techniques credited below, come from that project.
 
-Some of the code is inspired by the ideas presented below:
+yDream Shaders extends that base with its own sky, stars, constellation,
+cloud, water, atmosphere, lighting, shadow and color systems, plus the
+Distant Horizons and Northstar integrations listed below.
 
 ------
 
-- Enhanced ambient occlusion is based on Capt Tatsu's ambient occlusion used in
-  BSL Shaders:
-  https://bitslablab.com/bslshaders/
+SKY AND STAR DATA
 
-- Shadow bias technique from Emin implementation, based on a concept
-  reimagined by gri573:
-  https://www.complementary.dev/
+- Star positions and magnitudes are derived from the HYG Database v4.1
+  by David Nash (AstroNexus).
+  Source: https://github.com/astronexus/HYG-Database
+  License: Creative Commons Attribution-ShareAlike 4.0 International
+  (CC BY-SA 4.0) — https://creativecommons.org/licenses/by-sa/4.0/
+  Modifications: the catalog was filtered to the 500 brightest stars
+  (apparent magnitude <= 4), and Right Ascension / Declination were
+  converted to 3D direction vectors for GPU rendering. The resulting
+  arrays (hero_stars.glsl) are considered a derivative work of the HYG
+  catalog and are shared under CC BY-SA 4.0, in addition to the LGPL
+  v3.0 that covers the rest of the pack.
 
-- Interleaved noise from:
-  "NEXT GENERATION POST PROCESSING IN CALL OF DUTY: ADVANCED WARFARE"
-  http://advances.realtimerendering.com/s2014/index.html
+- Constellation line geometry is derived from d3-celestial by Olaf Frohn.
+  Source: https://github.com/ofrohn/d3-celestial
+  License: BSD-3-Clause. Copyright (c) 2015-2024, Olaf Frohn.
+  The full license text is reproduced in LICENSE.txt.
+  Modifications: filtered to the 20 most famous constellations, and each
+  endpoint was converted from (RA, Dec) to a 3D unit vector.
+
+- The underlying constellation figures follow the IAU 88-constellation
+  standard.
+  Reference: https://www.iau.org/public/themes/constellations/
+
+------
+
+ANTI-ALIASING
 
 - TAA is based on Erkaman's TAA simple implementation:
   https://gist.github.com/Erkaman
+  The current implementation has been substantially rewritten to add
+  YCoCg variance clipping, Catmull-Rom history sampling, age-based
+  blending and jittered reprojection, but the original conceptual
+  starting point is Erkaman's gist.
+
+- Conceptual references for temporal supersampling and reprojection:
+  Brian Karis, "High Quality Temporal Supersampling", SIGGRAPH 2014.
+  Lasse Jon Fuglsang Pedersen, "Temporal Reprojection Anti-Aliasing in
+  INSIDE", GDC 2016.
+
+- SMAA (Subpixel Morphological Antialiasing) is based on the reference
+  implementation by Jorge Jimenez, Jose I. Echevarria, Belen Masia,
+  Fernando Navarro and Diego Gutierrez.
+  Source: https://github.com/iryoku/smaa
+  License: MIT. The full license text is reproduced in LICENSE.txt.
+
+------
+
+CLOUDS
+
+- The volumetric cloud raymarch, erosion, and multi-scatter lighting
+  are conceptually based on:
+  Andrew Schneider & Nathan Vos, "The Real-Time Volumetric Cloudscapes
+  of Horizon: Zero Dawn", SIGGRAPH 2015.
+  Sebastien Hillaire, "Physically Based Sky, Atmosphere & Cloud
+  Rendering in Frostbite", SIGGRAPH 2016.
+
+- Cloud-noise hashing and field sampling are original to yDream, with
+  the two-octave rotation trick adapted from in-house work.
+
+------
+
+HASHING AND NOISE
+
+- The `cheapHash3` helper used for per-night constellation selection is
+  based on the "Hash without Sine" algorithm by Dave Hoskins.
+  Source: https://www.shadertoy.com/view/4djSRW
+  License: MIT. Copyright (c) 2014 David Hoskins.
 
 - Phi noise by delu:
   https://www.shadertoy.com/view/Nst3R7
@@ -32,33 +89,43 @@ Some of the code is inspired by the ideas presented below:
 - R dither based on:
   http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
 
-- Dither 13 and Dther 17 by atyuwen:
+- Dither 13 and Dither 17 by atyuwen:
   https://www.shadertoy.com/view/wl3cWX
   Based on:
   https://developer.oculus.com/blog/tech-note-shader-snippets-for-efficient-2d-dithering/
 
-- Star positions and magnitudes — HYG Database v4.1
-  https://github.com/astronexus/HYG-Database 
-  by David Nash (CC BY-SA 4.0).
-
-- Constellation lines — d3-celestial
-  https://github.com/ofrohn/d3-celestial 
-  by Olaf Frohn, based on the IAU 88-constellation standard.
-
-- IAU reference — IAU Constellations FAQ
-  https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx
+- Interleaved noise from:
+  "NEXT GENERATION POST PROCESSING IN CALL OF DUTY: ADVANCED WARFARE"
+  http://advances.realtimerendering.com/s2014/index.html
 
 ------
 
-If any functions were listed here, and are no longer listed,
-they have been removed or replaced by own functions.
+LIGHTING AND SHADOWS
+
+- Enhanced ambient occlusion is based on Capt Tatsu's ambient occlusion
+  used in BSL Shaders:
+  https://bitslablab.com/bslshaders/
+
+- Shadow bias technique from Emin implementation, based on a concept
+  reimagined by gri573:
+  https://www.complementary.dev/
+
+- Screen-space sun occlusion for Distant Horizons LOD terrain and for
+  vanilla terrain beyond the shadow map range, the unified trace, and
+  the four-way occlusion toggle system were implemented specifically
+  for yDream.
+
+------
+
+If any functions were listed here in the past and are no longer
+listed, they have been removed or replaced by original functions.
 
 ------
 
 MakeUp UltraFast's original author is not a graphics developer and made
-that shader out of curiosity and personal use. yDream Shaders adapts and
-extends that codebase with its own lighting, color, sky, cloud, water,
-and atmosphere systems.
+that shader out of curiosity and personal use. yDream Shaders adapts
+and extends that codebase with its own lighting, color, sky, cloud,
+water, and atmosphere systems.
 
-If you think copyright has been violated anywhere in this codebase,
+If you believe copyright has been violated anywhere in this codebase,
 please raise it with the maintainer of this fork.
