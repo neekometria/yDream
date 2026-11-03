@@ -41,18 +41,18 @@ uniform vec3 cameraPosition;
 uniform int dhRenderDistance;
 
 #if defined SHADOW_CASTING && !defined NETHER
-    uniform sampler2DShadow shadowtex1;
+uniform sampler2DShadow shadowtex1;
     #if defined COLORED_SHADOW
-        uniform sampler2DShadow shadowtex0;
-        uniform sampler2D shadowcolor0;
+uniform sampler2DShadow shadowtex0;
+uniform sampler2D shadowcolor0;
     #endif
 #endif
 
 uniform float blindness;
 
 #if MC_VERSION >= 11900
-    uniform float darknessFactor;
-    uniform float darknessLightFactor;
+uniform float darknessFactor;
+uniform float darknessLightFactor;
 #endif
 
 varying vec2 texcoord;
@@ -88,29 +88,53 @@ varying float fogSunScatter;
     // prepared sky here, not the cloud coverage written later. Derive the
     // coverage from the same shared cloud field that the raymarch and the ground
     // shadows use, so the water fades under the same cloud banks.
-    uniform sampler2D gaux2;
+uniform sampler2D gaux2;
     #include "/lib/cloud_noise.glsl"
 
-    float dh_water_cloud_coverage(vec3 waterPos) {
-        vec3 ray = waterPos - cameraPosition;
-        if (ray.y > -0.001) {
-            return 0.0;
-        }
-
-        float umbral = clamp(CLOUD_BASE_UMBRAL + (1.0 - smoothstep(0.0, 1.0, rainStrength)) * 0.3, 0.0, 0.99);
-        umbral = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
-
-        float coverage = 0.0;
-        for (int i = 0; i < 4; i++) {
-            float height = mix(CLOUD_PLANE + 6.0, CLOUD_PLANE_SUP - 6.0, (float(i) + 0.5) / 4.0);
-            float tRay = (height - cameraPosition.y) / ray.y;
-            if (tRay > 0.0 && tRay < 1.0) {
-                float fieldValue = cloud_field((cameraPosition + ray * tRay).xz);
-                coverage = max(coverage, smoothstep(umbral, umbral + 0.14, fieldValue));
-            }
-        }
-        return coverage;
+float dh_water_cloud_coverage(vec3 waterPos) {
+    vec3 ray = waterPos - cameraPosition;
+    if (ray.y > -0.001) {
+        return 0.0;
     }
+
+    float umbral = clamp(CLOUD_BASE_UMBRAL + (1.0 - smoothstep(0.0, 1.0, rainStrength)) * 0.3, 0.0, 0.99);
+    umbral = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
+
+    // Camera está dentro da camada de nuvens E dentro de uma coluna densa?
+    // Nesse caso a água está atrás da nuvem que o jogador está atravessando
+    // e deve ficar oculta, exatamente como quando se olha de cima.
+    if (cameraPosition.y > CLOUD_PLANE && cameraPosition.y < CLOUD_PLANE_SUP) {
+        float camField = cloud_field(cameraPosition.xz);
+        if (camField > umbral + 0.10) {
+            return 1.0;
+        }
+    }
+
+    float coverage = 0.0;
+    const int WATER_CLOUD_SAMPLES = 8;
+    for (int i = 0; i < WATER_CLOUD_SAMPLES; i++) {
+        float height = mix(CLOUD_PLANE + 4.0, CLOUD_PLANE_SUP - 4.0,
+                           (float(i) + 0.5) / float(WATER_CLOUD_SAMPLES));
+        float tRay = (height - cameraPosition.y) / ray.y;
+        if (tRay > 0.0 && tRay < 1.0) {
+            vec3 samplePos = cameraPosition + ray * tRay;
+            float detailNoise = texture2D(gaux2,
+                (samplePos.xz * 0.0016) - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6)).r;
+            float fieldValue = mix(cloud_field(samplePos.xz), detailNoise, CLOUD_DETAIL_WEIGHT);
+            #ifdef CLOUD_LIGHT_ENHANCED
+            float erosionNoise = texture2D(gaux2,
+                (samplePos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
+            fieldValue += (erosionNoise - 0.5) * 0.20 * (1.0 - fieldValue);
+            #else
+            float erosionNoise = texture2D(gaux2,
+                (samplePos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
+            fieldValue += (erosionNoise - 0.5) * 0.12 * (1.0 - fieldValue);
+            #endif
+            coverage = max(coverage, smoothstep(umbral - 0.02, umbral + 0.08, fieldValue));
+        }
+    }
+    return coverage;
+}
 #endif
 
 void main() {
@@ -118,9 +142,9 @@ void main() {
     vec3 realLight;
 
     #if AA_TYPE > 0
-        float dither = shiftedRDither(gl_FragCoord.xy);
+    float dither = shiftedRDither(gl_FragCoord.xy);
     #else
-        float dither = rDither(gl_FragCoord.xy);
+    float dither = rDither(gl_FragCoord.xy);
 
     #endif
 
@@ -136,24 +160,24 @@ void main() {
     }
 
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-        float cloudCoverage = 0.0;
-        bool waterCloudFade = isEyeInWater == 0
-            && blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5
-            && cameraPosition.y > CLOUD_PLANE_SUP;
-        if (waterCloudFade) {
-            cloudCoverage = dh_water_cloud_coverage(position.xyz + cameraPosition);
-        }
-        if (waterCloudFade && cloudCoverage > 0.999) {
-            discard;
-            return;
-        }
+    float cloudCoverage = 0.0;
+    bool waterCloudFade = isEyeInWater == 0
+        && blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5
+        && cameraPosition.y > CLOUD_PLANE;
+    if (waterCloudFade) {
+        cloudCoverage = dh_water_cloud_coverage(position.xyz + cameraPosition);
+    }
+    if (waterCloudFade && cloudCoverage > 0.999) {
+        discard;
+        return;
+    }
     #endif
 
     #ifdef VANILLA_WATER
-        vec3 waterNormalBase = vec3(0.0, 0.0, 1.0);
+    vec3 waterNormalBase = vec3(0.0, 0.0, 1.0);
     #else
-        vec3 mapPos = position.xyz + cameraPosition;
-        vec3 waterNormalBase = normal_waves_dh(mapPos.xzy);
+    vec3 mapPos = position.xyz + cameraPosition;
+    vec3 waterNormalBase = normal_waves_dh(mapPos.xzy);
     #endif
 
     vec3 surfaceNormal;
@@ -179,27 +203,27 @@ void main() {
     skyColorReflect = xyzToRgb(skyColorReflect);
 
     #if !defined VANILLA_WATER && WATER_TEXTURE == 1
-        vec4 blockColor = vec4(0.1);
+    vec4 blockColor = vec4(0.1);
 
-        vec3 synthesisPosition = (position.xyz + cameraPosition) * 8.0;
-        synthesisPosition = floor(synthesisPosition + 0.01);
-        float noise = hash13(synthesisPosition);
-        noise *= noise;
-        noise *= noise;
-        noise *= noise;
-        float syntheticNoise = (noise * 0.3) + 0.5;
-        blockColor.rgb += vec3(syntheticNoise);
+    vec3 synthesisPosition = (position.xyz + cameraPosition) * 8.0;
+    synthesisPosition = floor(synthesisPosition + 0.01);
+    float noise = hash13(synthesisPosition);
+    noise *= noise;
+    noise *= noise;
+    noise *= noise;
+    float syntheticNoise = (noise * 0.3) + 0.5;
+    blockColor.rgb += vec3(syntheticNoise);
     #elif defined VANILLA_WATER
 
-        vec3 synthesisPosition = (position.xyz + cameraPosition) * 8.0;
-        synthesisPosition = floor(synthesisPosition + 0.01);
-        float noise = hash13(synthesisPosition);
-        noise *= noise;
-        noise *= noise;
-        float syntheticNoise = (noise * 0.227) + 0.773;
-        vec4 blockColor = vec4(vec3(syntheticNoise), tintColor.a);
+    vec3 synthesisPosition = (position.xyz + cameraPosition) * 8.0;
+    synthesisPosition = floor(synthesisPosition + 0.01);
+    float noise = hash13(synthesisPosition);
+    noise *= noise;
+    noise *= noise;
+    float syntheticNoise = (noise * 0.227) + 0.773;
+    vec4 blockColor = vec4(vec3(syntheticNoise), tintColor.a);
     #else
-        vec4 blockColor;
+    vec4 blockColor;
     #endif
 
     if(blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5) {
@@ -221,25 +245,25 @@ void main() {
         blockColor.a = sqrt(blockColor.a);
     #else
         #if WATER_TEXTURE == 1
-            float waterTexture = luma(blockColor.rgb);
+        float waterTexture = luma(blockColor.rgb);
         #else
-            float waterTexture = 1.0;
+        float waterTexture = 1.0;
         #endif
 
-            realLight = omniLight +
-                (directLightStrength * visibleSky * directLightColor) * (1.0 - rainStrength * 0.55) +
-                candleColor;
+        realLight = omniLight +
+            (directLightStrength * visibleSky * directLightColor) * (1.0 - rainStrength * 0.55) +
+            candleColor;
 
         #if WATER_COLOR_SOURCE == 0
-                blockColor.rgb = waterTexture * realLight * WATER_COLOR;
+        blockColor.rgb = waterTexture * realLight * WATER_COLOR;
         #elif WATER_COLOR_SOURCE == 1
-            blockColor.rgb = 0.3 * waterTexture * realLight * tintColor.rgb;
+        blockColor.rgb = 0.3 * waterTexture * realLight * tintColor.rgb;
         #endif
 
-            blockColor = vec4(refraction(fragposition, blockColor.rgb, waterNormalBase), 1.0);
+        blockColor = vec4(refraction(fragposition, blockColor.rgb, waterNormalBase), 1.0);
 
         #if WATER_TEXTURE == 1
-            fresnel = clamp(fresnel * (waterTexture * waterTexture + 0.5), 0.0, 1.0);
+        fresnel = clamp(fresnel * (waterTexture * waterTexture + 0.5), 0.0, 1.0);
         #endif
 
         blockColor.rgb = water_shader_dh(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, dither, directLightColor);
@@ -260,9 +284,9 @@ void main() {
     }
 
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-        if (waterCloudFade) {
-            blockColor.a *= 1.0 - cloudCoverage;
-        }
+    if (waterCloudFade) {
+        blockColor.a *= 1.0 - cloudCoverage;
+    }
     #endif
 
     #include "/src/finalcolor_dh.glsl"

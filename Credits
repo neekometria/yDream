@@ -37,6 +37,17 @@ Some of the code is inspired by the ideas presented below:
   Based on:
   https://developer.oculus.com/blog/tech-note-shader-snippets-for-efficient-2d-dithering/
 
+- Star positions and magnitudes — HYG Database v4.1
+  https://github.com/astronexus/HYG-Database 
+  by David Nash (CC BY-SA 4.0).
+
+- Constellation lines — d3-celestial
+  https://github.com/ofrohn/d3-celestial 
+  by Olaf Frohn, based on the IAU 88-constellation standard.
+
+- IAU reference — IAU Constellations FAQ
+  https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx
+
 ------
 
 If any functions were listed here, and are no longer listed,
