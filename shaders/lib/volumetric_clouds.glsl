@@ -31,6 +31,33 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
     float belowLayer = 1.0 - smoothstep(CLOUD_PLANE - 20.0, CLOUD_PLANE + 5.0, base_pos.y);
     float horizonFade = mix(1.0, clamp((eyeDirection.y - 0.06) * 5.0, 0.0, 1.0), belowLayer);
 
+    float dif_sup = CLOUD_PLANE_SUP - CLOUD_PLANE_CENTER;
+    float dif_inf = CLOUD_PLANE_CENTER - CLOUD_PLANE;
+
+    float layerEdgeFade = 10.0;
+    float insideLayer = smoothstep(CLOUD_PLANE - layerEdgeFade, CLOUD_PLANE + layerEdgeFade, base_pos.y) *
+        (1.0 - smoothstep(CLOUD_PLANE_SUP - layerEdgeFade, CLOUD_PLANE_SUP + layerEdgeFade, base_pos.y));
+
+    float cameraField = clamp((cloud_field(base_pos.xz) - umbral) / max(1.0 - umbral, 0.001), 0.0, 1.0);
+    float cameraShape = clamp(cloudShape(cameraField), 0.0, 1.0);
+    float cameraSurfaceInf = CLOUD_PLANE_CENTER - cameraShape * dif_inf * CLOUD_INF_SCALE;
+    float cameraSurfaceSup = CLOUD_PLANE_CENTER + cameraShape * dif_sup * CLOUD_SUP_SCALE;
+    float insideCloud = smoothstep(cameraSurfaceInf - 20.0, cameraSurfaceInf + 20.0, base_pos.y) *
+        (1.0 - smoothstep(cameraSurfaceSup - 20.0, cameraSurfaceSup + 20.0, base_pos.y));
+
+    float interiorAmount = insideLayer * insideCloud;
+
+    if (abs(eyeDirection.y) <= 0.001) {
+        // Raio horizontal: a camada é Y-thin, então o raymarch não consegue
+        // marchar. Mas se estamos DENTRO de uma nuvem, o buraco central
+        // de ~2 pixels precisa ser preenchido com nuvem.
+        if (interiorAmount > 0.01) {
+            float coverage = smoothstep(0.05, 0.35, interiorAmount);
+            cloudCoverage = coverage;
+            blockColor = mix(blockColor, cloudColor * CLOUD_BRIGHTNESS, coverage);
+        }
+        return blockColor;
+    }
     if (abs(eyeDirection.y) > 0.001) {
         float view_y_inv = 1.0 / max(abs(eyeDirection.y), 0.001);
         view_y_inv = min(view_y_inv, 6.0);
@@ -59,9 +86,6 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         vec3 intersection_pos = (eyeDirection * plane_distance_start) + base_pos;
         vec3 intersection_pos_sup = (eyeDirection * plane_distance_end) + base_pos;
 
-        float dif_sup = CLOUD_PLANE_SUP - CLOUD_PLANE_CENTER;
-        float dif_inf = CLOUD_PLANE_CENTER - CLOUD_PLANE;
-
         vec3 increment = (intersection_pos_sup - intersection_pos) / samples;
 
         float increment_dist = length(increment);
@@ -69,41 +93,14 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float dist_aux_coeff = (CLOUD_PLANE_SUP - CLOUD_PLANE) * 0.075;
         float dist_aux_coeff_blur = dist_aux_coeff * 0.3;
 
-        // Compute interior detection early so the opacity distance can be
-        // adjusted for the inside-the-cloud case before the raymarch even
-        // starts. The interior test is the same one used after the loop for
-        // the boost / density smoothing, but the opacity distance needs it
-        // before the first sample is taken.
-        float layerEdgeFade = 10.0;
-        float insideLayer = smoothstep(CLOUD_PLANE - layerEdgeFade, CLOUD_PLANE + layerEdgeFade, base_pos.y) *
-            (1.0 - smoothstep(CLOUD_PLANE_SUP - layerEdgeFade, CLOUD_PLANE_SUP + layerEdgeFade, base_pos.y));
-
-        // Antes: cameraField oscila com frameTimeCounter porque cloud_field usa
-        // o tempo no UV. Isso faz interiorAmount, cloudCoverage e cloudColor
-        // pularem a cada frame dentro da nuvem, e o TAA converge para o lado
-        // brilhante. Suavizar o limiar de "estou dentro" reduz o flicker sem
-        // impedir o drift natural das nuvens.
-        float cameraField = clamp((cloud_field(base_pos.xz) - umbral) / max(1.0 - umbral, 0.001), 0.0, 1.0);
-        float cameraShape = clamp(cloudShape(cameraField), 0.0, 1.0);
-        float cameraSurfaceInf = CLOUD_PLANE_CENTER - cameraShape * dif_inf * CLOUD_INF_SCALE;
-        float cameraSurfaceSup = CLOUD_PLANE_CENTER + cameraShape * dif_sup * CLOUD_SUP_SCALE;
-
-        // Janela mais larga (era ±8.0). Com janela estreita o menor flicker de
-        // cameraField atravessa o limiar e desliga o override de interior,
-        // que é justamente o que dispara o crescimento do TAA.
-        float insideCloud = smoothstep(cameraSurfaceInf - 20.0, cameraSurfaceInf + 20.0, base_pos.y) *
-            (1.0 - smoothstep(cameraSurfaceSup - 20.0, cameraSurfaceSup + 20.0, base_pos.y));
-
-        float interiorAmount = insideLayer * insideCloud;
-
-                // Outside a cloud the layer is Y-thin, so horizontal rays need to
-                // travel further to saturate (that is what the 1/|y| scaling
-                // compensates for). Inside a cloud the volume is thick in every
-                // direction, so scaling by 1/|y| makes horizontal rays almost
-                // transparent and creates a visible straight cut where the dense
-                // vertical wall meets the faded horizontal interior. Blend the
-                // factor toward 1.0 as we enter the cloud so every direction
-                // saturates at the same rate.
+        // Outside a cloud the layer is Y-thin, so horizontal rays need to
+        // travel further to saturate (that is what the 1/|y| scaling
+        // compensates for). Inside a cloud the volume is thick in every
+        // direction, so scaling by 1/|y| makes horizontal rays almost
+        // transparent and creates a visible straight cut where the dense
+        // vertical wall meets the faded horizontal interior. Blend the
+        // factor toward 1.0 as we enter the cloud so every direction
+        // saturates at the same rate.
         float opacity_y_factor = mix(view_y_inv, 1.0, interiorAmount);
         float opacity_dist = dist_aux_coeff * 2.0 * opacity_y_factor;
 
