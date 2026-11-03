@@ -57,8 +57,7 @@ Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javi
 | Shader loader | Iris **1.8.1+** or OptiFine |
 | GPU (reference) | GTX 750 Ti |
 
-> All screenshots were captured on a **GTX 750 Ti**. The pack is optimized to run on modest hardware.
-
+> All screenshots were captured on a **GTX 750 Ti**.
 ---
 
 ## Cinematic Experience
@@ -129,7 +128,9 @@ Fine-tuning sliders control cloud, godray, reflection and ambient occlusion deta
 
 **Anti-aliasing options:** temporal TAA/ATAA and SMAA 1x / T2x. SMAA uses standard lookup textures and fullscreen passes.
 
-> Simple benchmarks show a **5%–10% performance improvement** compared to Gleam using the *Polished* and *default* presets.
+The Real Star Catalog can cause significant performance degradation
+
+> Be careful, though, because as time goes on and this shader is updated, performance may start to decline.
 
 ---
 
