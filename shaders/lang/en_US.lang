@@ -1025,3 +1025,92 @@ value.DH_OCCLUDE_SUN_EFFECTS.0=Off
 value.DH_OCCLUDE_SUN_EFFECTS.1=On
 value.EMISSIVE_ORES.0=Off
 value.EMISSIVE_ORES.1=On
+
+screen.SCREEN_SUN_OCCLUSION=Sun Occlusion
+screen.SCREEN_SUN_OCCLUSION.comment=Sun and moon as absolute light sources. When the sun is blocked by terrain or Distant Horizons LOD, the terrain behind it loses its direct sunlight. Each occluder source and each receiver can be toggled independently.
+
+option.SUN_OCCLUSION=Sun occlusion
+option.SUN_OCCLUSION.comment=Master toggle. When on, sunlight and moonlight are traced through the scene so a mountain in front of the sun darkens everything behind it, even past the shadow map range.
+value.SUN_OCCLUSION.0=Off
+value.SUN_OCCLUSION.1=On
+
+option.SUN_OCCLUSION_LOD_BLOCKS_VANILLA=LOD blocks real terrain
+option.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.comment=A Distant Horizons mountain in front of the sun darkens the real terrain behind it. This is the case the shadow map can't handle, since LOD terrain is never rendered into it.
+value.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.0=Off
+value.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.1=On
+
+option.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA=Real terrain blocks real terrain
+option.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.comment=Real terrain beyond the shadow map distance casts a screen-space shadow. Without this, distant hills past shadowDistance stay fully lit even when they should be in a mountain's shadow.
+value.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.0=Off
+value.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.1=On
+
+option.SUN_OCCLUSION_LOD_BLOCKS_LOD=LOD blocks LOD
+option.SUN_OCCLUSION_LOD_BLOCKS_LOD.comment=LOD terrain receiving screen-space shadows from other LOD terrain. This is the same as the existing DH_SHADOWS feature, controlled by the same trace.
+value.SUN_OCCLUSION_LOD_BLOCKS_LOD.0=Off
+value.SUN_OCCLUSION_LOD_BLOCKS_LOD.1=On
+
+option.SUN_OCCLUSION_VANILLA_BLOCKS_LOD=Real terrain blocks LOD
+option.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.comment=Real terrain casting a screen-space shadow onto LOD terrain behind it. Without this, LOD hills behind a real mountain stay lit.
+value.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.0=Off
+value.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.1=On
+
+option.SUN_OCCLUSION_STEPS=Occlusion quality
+option.SUN_OCCLUSION_STEPS.comment=Raymarch steps per pixel. Higher values find thinner occluders and give smoother shadows, at a linear cost.
+value.SUN_OCCLUSION_STEPS.12=12 (fastest)
+value.SUN_OCCLUSION_STEPS.16=16
+value.SUN_OCCLUSION_STEPS.20=20
+value.SUN_OCCLUSION_STEPS.24=24 (recommended)
+value.SUN_OCCLUSION_STEPS.32=32
+value.SUN_OCCLUSION_STEPS.48=48 (highest)
+
+option.SUN_OCCLUSION_REACH=Occlusion reach
+option.SUN_OCCLUSION_REACH.comment=How far the sun trace reaches in blocks. Large values let a distant mountain block the sun; small values only catch nearby occluders.
+value.SUN_OCCLUSION_REACH.80=80 blocks
+value.SUN_OCCLUSION_REACH.120=120
+value.SUN_OCCLUSION_REACH.160=160
+value.SUN_OCCLUSION_REACH.200=200
+value.SUN_OCCLUSION_REACH.260=260
+value.SUN_OCCLUSION_REACH.320=320 (recommended)
+value.SUN_OCCLUSION_REACH.420=420
+value.SUN_OCCLUSION_REACH.520=520
+
+option.SUN_OCCLUSION_SOFTNESS=Occlusion softness
+option.SUN_OCCLUSION_SOFTNESS.comment=Blends the edge of a traced shadow over a larger distance. High values look like atmospheric haze, low values like sharp terrain silhouettes.
+value.SUN_OCCLUSION_SOFTNESS.0.5=Sharp
+value.SUN_OCCLUSION_SOFTNESS.0.75=Soft
+value.SUN_OCCLUSION_SOFTNESS.1.0=Normal
+value.SUN_OCCLUSION_SOFTNESS.1.25=Softer
+value.SUN_OCCLUSION_SOFTNESS.1.5=Very soft
+value.SUN_OCCLUSION_SOFTNESS.2.0=Hazy
+
+option.SUN_OCCLUSION_BIAS=Depth bias
+option.SUN_OCCLUSION_BIAS.comment=Minimum distance before a traced sample can count as an occluder. Raise if you see shadow acne (dark speckles) on lit surfaces.
+value.SUN_OCCLUSION_BIAS.0.05=Low (acne risk)
+value.SUN_OCCLUSION_BIAS.0.10=Small
+value.SUN_OCCLUSION_BIAS.0.15=Normal
+value.SUN_OCCLUSION_BIAS.0.20=Safe
+value.SUN_OCCLUSION_BIAS.0.30=Very safe
+
+option.SUN_OCCLUSION_ANGULAR_GATE=Angular gate
+option.SUN_OCCLUSION_ANGULAR_GATE.comment=Skip the trace when the surface normal points more than this far away from the sun. 0 traces every pixel; higher values save performance at the cost of missing grazing-angle shadows.
+value.SUN_OCCLUSION_ANGULAR_GATE.0.0=Trace every pixel
+value.SUN_OCCLUSION_ANGULAR_GATE.0.1=Near-optimal (recommended)
+value.SUN_OCCLUSION_ANGULAR_GATE.0.2=Fast
+value.SUN_OCCLUSION_ANGULAR_GATE.0.35=Faster
+value.SUN_OCCLUSION_ANGULAR_GATE.0.5=Very fast (misses edge cases)
+
+option.SUN_OCCLUSION_FADE_START=Shadow-map blend start
+option.SUN_OCCLUSION_FADE_START.comment=Distance (as a fraction of shadowDistance) where screen-space occlusion begins to blend with the shadow map. Lower values create a wider overlap zone.
+value.SUN_OCCLUSION_FADE_START.0.5=50%
+value.SUN_OCCLUSION_FADE_START.0.65=65%
+value.SUN_OCCLUSION_FADE_START.0.75=75% (recommended)
+value.SUN_OCCLUSION_FADE_START.0.85=85%
+value.SUN_OCCLUSION_FADE_START.0.95=95%
+
+option.SUN_OCCLUSION_FADE_END=Shadow-map blend end
+option.SUN_OCCLUSION_FADE_END.comment=Distance where the trace is at full strength. Should be above the blend start.
+value.SUN_OCCLUSION_FADE_END.0.85=85%
+value.SUN_OCCLUSION_FADE_END.0.90=90%
+value.SUN_OCCLUSION_FADE_END.0.95=95% (recommended)
+value.SUN_OCCLUSION_FADE_END.0.98=98%
+value.SUN_OCCLUSION_FADE_END.1.0=100% (no fade)
