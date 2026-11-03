@@ -751,6 +751,53 @@ value.MOON_PHASE.1=Lua cheia
 value.MOON_PHASE.2=Gibosa
 value.MOON_PHASE.3=Quarto
 value.MOON_PHASE.4=Crescente
+option.REAL_STARS=Catálogo real de estrelas
+option.REAL_STARS.comment=Usa estrelas reais e 20 constelações famosas do catálogo astronômico HYG em vez de padrões procedurais. Órion, a Ursa Maior, o Cruzeiro do Sul e Cassiopeia são realmente reconhecíveis. Desligue para usar o sistema procedural antigo.
+value.REAL_STARS.0=Procedural
+value.REAL_STARS.1=Catálogo real
+
+option.REAL_STAR_DENSITY=Contagem de estrelas reais
+option.REAL_STAR_DENSITY.comment=Quantas das estrelas reais mais brilhantes são renderizadas. Valores baixos são bem mais rápidos em GPUs antigas. As estrelas mais brilhantes (Sirius, Vega, Betelgeuse) sempre permanecem visíveis.
+value.REAL_STAR_DENSITY.50=50 (mais rápido)
+value.REAL_STAR_DENSITY.100=100 (recomendado)
+value.REAL_STAR_DENSITY.150=150
+value.REAL_STAR_DENSITY.200=200 (equilibrado)
+value.REAL_STAR_DENSITY.300=300
+value.REAL_STAR_DENSITY.400=400
+value.REAL_STAR_DENSITY.500=500 (catálogo completo)
+
+option.REAL_STAR_TWINKLE=Cintilação real das estrelas
+option.REAL_STAR_TWINKLE.comment=Cintilação atmosférica como em estrelas reais. Estrelas mais brilhantes cintilam menos e estrelas perto do horizonte cintilam mais.
+value.REAL_STAR_TWINKLE.0.0=Desligado
+value.REAL_STAR_TWINKLE.0.15=Subtil
+value.REAL_STAR_TWINKLE.0.3=Leve
+value.REAL_STAR_TWINKLE.0.45=Moderado
+value.REAL_STAR_TWINKLE.0.6=Forte
+value.REAL_STAR_TWINKLE.0.75=Muito forte
+value.REAL_STAR_TWINKLE.0.9=Extremo
+value.REAL_STAR_TWINKLE.1.0=Máximo
+
+option.REAL_CONSTELLATION_COUNT=Constelações por noite
+option.REAL_CONSTELLATION_COUNT.comment=Quantas das 20 constelações famosas são selecionadas a cada noite. A seleção é aleatorizada por dia de jogo, então o céu fica diferente a cada noite. Pelo menos duas sempre aparecem.
+value.REAL_CONSTELLATION_COUNT.2=2 (mínimo)
+value.REAL_CONSTELLATION_COUNT.3=3
+value.REAL_CONSTELLATION_COUNT.4=4 (recomendado)
+value.REAL_CONSTELLATION_COUNT.5=5
+value.REAL_CONSTELLATION_COUNT.6=6
+value.REAL_CONSTELLATION_COUNT.8=8
+value.REAL_CONSTELLATION_COUNT.10=10
+value.REAL_CONSTELLATION_COUNT.12=12
+value.REAL_CONSTELLATION_COUNT.15=15
+value.REAL_CONSTELLATION_COUNT.20=20 (todas)
+
+option.REAL_CONSTELLATION_BRIGHTNESS=Brilho das linhas das constelações
+option.REAL_CONSTELLATION_BRIGHTNESS.comment=Quão forte as linhas das constelações brilham. Mais brilhante parece mais um mapa estelar, mais apagado parece o airglow real.
+value.REAL_CONSTELLATION_BRIGHTNESS.0.5=Apagado
+value.REAL_CONSTELLATION_BRIGHTNESS.0.75=Suave
+value.REAL_CONSTELLATION_BRIGHTNESS.1.0=Normal
+value.REAL_CONSTELLATION_BRIGHTNESS.1.25=Brilhante
+value.REAL_CONSTELLATION_BRIGHTNESS.1.5=Muito brilhante
+value.REAL_CONSTELLATION_BRIGHTNESS.2.0=Máximo
 option.NIGHT_SHADOWS=Sombras noturnas
 option.NIGHT_SHADOWS.comment=How hard the moonlit shadows are. Soft reduces the blocky flicker of moving shadows at night, Off skips moon shadows entirely and saves performance.
 value.NIGHT_SHADOWS.0=Total
@@ -978,3 +1025,92 @@ value.DH_OCCLUDE_SUN_EFFECTS.0=Desligado
 value.DH_OCCLUDE_SUN_EFFECTS.1=Ligado
 value.EMISSIVE_ORES.0=Desligado
 value.EMISSIVE_ORES.1=Ligado
+
+screen.SCREEN_SUN_OCCLUSION=Oclusão Solar
+screen.SCREEN_SUN_OCCLUSION.comment=Sol e lua como fontes de luz absolutas. Quando o sol é bloqueado pelo terreno ou pelo LOD do Distant Horizons, o terreno atrás dele perde sua luz direta do sol. Cada fonte de oclusor e cada receptor podem ser ligados independentemente.
+
+option.SUN_OCCLUSION=Oclusão solar
+option.SUN_OCCLUSION.comment=Interruptor mestre. Quando ligado, a luz solar e lunar são traçadas pela cena, então uma montanha na frente do sol escurece tudo atrás dela, mesmo além do alcance do mapa de sombras.
+value.SUN_OCCLUSION.0=Desligado
+value.SUN_OCCLUSION.1=Ligado
+
+option.SUN_OCCLUSION_LOD_BLOCKS_VANILLA=LOD bloqueia terreno real
+option.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.comment=Uma montanha do Distant Horizons na frente do sol escurece o terreno real atrás dela. Este é o caso que o mapa de sombras não consegue lidar, já que o terreno LOD nunca é renderizado nele.
+value.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.0=Desligado
+value.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.1=Ligado
+
+option.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA=Terreno real bloqueia terreno real
+option.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.comment=Terreno real além da distância do mapa de sombras projeta uma sombra em espaço de tela. Sem isso, colinas distantes além de shadowDistance permanecem totalmente iluminadas mesmo quando deveriam estar na sombra de uma montanha.
+value.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.0=Desligado
+value.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.1=Ligado
+
+option.SUN_OCCLUSION_LOD_BLOCKS_LOD=LOD bloqueia LOD
+option.SUN_OCCLUSION_LOD_BLOCKS_LOD.comment=Terreno LOD recebendo sombras em espaço de tela de outro terreno LOD. Isso é o mesmo que a opção DH_SHADOWS existente, controlada pelo mesmo traçado.
+value.SUN_OCCLUSION_LOD_BLOCKS_LOD.0=Desligado
+value.SUN_OCCLUSION_LOD_BLOCKS_LOD.1=Ligado
+
+option.SUN_OCCLUSION_VANILLA_BLOCKS_LOD=Terreno real bloqueia LOD
+option.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.comment=Terreno real projetando uma sombra em espaço de tela no terreno LOD atrás dele. Sem isso, colinas LOD atrás de uma montanha real permanecem iluminadas.
+value.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.0=Desligado
+value.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.1=Ligado
+
+option.SUN_OCCLUSION_STEPS=Qualidade da oclusão
+option.SUN_OCCLUSION_STEPS.comment=Passos de raymarching por pixel. Valores altos encontram oclusores mais finos e geram sombras mais suaves, com custo linear.
+value.SUN_OCCLUSION_STEPS.12=12 (mais rápido)
+value.SUN_OCCLUSION_STEPS.16=16
+value.SUN_OCCLUSION_STEPS.20=20
+value.SUN_OCCLUSION_STEPS.24=24 (recomendado)
+value.SUN_OCCLUSION_STEPS.32=32
+value.SUN_OCCLUSION_STEPS.48=48 (mais alto)
+
+option.SUN_OCCLUSION_REACH=Alcance da oclusão
+option.SUN_OCCLUSION_REACH.comment=Até onde o traçado do sol chega em blocos. Valores altos permitem que uma montanha distante bloqueie o sol; valores baixos só capturam oclusores próximos.
+value.SUN_OCCLUSION_REACH.80=80 blocos
+value.SUN_OCCLUSION_REACH.120=120
+value.SUN_OCCLUSION_REACH.160=160
+value.SUN_OCCLUSION_REACH.200=200
+value.SUN_OCCLUSION_REACH.260=260
+value.SUN_OCCLUSION_REACH.320=320 (recomendado)
+value.SUN_OCCLUSION_REACH.420=420
+value.SUN_OCCLUSION_REACH.520=520
+
+option.SUN_OCCLUSION_SOFTNESS=Suavidade da oclusão
+option.SUN_OCCLUSION_SOFTNESS.comment=Mistura a borda de uma sombra traçada por uma distância maior. Valores altos parecem névoa atmosférica, valores baixos parecem silhuetas nítidas de terreno.
+value.SUN_OCCLUSION_SOFTNESS.0.5=Nítida
+value.SUN_OCCLUSION_SOFTNESS.0.75=Suave
+value.SUN_OCCLUSION_SOFTNESS.1.0=Normal
+value.SUN_OCCLUSION_SOFTNESS.1.25=Mais suave
+value.SUN_OCCLUSION_SOFTNESS.1.5=Muito suave
+value.SUN_OCCLUSION_SOFTNESS.2.0=Esfumaçada
+
+option.SUN_OCCLUSION_BIAS=Viés de profundidade
+option.SUN_OCCLUSION_BIAS.comment=Distância mínima antes de uma amostra contar como oclusor. Aumente se aparecer acne de sombra (pontinhos escuros) em superfícies iluminadas.
+value.SUN_OCCLUSION_BIAS.0.05=Baixo (risco de acne)
+value.SUN_OCCLUSION_BIAS.0.10=Pequeno
+value.SUN_OCCLUSION_BIAS.0.15=Normal
+value.SUN_OCCLUSION_BIAS.0.20=Seguro
+value.SUN_OCCLUSION_BIAS.0.30=Muito seguro
+
+option.SUN_OCCLUSION_ANGULAR_GATE=Porta angular
+option.SUN_OCCLUSION_ANGULAR_GATE.comment=Pula o traçado quando a normal da superfície aponta muito longe do sol. 0 traça todo pixel; valores altos economizam desempenho à custa de perder sombras em ângulos rasantes.
+value.SUN_OCCLUSION_ANGULAR_GATE.0.0=Traçar todo pixel
+value.SUN_OCCLUSION_ANGULAR_GATE.0.1=Quase ótimo (recomendado)
+value.SUN_OCCLUSION_ANGULAR_GATE.0.2=Rápido
+value.SUN_OCCLUSION_ANGULAR_GATE.0.35=Mais rápido
+value.SUN_OCCLUSION_ANGULAR_GATE.0.5=Muito rápido (perde casos extremos)
+
+option.SUN_OCCLUSION_FADE_START=Início da mistura com o mapa de sombras
+option.SUN_OCCLUSION_FADE_START.comment=Distância (como fração de shadowDistance) onde a oclusão em espaço de tela começa a se misturar com o mapa de sombras. Valores baixos criam uma zona de sobreposição mais ampla.
+value.SUN_OCCLUSION_FADE_START.0.5=50%
+value.SUN_OCCLUSION_FADE_START.0.65=65%
+value.SUN_OCCLUSION_FADE_START.0.75=75% (recomendado)
+value.SUN_OCCLUSION_FADE_START.0.85=85%
+value.SUN_OCCLUSION_FADE_START.0.95=95%
+
+option.SUN_OCCLUSION_FADE_END=Fim da mistura com o mapa de sombras
+option.SUN_OCCLUSION_FADE_END.comment=Distância em que o traçado está em força total. Deve ser maior que o início da mistura.
+value.SUN_OCCLUSION_FADE_END.0.85=85%
+value.SUN_OCCLUSION_FADE_END.0.90=90%
+value.SUN_OCCLUSION_FADE_END.0.95=95% (recomendado)
+value.SUN_OCCLUSION_FADE_END.0.98=98%
+value.SUN_OCCLUSION_FADE_END.1.0=100% (sem esmaecimento)

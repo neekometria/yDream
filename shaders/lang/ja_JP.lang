@@ -743,6 +743,53 @@ value.MOON_PHASE.1=満月
 value.MOON_PHASE.2=十三夜月
 value.MOON_PHASE.3=半月
 value.MOON_PHASE.4=三日月
+option.REAL_STARS=リアル星カタログ
+option.REAL_STARS.comment=HYG天文カタログの実際の星と20の有名な星座を、プロシージャルパターンの代わりに使用します。オリオン座、北斗七星、南十字星、カシオペヤ座がきちんと認識できるようになります。オフにすると古いプロシージャル方式を使います。
+value.REAL_STARS.0=プロシージャル
+value.REAL_STARS.1=リアルカタログ
+
+option.REAL_STAR_DENSITY=リアル星の数
+option.REAL_STAR_DENSITY.comment=明るい実在の星をいくつ描画するか。小さい値ほど古い GPU で大幅に軽くなります。最も明るい星（シリウス、ベガ、ベテルギウス）は常に表示されます。
+value.REAL_STAR_DENSITY.50=50（最速）
+value.REAL_STAR_DENSITY.100=100（推奨）
+value.REAL_STAR_DENSITY.150=150
+value.REAL_STAR_DENSITY.200=200（バランス）
+value.REAL_STAR_DENSITY.300=300
+value.REAL_STAR_DENSITY.400=400
+value.REAL_STAR_DENSITY.500=500（全カタログ）
+
+option.REAL_STAR_TWINKLE=リアル星のまたたき
+option.REAL_STAR_TWINKLE.comment=実際の星のような大気のシンチレーション。明るい星はまたたきが少なく、地平線近くの星はよりまたたきます。
+value.REAL_STAR_TWINKLE.0.0=オフ
+value.REAL_STAR_TWINKLE.0.15=ほんのり
+value.REAL_STAR_TWINKLE.0.3=弱め
+value.REAL_STAR_TWINKLE.0.45=中くらい
+value.REAL_STAR_TWINKLE.0.6=強め
+value.REAL_STAR_TWINKLE.0.75=とても強い
+value.REAL_STAR_TWINKLE.0.9=極端
+value.REAL_STAR_TWINKLE.1.0=最大
+
+option.REAL_CONSTELLATION_COUNT=1 晩の星座
+option.REAL_CONSTELLATION_COUNT.comment=20 の有名な星座のうち、一晩にいくつ選ばれるか。選択はゲーム内の日ごとにランダム化されるので、毎晩空が変わります。最低でも常に 2 つ表示されます。
+value.REAL_CONSTELLATION_COUNT.2=2（最小）
+value.REAL_CONSTELLATION_COUNT.3=3
+value.REAL_CONSTELLATION_COUNT.4=4（推奨）
+value.REAL_CONSTELLATION_COUNT.5=5
+value.REAL_CONSTELLATION_COUNT.6=6
+value.REAL_CONSTELLATION_COUNT.8=8
+value.REAL_CONSTELLATION_COUNT.10=10
+value.REAL_CONSTELLATION_COUNT.12=12
+value.REAL_CONSTELLATION_COUNT.15=15
+value.REAL_CONSTELLATION_COUNT.20=20（すべて）
+
+option.REAL_CONSTELLATION_BRIGHTNESS=星座の線の明るさ
+option.REAL_CONSTELLATION_BRIGHTNESS.comment=星座の線の輝きの強さ。明るいほど星図らしく、暗いほど実際の淡い大気光らしくなります。
+value.REAL_CONSTELLATION_BRIGHTNESS.0.5=かすか
+value.REAL_CONSTELLATION_BRIGHTNESS.0.75=やわらか
+value.REAL_CONSTELLATION_BRIGHTNESS.1.0=標準
+value.REAL_CONSTELLATION_BRIGHTNESS.1.25=明るい
+value.REAL_CONSTELLATION_BRIGHTNESS.1.5=とても明るい
+value.REAL_CONSTELLATION_BRIGHTNESS.2.0=最大
 option.NIGHT_SHADOWS=夜の影
 option.NIGHT_SHADOWS.comment=How hard the moonlit shadows are. Soft reduces the blocky flicker of moving shadows at night, Off skips moon shadows entirely and saves performance.
 value.NIGHT_SHADOWS.0=全体
@@ -966,3 +1013,92 @@ value.DH_OCCLUDE_SUN_EFFECTS.0=オフ
 value.DH_OCCLUDE_SUN_EFFECTS.1=オン
 value.EMISSIVE_ORES.0=オフ
 value.EMISSIVE_ORES.1=オン
+
+screen.SCREEN_SUN_OCCLUSION=太陽の遮蔽
+screen.SCREEN_SUN_OCCLUSION.comment=太陽と月を絶対的な光源として扱います。太陽が地形や Distant Horizons の LOD に遮られると、その背後の地形は直接光を失います。遮蔽元と受け手の組み合わせは個別に切り替えられます。
+
+option.SUN_OCCLUSION=太陽の遮蔽
+option.SUN_OCCLUSION.comment=マスタースイッチ。オンにすると太陽と月の光がシーン内で追跡され、太陽の前にある山が、たとえシャドウマップの範囲外でもその背後のすべてを暗くします。
+value.SUN_OCCLUSION.0=オフ
+value.SUN_OCCLUSION.1=オン
+
+option.SUN_OCCLUSION_LOD_BLOCKS_VANILLA=LOD が実地形を遮る
+option.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.comment=太陽の前にある Distant Horizons の山が、背後の実地形を暗くします。これはシャドウマップが扱えないケースで、LOD 地形は決してシャドウマップに描画されません。
+value.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.0=オフ
+value.SUN_OCCLUSION_LOD_BLOCKS_VANILLA.1=オン
+
+option.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA=実地形が実地形を遮る
+option.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.comment=シャドウマップ距離を超えた実地形がスクリーン空間で影を落とします。これがないと、shadowDistance を超えた遠くの丘が、山の影に入るべき場面でも完全に照らされたままになります。
+value.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.0=オフ
+value.SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA.1=オン
+
+option.SUN_OCCLUSION_LOD_BLOCKS_LOD=LOD が LOD を遮る
+option.SUN_OCCLUSION_LOD_BLOCKS_LOD.comment=他の LOD 地形からスクリーン空間の影を受ける LOD 地形。これは既存の DH_SHADOWS 機能と同じで、同じトレースで制御されます。
+value.SUN_OCCLUSION_LOD_BLOCKS_LOD.0=オフ
+value.SUN_OCCLUSION_LOD_BLOCKS_LOD.1=オン
+
+option.SUN_OCCLUSION_VANILLA_BLOCKS_LOD=実地形が LOD を遮る
+option.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.comment=実地形が背後の LOD 地形にスクリーン空間の影を落とします。これがないと、実地形の山の後ろにある LOD の丘が照らされたままになります。
+value.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.0=オフ
+value.SUN_OCCLUSION_VANILLA_BLOCKS_LOD.1=オン
+
+option.SUN_OCCLUSION_STEPS=遮蔽の品質
+option.SUN_OCCLUSION_STEPS.comment=ピクセルあたりのレイマーチのステップ数。高いほど薄い遮蔽物も検出でき、影が滑らかになりますが、コストは線形に増えます。
+value.SUN_OCCLUSION_STEPS.12=12（最速）
+value.SUN_OCCLUSION_STEPS.16=16
+value.SUN_OCCLUSION_STEPS.20=20
+value.SUN_OCCLUSION_STEPS.24=24（推奨）
+value.SUN_OCCLUSION_STEPS.32=32
+value.SUN_OCCLUSION_STEPS.48=48（最高）
+
+option.SUN_OCCLUSION_REACH=遮蔽の到達距離
+option.SUN_OCCLUSION_REACH.comment=太陽のトレースがブロック単位でどこまで届くか。大きい値ほど遠くの山が太陽を遮れるようになり、小さい値は近くの遮蔽物しか捉えません。
+value.SUN_OCCLUSION_REACH.80=80 ブロック
+value.SUN_OCCLUSION_REACH.120=120
+value.SUN_OCCLUSION_REACH.160=160
+value.SUN_OCCLUSION_REACH.200=200
+value.SUN_OCCLUSION_REACH.260=260
+value.SUN_OCCLUSION_REACH.320=320（推奨）
+value.SUN_OCCLUSION_REACH.420=420
+value.SUN_OCCLUSION_REACH.520=520
+
+option.SUN_OCCLUSION_SOFTNESS=遮蔽のやわらかさ
+option.SUN_OCCLUSION_SOFTNESS.comment=トレースした影の端をより大きな距離にわたってぼかします。高いほど大気のかすみのように見え、低いほど地形の鋭いシルエットのように見えます。
+value.SUN_OCCLUSION_SOFTNESS.0.5=シャープ
+value.SUN_OCCLUSION_SOFTNESS.0.75=やわらかい
+value.SUN_OCCLUSION_SOFTNESS.1.0=標準
+value.SUN_OCCLUSION_SOFTNESS.1.25=よりやわらかい
+value.SUN_OCCLUSION_SOFTNESS.1.5=とてもやわらかい
+value.SUN_OCCLUSION_SOFTNESS.2.0=かすんでいる
+
+option.SUN_OCCLUSION_BIAS=深度バイアス
+option.SUN_OCCLUSION_BIAS.comment=トレースサンプルが遮蔽物としてカウントされるまでの最小距離。明るい面に影のアクネ（黒い斑点）が出たら上げてください。
+value.SUN_OCCLUSION_BIAS.0.05=低い（アクネのリスク）
+value.SUN_OCCLUSION_BIAS.0.10=小
+value.SUN_OCCLUSION_BIAS.0.15=標準
+value.SUN_OCCLUSION_BIAS.0.20=安全
+value.SUN_OCCLUSION_BIAS.0.30=とても安全
+
+option.SUN_OCCLUSION_ANGULAR_GATE=角度ゲート
+option.SUN_OCCLUSION_ANGULAR_GATE.comment=面の法線がこの角度以上に太陽から離れているとき、トレースをスキップします。0 で全ピクセルをトレース、高いほどパフォーマンスを節約できますが、浅い角度の影を見逃します。
+value.SUN_OCCLUSION_ANGULAR_GATE.0.0=全ピクセルをトレース
+value.SUN_OCCLUSION_ANGULAR_GATE.0.1=ほぼ最適（推奨）
+value.SUN_OCCLUSION_ANGULAR_GATE.0.2=高速
+value.SUN_OCCLUSION_ANGULAR_GATE.0.35=より高速
+value.SUN_OCCLUSION_ANGULAR_GATE.0.5=超高速（エッジケースを見逃す）
+
+option.SUN_OCCLUSION_FADE_START=シャドウマップブレンド開始
+option.SUN_OCCLUSION_FADE_START.comment=シャドウマップとスクリーン空間遮蔽のブレンドを始める距離（shadowDistance に対する割合）。低いほど広いオーバーラップ範囲になります。
+value.SUN_OCCLUSION_FADE_START.0.5=50%
+value.SUN_OCCLUSION_FADE_START.0.65=65%
+value.SUN_OCCLUSION_FADE_START.0.75=75%（推奨）
+value.SUN_OCCLUSION_FADE_START.0.85=85%
+value.SUN_OCCLUSION_FADE_START.0.95=95%
+
+option.SUN_OCCLUSION_FADE_END=シャドウマップブレンド終了
+option.SUN_OCCLUSION_FADE_END.comment=トレースが全力になる距離。ブレンド開始より大きくしてください。
+value.SUN_OCCLUSION_FADE_END.0.85=85%
+value.SUN_OCCLUSION_FADE_END.0.90=90%
+value.SUN_OCCLUSION_FADE_END.0.95=95%（推奨）
+value.SUN_OCCLUSION_FADE_END.0.98=98%
+value.SUN_OCCLUSION_FADE_END.1.0=100%（フェードなし）
