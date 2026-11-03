@@ -42,7 +42,7 @@ jobs:
             \) -exec rm -rf -- {} +
 
           # Generate automatic version
-          TAG="v0.3.${GITHUB_RUN_NUMBER}"
+          TAG="v0.4.${GITHUB_RUN_NUMBER}"
           VERSION="${TAG#v}"
           ZIP_NAME="yDream-${TAG}.zip"
 
@@ -129,7 +129,7 @@ jobs:
               # First release
               echo "## Initial automated release"
               echo
-              echo "No previous v0.3.x release was found."
+              echo "No previous v0.4.x release was found."
               echo
               echo "### Recent commits"
               echo
