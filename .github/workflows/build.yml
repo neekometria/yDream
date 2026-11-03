@@ -53,7 +53,7 @@ jobs:
           )
 
           # Find previous release tag
-          PREVIOUS_TAG="$(git tag --list 'v0.3.*' \
+          PREVIOUS_TAG="$(git tag --list 'v0.4.*' \
             --sort=-version:refname | sed -n '1p')"
 
           # Generate readable changelog
