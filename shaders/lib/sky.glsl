@@ -1319,7 +1319,6 @@ vec3 realHeroStars(vec3 worldDir, float pixelAngle, float time) {
     float dayFrac = fract(worldTime / 24000.0 - 0.25);
     float dayLevel = smoothstep(0.20, 0.30, dayFrac) * (1.0 - smoothstep(0.70, 0.80, dayFrac));
     if (dayLevel > 0.95) return vec3(0.0);
-    if (worldDir.y < 0.0) return vec3(0.0);
 
     vec3 result = vec3(0.0);
     float cullRadius = max(pixelAngle * 60.0, 0.020);
@@ -1370,7 +1369,6 @@ vec3 realConstellations(vec3 worldDir, float pixelAngle, float time) {
     float dayFrac = fract(worldTime / 24000.0 - 0.25);
     float dayLevel = smoothstep(0.20, 0.30, dayFrac) * (1.0 - smoothstep(0.70, 0.80, dayFrac));
     if (dayLevel > 0.95) return vec3(0.0);
-    if (worldDir.y < 0.0) return vec3(0.0);
 
     float nightSeed = floor(worldTime / 24000.0);
     float lineWidth = max(pixelAngle * 1.3, 0.0012);
@@ -1432,6 +1430,9 @@ vec3 realConstellations(vec3 worldDir, float pixelAngle, float time) {
 
     return (lineColor * lineAmount * 0.65 + nodeColor * nodeGlow * 0.18) * shimmer * REAL_CONSTELLATION_BRIGHTNESS;
 }
+
+
+
 // ===========================================================================
 // Camadas que consomem estrelas/constelações
 // ===========================================================================

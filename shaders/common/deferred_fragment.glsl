@@ -1,5 +1,4 @@
 #include "/lib/config.glsl"
-
 #ifdef THE_END
     #include "/lib/color_utils_end.glsl"
 #elif defined NETHER
@@ -60,6 +59,8 @@ uniform mat4 gbufferProjectionInverse;
 uniform float pixelSizeX;
 uniform float pixelSizeY;
 
+
+
 #if AA_TYPE > 0
     uniform vec2 taaOffset;
 #endif
@@ -110,6 +111,7 @@ varying vec3 upVector;
         #include "/lib/volumetric_clouds.glsl"
     #endif
 #endif
+
 
 void main() {
     vec4 blockColor = texture2DLod(colortex1, texcoord, 0);

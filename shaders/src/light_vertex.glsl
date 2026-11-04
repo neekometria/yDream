@@ -4,6 +4,7 @@ vec2 illumination = lmcoord;
 illumination.y = max(illumination.y - 0.065, 0.0) * 1.06951871657754;
 visibleSky = clamp(illumination.y, 0.0, 1.0);
 
+
 if (isEyeInWater == 1) {
     visibleSky = (visibleSky * .95) + .05;
 }
@@ -114,7 +115,7 @@ float omniStrength = ((directLightStrength + 1.0) * 0.25) + 0.75;
         omniLight += netherLightHue(fogColor) * (NETHER_FILL * (1.0 - netherHemisphere));
     #endif
 #else
-    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor) * 0.4, rainStrength * 0.72);
+    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor) * 0.4, getAltitudeRain() * 0.72);
 
     vec3 omniColor = mix(ZenithSkyColorRGB, directLightColor * 0.45, OMNI_TINT);
     float omniColorLuma = colorAverage(omniColor);

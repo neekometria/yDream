@@ -12,10 +12,9 @@ float cloudField(vec2 posXZ) {
     return cloud_field(posXZ);
 }
 
-// cloudCoverage is the final amount of cloud composited over the scene (0..1),
-// i.e. exactly the factor used in the last mix. The deferred pass stores it so
-// the translucent water, which is drawn afterwards, can fade itself by the real
-// cloud opacity instead of guessing it from the raw noise field.
+
+
+
 vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, vec3 base_pos, int samples, float umbral, vec3 cloudColor, vec3 darkCloudColor, vec3 lightDir, float maxDist, out float cloudCoverage) {
     cloudCoverage = 0.0;
 
@@ -25,9 +24,6 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
 
     umbral = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
 
-    // Fade toward the horizon only when the camera is below the layer; from
-    // above or inside, keep the clouds visible. The transition is smoothed
-    // across the layer floor so entering the cloud deck does not pop.
     float belowLayer = 1.0 - smoothstep(CLOUD_PLANE - 20.0, CLOUD_PLANE + 5.0, base_pos.y);
     float horizonFade = mix(1.0, clamp((eyeDirection.y - 0.06) * 5.0, 0.0, 1.0), belowLayer);
 
@@ -47,42 +43,30 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
 
     float interiorAmount = insideLayer * insideCloud;
 
-    if (abs(eyeDirection.y) <= 0.001) {
-        // Raio horizontal: a camada é Y-thin, então o raymarch não consegue
-        // marchar. Mas se estamos DENTRO de uma nuvem, o buraco central
-        // de ~2 pixels precisa ser preenchido com nuvem.
-        if (interiorAmount > 0.01) {
-            float coverage = smoothstep(0.05, 0.35, interiorAmount);
-            cloudCoverage = coverage;
-            blockColor = mix(blockColor, cloudColor * CLOUD_BRIGHTNESS, coverage);
-        }
-        return blockColor;
-    }
-    if (abs(eyeDirection.y) > 0.001) {
-        float view_y_inv = 1.0 / max(abs(eyeDirection.y), 0.001);
-        view_y_inv = min(view_y_inv, 6.0);
-        float plane_distance_inf = (CLOUD_PLANE - base_pos.y) / eyeDirection.y;
-        float plane_distance_sup = (CLOUD_PLANE_SUP - base_pos.y) / eyeDirection.y;
-        float plane_distance_start = max(min(plane_distance_inf, plane_distance_sup), 0.0);
-        float plane_distance_end = max(plane_distance_inf, plane_distance_sup);
+    // --- CORREÇÃO DA LINHA ---
+    float safeY = max(abs(eyeDirection.y), 0.001);
+    float dirYSign = eyeDirection.y < 0.0 ? -1.0 : 1.0;
+    
+    float view_y_inv = 1.0 / safeY;
+    view_y_inv = min(view_y_inv, 6.0);
+    float plane_distance_inf = (CLOUD_PLANE - base_pos.y) / (dirYSign * safeY);
+    float plane_distance_sup = (CLOUD_PLANE_SUP - base_pos.y) / (dirYSign * safeY);
+    
+    float plane_distance_start = max(min(plane_distance_inf, plane_distance_sup), 0.0);
+    float plane_distance_end = max(plane_distance_inf, plane_distance_sup);
 
-        // Clouds only exist in front of the visible surface (terrain or sky).
-        plane_distance_start = min(plane_distance_start, maxDist);
-        plane_distance_end = min(plane_distance_end, maxDist);
+    // Clouds only exist in front of the visible surface (terrain or sky).
+    plane_distance_start = min(plane_distance_start, maxDist);
+    plane_distance_end = min(plane_distance_end, maxDist);
 
-        // While the camera is inside the layer, keep the marched path short.
-        // Otherwise a near-horizontal ray integrates the whole cloud deck and
-        // the interior turns into a solid white wall.
-        float cameraInsideLayer = step(CLOUD_PLANE, base_pos.y) * step(base_pos.y, CLOUD_PLANE_SUP);
-        if (cameraInsideLayer > 0.5) {
-            plane_distance_end = min(plane_distance_end, plane_distance_start + (CLOUD_PLANE_SUP - CLOUD_PLANE) * 2.0);
-        }
+    // --- CORREÇÃO DO POPPING (Nuvens quebrando) ---
+    // Fixa a distância máxima do raio em 4x a espessura da nuvem. 
+    // Isso mantém o tamanho dos passos constante e evita que a nuvem "salte".
+    float maxRayDist = (CLOUD_PLANE_SUP - CLOUD_PLANE) * 4.0;
+    plane_distance_end = min(plane_distance_end, plane_distance_start + maxRayDist);
 
-        // Only march the part of the cloud layer in front of the camera.
-        if (plane_distance_end <= plane_distance_start + 0.001) {
-            return blockColor;
-        }
-
+    if (plane_distance_end > plane_distance_start + 0.001) {
+        
         vec3 intersection_pos = (eyeDirection * plane_distance_start) + base_pos;
         vec3 intersection_pos_sup = (eyeDirection * plane_distance_end) + base_pos;
 
@@ -93,14 +77,6 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float dist_aux_coeff = (CLOUD_PLANE_SUP - CLOUD_PLANE) * 0.075;
         float dist_aux_coeff_blur = dist_aux_coeff * 0.3;
 
-        // Outside a cloud the layer is Y-thin, so horizontal rays need to
-        // travel further to saturate (that is what the 1/|y| scaling
-        // compensates for). Inside a cloud the volume is thick in every
-        // direction, so scaling by 1/|y| makes horizontal rays almost
-        // transparent and creates a visible straight cut where the dense
-        // vertical wall meets the faded horizontal interior. Blend the
-        // factor toward 1.0 as we enter the cloud so every direction
-        // saturates at the same rate.
         float opacity_y_factor = mix(view_y_inv, 1.0, interiorAmount);
         float opacity_dist = dist_aux_coeff * 2.0 * opacity_y_factor;
 
@@ -134,11 +110,9 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             float cloud_thickness = surface_sup - surface_inf;
 
             if (intersection_pos.y > surface_inf && intersection_pos.y < surface_sup) {
-
                 current_opacity = min(increment_dist, cloud_thickness);
             }
             else if (cloud_thickness > 0.0 && i > 0) {
-
                 float distance_aux = min(abs(intersection_pos.y - surface_inf), abs(intersection_pos.y - surface_sup));
                 if (distance_aux < dist_aux_coeff_blur) {
                     float blur_factor = 1.0 - (distance_aux / dist_aux_coeff_blur);
@@ -162,19 +136,9 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             intersection_pos += increment;
         }
 
-        // Smooth "inside the cloud" response. The previous code multiplied
-        // every pixel by CLOUD_INTERIOR_DENSITY as soon as the camera crossed
-        // the layer floor, so the whole deck visibly popped denser when the
-        // player reached the middle of the clouds. Now the boost follows the
-        // local cloud shape around the camera, fades in over a few blocks and
-        // stays partial so crossing a cloud reads as a soft veil instead of
-        // an opaque wall.
         float interiorBoost = mix(1.0, CLOUD_INTERIOR_DENSITY, interiorAmount * 0.5);
         cloud_value = clamp(cloud_value / opacity_dist * interiorBoost, 0.0, 1.0);
 
-        // Inside a cloud the first contact is the camera itself, so the
-        // shading sample can flicker between noise cells. Fade the shading
-        // density toward the stable interior value instead of stepping.
         density = mix(density, 0.5, interiorAmount * 0.6);
         density = clamp(density, 0.0001, 1.0);
 
@@ -190,11 +154,8 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             float rise = lightDir.y / max(horizontalLength, 0.15);
 
             float farDistance = 90.0;
-
             float farValue = (cloudField(firstPos.xz + lightStep * farDistance) - umbral) / (1.0 - umbral);
-
             float farTop = CLOUD_PLANE_CENTER + cloudShape(farValue) * dif_sup * CLOUD_SUP_SCALE;
-
             float farBlock = smoothstep(0.0, 28.0, farTop - (firstPos.y + farDistance * rise)) * step(0.0, farValue);
             shadowAmount = farBlock;
         }
@@ -206,9 +167,7 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float lightReach = 0.0;
 
         for (int j = 0; j < 4; j++) {
-            if (cloud_value < 0.02) {
-                break;
-            }
+            if (cloud_value < 0.02) break;
 
             float stepLength = 10.0 + float(j) * 9.0;
             lightPos += lightDir * stepLength;
@@ -229,12 +188,13 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float multiScatter = mix(pow(lightTrans, 0.85), pow(lightTrans, 0.30), 0.42);
 
         float sunForward = pow(clamp(dot(eyeDirection, lightDir) * 0.5 + 0.5, 0.0, 1.0), 10.0);
-        float phaseBoost = 1.0 + 0.50 * sunForward * STYLE_CLOUD_CONTRAST * (1.0 - rainStrength);
+        
+        float phaseBoost = 1.0 + 0.50 * sunForward * STYLE_CLOUD_CONTRAST * (1.0 - getAltitudeRain());
 
         float heightLift = (1.0 - sqrt(density)) * 0.16;
         float baseLight = clamp((multiScatter * 0.90 + heightLift) * phaseBoost, 0.0, 1.0);
         float thickFactor = smoothstep(0.05, 0.80, clamp(firstValue, 0.0, 1.0));
-        thickFactor = mix(thickFactor, 0.85, interiorAmount);   // ← adicionar esta linha
+        thickFactor = mix(thickFactor, 0.85, interiorAmount);
         float lightAmount = max(pow(mix(1.0, baseLight, thickFactor * 0.95), 1.0 + 0.28 * STYLE_CLOUD_CONTRAST), 0.08);
         #else
         float topLit = 1.0 - clamp(sqrt(density) * CLOUD_SHADOW_STRENGTH, 0.0, 1.0);
@@ -251,31 +211,31 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         vec3 shadedCloud = mix(undersideColor, cloudColor, lightAmount);
 
         float thinEdge = 1.0 - cloud_value_approx;
-        float rimGlow = thinEdge * thinEdge * sunSide * (1.0 - rainStrength);
+        float rimGlow = thinEdge * thinEdge * sunSide * (1.0 - getAltitudeRain());
 
-        // Inside a cloud the edge boosts are physically meaningless (there is no
-        // edge where the player is standing) and they flicker with the noise, which
-        // is what makes TAA drift brighter. Mask them out.
         float edgeBoostMask = 1.0 - smoothstep(0.4, 0.9, interiorAmount);
 
         cloudColor = (shadedCloud + cloudColor * (rimGlow * (1.8 + 1.6 * sunSide) * STYLE_CLOUD_GLOW_MULT * edgeBoostMask)) * CLOUD_BRIGHTNESS;
-        float silverLining = thinEdge * thinEdge * thinEdge * sunSide * (1.0 - rainStrength);
+        float silverLining = thinEdge * thinEdge * thinEdge * sunSide * (1.0 - getAltitudeRain());
+        
         cloudColor += cloudColor * (silverLining * 1.1 * STYLE_CLOUD_GLOW_MULT * edgeBoostMask
                                   + sunSide * 0.10 * lightAmount * edgeBoostMask);
 
         float horizonBleed = (1.0 - smoothstep(0.03, 0.32, eyeDirection.y)) * 0.55 * belowLayer;
         cloudColor = mix(cloudColor, blockColor * 1.15 + cloudColor * 0.15, horizonBleed);
 
-        float nightCloudSheer = 1.0 - 0.34 * (1.0 - smoothstep(-0.18, 0.02, sunElevation)) * (1.0 - cloud_value) * (1.0 - rainStrength);
+        float nightCloudSheer = 1.0 - 0.34 * (1.0 - smoothstep(-0.18, 0.02, sunElevation)) * (1.0 - cloud_value) * (1.0 - getAltitudeRain());
+        
         cloudCoverage = clamp(cloud_value * nightCloudSheer * horizonFade, 0.0, 1.0);
-
-        // When fully inside a cloud, force solid coverage so the raymarch
-        // edges (top/bottom surfaces and the near plane) can never show
-        // through as a hard geometric cut. The mix is smooth so entering
-        // and exiting a cloud stays soft.
         cloudCoverage = max(cloudCoverage, smoothstep(0.35, 0.85, interiorAmount));
 
         blockColor = mix(blockColor, cloudColor, cloudCoverage);
+    } else {
+        if (interiorAmount > 0.01) {
+            float coverage = smoothstep(0.05, 0.35, interiorAmount);
+            cloudCoverage = coverage;
+            blockColor = mix(blockColor, cloudColor * CLOUD_BRIGHTNESS, coverage);
+        }
     }
 
     return blockColor;

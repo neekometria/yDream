@@ -168,6 +168,7 @@ varying vec3 playerSunDir;
 varying vec2 playerLmcoord;
 #endif
 
+
 void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
     vec3 zenithSkyColor;

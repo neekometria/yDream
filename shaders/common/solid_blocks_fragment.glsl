@@ -17,6 +17,7 @@ uniform float dayNightMix;
 uniform float pixelSizeX;
 uniform float pixelSizeY;
 uniform sampler2D gaux4;
+uniform vec3 cameraPosition;
 
 #if defined DISTANT_HORIZONS
 uniform float dhNearPlane;
@@ -165,6 +166,8 @@ varying vec2 playerLmcoord;
 #endif
 
 void main() {
+    vec3 realLight = vec3(0.0);
+
     #if (defined SHADOW_CASTING && !defined NETHER) || defined DISTANT_HORIZONS
         #if AA_TYPE > 0
     float dither = shiftedDither13(gl_FragCoord.xy);
@@ -257,7 +260,11 @@ void main() {
     #endif
 
     #ifdef GBUFFER_WEATHER
-    blockColor.a *= 0.42 * RAIN_OPACITY;
+    float rainAltitudeFade = 1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + 30.0, cameraPosition.y);
+    if (rainAltitudeFade <= 0.0) {
+        discard;
+    }
+    blockColor.a *= 0.42 * RAIN_OPACITY * rainAltitudeFade;
     blockColor.rgb *= vec3(0.86, 0.93, 1.0);
     #endif
 
@@ -272,9 +279,6 @@ void main() {
     bool isPlayerEntity = false;
     #if defined GBUFFER_ENTITIES
     isPlayerEntity = (entityId == 10301 || entityId == 10302);
-    // Fallback para Epic Fight: o mod não preenche entityId (fica <= 0) e o
-    // fragmento do player é o mais próximo da câmera em 3ª pessoa. Threshold
-    // de 6 blocos cobre todo o corpo; pode ser apertado se pegar mobs por engano.
     if (!isPlayerEntity && entityId <= 0 && length(playerViewPos) < 6.0) {
         isPlayerEntity = true;
     }
@@ -299,7 +303,6 @@ void main() {
     vec3 offsetBias = vBias;
             #if defined GBUFFER_ENTITIES
     if (isPlayerEntity && dot(playerGeoNormalView, playerGeoNormalView) > 0.5) {
-        // view -> world (mesmo espaço de vWorldPos / cameraPosition)
         offsetNormal = normalize((gbufferModelViewInverse * vec4(playerGeoNormalView, 0.0)).xyz);
         offsetBias = offsetNormal * 0.008;
     }
@@ -340,37 +343,31 @@ void main() {
     float shadowValue = abs((dayNightMix * 2.0) - 1.0);
     #endif
 
-    // Se as costas ainda ficarem escuras no Epic Fight, descomente o piso abaixo.
-    // Ele força um mínimo de luz direta para o player, mascarando self-shadow
-    // causado por silhueta de shadow pass diferente da pose renderizada.
-     #if defined GBUFFER_ENTITIES
-     if (isPlayerEntity) {
-         #if defined COLORED_SHADOW
-         shadowValue = max(shadowValue, vec3(0.05));
-         #else
-         shadowValue = max(shadowValue, 0.05);
-         #endif
-     }
-     #endif
+    #if defined GBUFFER_ENTITIES
+    if (isPlayerEntity) {
+        #if defined COLORED_SHADOW
+        shadowValue = max(shadowValue, vec3(0.05));
+        #else
+        shadowValue = max(shadowValue, 0.05);
+        #endif
+    }
+    #endif
 
     #if defined SUN_OCCLUSION_ACTIVE && defined GBUFFER_TERRAIN
         #if defined SHADOW_CASTING && !defined NETHER
             #if defined COLORED_SHADOW
-    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - rainStrength * 0.55);
+    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - getAltitudeRain() * 0.55);
             #else
-    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - rainStrength * 0.55);
+    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - getAltitudeRain() * 0.55);
             #endif
         #else
-    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - rainStrength * 0.55);
+    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - getAltitudeRain() * 0.55);
         #endif
     #endif
 
     #ifdef FOLIAGE_V
     if(isFoliage > 0.2) {
-        // Aplica o "bônus" de 50% apenas quando o sol está alto (dia).
-        // À noite (dayNightMix próximo de 0), o bônus vai a 0 e a grama escurece com o chão.
         float foliageShadowMix = 0.5 * smoothstep(0.0, 0.4, dayNightMix);
-        
         #if defined SHADOW_CASTING && !defined NETHER && defined COLORED_SHADOW
         shadowValue = mix(shadowValue, vec3(1.0), foliageShadowMix);
         #else
@@ -384,8 +381,8 @@ void main() {
     #elif defined GBUFFER_ENTITY_GLOW
     blockColor.rgb =
         clamp(vec3(luma(blockColor.rgb)) * vec3(0.75, 0.75, 1.5), vec3(0.3), vec3(1.0));
-    vec3 realLight = omniLight +
-        (shadowValue * directLightColor * playerDLS) * (1.0 - (rainStrength * 0.55)) +
+    realLight = omniLight +
+        (shadowValue * directLightColor * playerDLS) * (1.0 - (getAltitudeRain() * 0.55)) +
         finalCandleColor;
     #else
         #if defined PBR_ACTIVE
@@ -482,8 +479,7 @@ void main() {
     vec3 pbrFresnel = pbrF0 + (1.0 - pbrF0) * pow(1.0 - pbrVH, 5.0);
     vec3 pbrSpecular = min(pbrD * pbrG * pbrFresnel / max(4.0 * pbrNV, 0.001), vec3(12.0));
 
-    pbrAdditive += pbrSpecular * (shadowValue * directLightColor) *
-        ((1.0 - rainStrength * 0.55) * step(0.001, playerDLS) * pbrSpecMask * PBR_SPECULAR_STRENGTH);
+    pbrAdditive += pbrSpecular * (shadowValue * directLightColor) * ((1.0 - getAltitudeRain() * 0.55) * step(0.001, playerDLS) * pbrSpecMask * PBR_SPECULAR_STRENGTH);
             #endif
 
     vec3 pbrEnvFresnel = pbrF0 + (1.0 - pbrF0) * pow(1.0 - pbrNV, 5.0);
@@ -491,8 +487,8 @@ void main() {
 
     blockColor.rgb *= 1.0 - 0.85 * pbrMetal * pbrSpecMask;
 
-    vec3 realLight = omniLight * pbrAO +
-        (shadowValue * directLightColor * pbrDirect) * (1.0 - (rainStrength * 0.55)) +
+    realLight = omniLight * pbrAO +
+        (shadowValue * directLightColor * pbrDirect) * (1.0 - (getAltitudeRain() * 0.55)) +
         finalCandleColor;
         #elif defined MATERIAL_GLOSS && !defined NETHER
     float final_gloss_power = glossPower;
@@ -510,12 +506,12 @@ void main() {
             #if defined GBUFFER_HAND
     material *= 0.35;
             #endif
-    vec3 realLight = omniLight +
-        (shadowValue * ((directLightColor * playerDLS) + (directLightColor * material))) * (1.0 - (rainStrength * 0.55)) +
+    realLight = omniLight +
+        (shadowValue * ((directLightColor * playerDLS) + (directLightColor * material))) * (1.0 - (getAltitudeRain() * 0.55)) +
         finalCandleColor;
         #else
-    vec3 realLight = omniLight +
-        (shadowValue * directLightColor * playerDLS) * (1.0 - (rainStrength * 0.55)) +
+    realLight = omniLight +
+        (shadowValue * directLightColor * playerDLS) * (1.0 - (getAltitudeRain() * 0.55)) +
         finalCandleColor;
         #endif
 
@@ -538,7 +534,7 @@ void main() {
         #endif
 
         #if defined FOLIAGE_V && !defined NETHER && !defined THE_END
-    blockColor.rgb += foliageAlbedo * (shadowValue * directLightColor) * (foliageBackscatter * 0.55 * (1.0 - rainStrength * 0.55));
+    blockColor.rgb += foliageAlbedo * (shadowValue * directLightColor) * (foliageBackscatter * 0.55 * (1.0 - getAltitudeRain() * 0.55));
         #endif
 
         #ifdef WETNESS_EFFECTS_ON
