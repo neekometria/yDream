@@ -66,6 +66,11 @@ void main() {
 
     #include "/src/basiccoords_vertex_dh.glsl"
     #include "/src/position_vertex_dh.glsl"
+    
+    // ADICIONE ESTAS LINHAS AQUI: Calcula o vertexRain para a água do DH
+    float dhWorldY = (gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex).y + cameraPosition.y;
+    float vertexRain = getTerrainRain(dhWorldY);
+
     #include "/src/hi_sky.glsl"
     #include "/src/low_sky.glsl"
     #include "/src/light_vertex_dh.glsl"

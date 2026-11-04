@@ -2,7 +2,7 @@
     float fogIntensityCoeff = max(eyeBrightSmoothFloat.y * 0.004166666666666667, visibleSky);
     frogAdjust = pow(
         clamp(gl_FogFragCoord / dhRenderDistance, 0.0, 1.0) * fogIntensityCoeff,
-        mix(fogDensityCoeff * 0.15, 0.5, rainStrength)
+        mix(fogDensityCoeff * 0.15, 0.5, vertexRain) // Usando vertexRain
     );
 
     #ifdef GROUND_FOG_ON
@@ -13,7 +13,7 @@
         float groundFogY = position.y + cameraPosition.y;
         float groundFogHeight = exp(-max(groundFogY - float(GROUND_FOG_HEIGHT), 0.0) * 0.055);
         float groundFogTwilight = 1.0 + 1.1 * (1.0 - smoothstep(0.0, 0.45, abs(sunElevation)));
-        float groundFogDensity = GROUND_FOG_DENSITY * STYLE_FOG_MULT * groundFogTwilight * (1.0 + rainStrength * 1.4) * 0.0032;
+        float groundFogDensity = GROUND_FOG_DENSITY * STYLE_FOG_MULT * groundFogTwilight * (1.0 + getTerrainRain(groundFogY) * 1.4) * 0.0032;
         float groundFogAmount = (1.0 - exp(-gl_FogFragCoord * groundFogDensity * groundFogHeight)) * 0.62;
         frogAdjust = 1.0 - (1.0 - frogAdjust) * (1.0 - groundFogAmount * fogIntensityCoeff);
     #endif

@@ -12,9 +12,6 @@ float cloudField(vec2 posXZ) {
     return cloud_field(posXZ);
 }
 
-
-
-
 vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, vec3 base_pos, int samples, float umbral, vec3 cloudColor, vec3 darkCloudColor, vec3 lightDir, float maxDist, out float cloudCoverage) {
     cloudCoverage = 0.0;
 
@@ -59,9 +56,7 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
     plane_distance_start = min(plane_distance_start, maxDist);
     plane_distance_end = min(plane_distance_end, maxDist);
 
-    // --- CORREÇÃO DO POPPING (Nuvens quebrando) ---
-    // Fixa a distância máxima do raio em 4x a espessura da nuvem. 
-    // Isso mantém o tamanho dos passos constante e evita que a nuvem "salte".
+    // --- CORREÇÃO DO POPPING ---
     float maxRayDist = (CLOUD_PLANE_SUP - CLOUD_PLANE) * 4.0;
     plane_distance_end = min(plane_distance_end, plane_distance_start + maxRayDist);
 
@@ -136,7 +131,9 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             intersection_pos += increment;
         }
 
-        float interiorBoost = mix(1.0, CLOUD_INTERIOR_DENSITY, interiorAmount * 0.5);
+        // Aumenta a densidade da nuvem na chuva
+        float rainDensity = mix(1.0, 6.0, rainStrength); 
+        float interiorBoost = mix(1.0, CLOUD_INTERIOR_DENSITY, interiorAmount * 0.5) * rainDensity;
         cloud_value = clamp(cloud_value / opacity_dist * interiorBoost, 0.0, 1.0);
 
         density = mix(density, 0.5, interiorAmount * 0.6);
@@ -227,7 +224,10 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float nightCloudSheer = 1.0 - 0.34 * (1.0 - smoothstep(-0.18, 0.02, sunElevation)) * (1.0 - cloud_value) * (1.0 - getAltitudeRain());
         
         cloudCoverage = clamp(cloud_value * nightCloudSheer * horizonFade, 0.0, 1.0);
-        cloudCoverage = max(cloudCoverage, smoothstep(0.35, 0.85, interiorAmount));
+
+        // Força a opacidade para 100% se a câmera estiver dentro da nuvem
+        float cameraInCloud = smoothstep(0.1, 0.4, interiorAmount);
+        cloudCoverage = mix(cloudCoverage, 1.0, cameraInCloud);
 
         blockColor = mix(blockColor, cloudColor, cloudCoverage);
     } else {

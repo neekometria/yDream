@@ -102,6 +102,13 @@ attribute vec4 at_tangent;
 void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
 
+    // ==============================================================
+    // CALCULA O vertexRain NO TOPO DO MAIN(), ANTES DE QUALQUER INCLUDE
+    // ==============================================================
+    vec4 worldPos = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;
+    float worldY = worldPos.y + cameraPosition.y;
+    float vertexRain = getTerrainRain(worldY);
+
     #include "/src/basiccoords_vertex.glsl"
     #include "/src/position_vertex_water.glsl"
 

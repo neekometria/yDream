@@ -277,7 +277,7 @@ void main() {
         float shadowValue = abs((dayNightMix * 2.0) - 1.0);
 
         realLight = omniLight +
-            (directLightStrength * shadowValue * directLightColor) * (1.0 - rainStrength * 0.55) +
+            (directLightStrength * shadowValue * directLightColor) * (1.0 - getAltitudeRain() * 0.55) +
             candleColor;
 
         blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * .125);

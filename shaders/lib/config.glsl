@@ -1586,3 +1586,5 @@ const float centerDepthHalflife = 0.66;
     #define FUN_METEOR_RATE 1.0
 #endif
 #define getAltitudeRain() (rainStrength * (1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + 30.0, cameraPosition.y)))
+// Calcula a chuva baseada na altura do bloco, não da câmera
+#define getTerrainRain(worldY) (rainStrength * (1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + 30.0, worldY)))

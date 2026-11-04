@@ -5,9 +5,6 @@ uniform float nightVision;
 uniform float rainStrength;
 uniform float pixelSizeX;
 uniform float pixelSizeY;
-// The fog/sky colour is written by the prepare program into colortex7. In the
-// gbuffers pass that buffer is also exposed as gaux4, but the DH programs have
-// their own sampler namespace, so they must read colortex7 explicitly.
 uniform sampler2D colortex7;
 uniform float dhNearPlane;
 uniform float dhFarPlane;
@@ -56,8 +53,6 @@ varying vec3 omniLight;
 varying vec4 position;
 varying float frogAdjust;
 varying float fogSunScatter;
-// Passed from light_vertex_dh.glsl: the sky visibility and a flag for materials
-// whose light comes from the vertex shader (lava, illuminated blocks).
 varying float dhVisibleSky;
 varying float dhSpecialLight;
 
@@ -81,20 +76,11 @@ void main() {
     float dither = rDither(gl_FragCoord.xy);
     #endif
 
-    // Recover the real face normal from the fragment position. DH does not
-    // always provide vertex normals, and when it does not every face ends up
-    // lit like an up-facing one, which is the main reason the LOD terrain looks
-    // flat next to the real chunks. The screenspace derivatives give exact
-    // per-face normals for the voxel LOD geometry. This runs before the discard
-    // so the derivatives are still valid across the whole 2x2 quad.
     #if DH_TERRAIN_NORMALS == 1
     vec3 geoCross = cross(dFdx(position.xyz), dFdy(position.xyz));
     float geoLength = length(geoCross);
     vec3 geoNormal = geoLength > 1e-8 ? geoCross / geoLength : vec3(0.0, 1.0, 0.0);
 
-    // Visible faces must point towards the camera. position.xyz goes from
-    // the camera to the fragment, so a positive dot means the normal is
-    // flipped and has to be inverted.
     if (dot(geoNormal, position.xyz) > 0.0) {
         geoNormal = -geoNormal;
     }
@@ -108,11 +94,17 @@ void main() {
         return;
     }
 
+    // Pega a altura do bloco e calcula a chuva para ele
+    float dhWorldY = position.xyz.y + cameraPosition.y;
+    float terrainRain = getTerrainRain(dhWorldY);
+
     vec4 blockColor = tintColor;
 
     vec3 synthesisPosition = (position.xyz + cameraPosition) * 6.0;
     synthesisPosition = floor(synthesisPosition + 0.01);
+
     float syntheticNoise = (hash13(synthesisPosition) - 0.5) * 0.1;
+    syntheticNoise *= terrainRain; // Remove o ruído se o bloco estiver acima das nuvens
     blockColor.rgb += vec3(syntheticNoise);
     blockColor.rgb = clamp(blockColor.rgb, vec3(0.0), vec3(1.0));
 
@@ -121,8 +113,6 @@ void main() {
     float directStrength = directLightStrength;
 
     #if DH_TERRAIN_NORMALS == 1 && !defined NETHER && !defined THE_END
-        // Reproduce the light_vertex_dh.glsl directional term with the exact
-        // fragment normal instead of the (often missing) vertex normal.
     vec3 viewNormal = normalize(mat3(gbufferModelView) * geoNormal);
     vec3 astroVector = normalize(sunPosition);
     float astroStrength = dot(viewNormal, astroVector);
@@ -137,20 +127,13 @@ void main() {
         geoStrength *= dhVisibleSky;
     }
 
-    // Lava and illuminated blocks keep the vertex-shader override.
     if (dhSpecialLight < 0.5) {
         directStrength = geoStrength;
     }
     #endif
 
-    // Cloud shadows on the LOD terrain. The real chunks get the same pattern in
-    // their vertex stage, so a cloud bank darkens near and far terrain together
-    // instead of stopping at the LOD transition.
     #if defined CLOUD_SHADOWS_ON && DH_CLOUD_SHADOWS == 1 && !defined NETHER && !defined THE_END
         if (dhSpecialLight < 0.5) {
-            // sunPosition is view-space: convert to world-space before projecting
-            // the cloud shadow on the ground, otherwise the shadow rotates with
-            // the camera and never matches the clouds drawn in the sky.
             vec3 sunDirWorld = normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz);
             vec3 cloudLightDir = sunDirWorld * mix(-1.0, 1.0, step(0.5, dayNightMix));
             directStrength *= 1.0 - cloud_shadow_amount(position.xyz + cameraPosition, cloudLightDir);
@@ -160,20 +143,12 @@ void main() {
     float shadowValue = abs((dayNightMix * 2.0) - 1.0);
 
     #if DH_SHADOWS == 1 && defined SHADOW_CASTING && !defined NETHER
-        // The LODs are not rendered into the shadow map, but they can still
-        // receive the shadows cast by the real chunks around the player. This
-        // is what makes the near LODs sit in the same sunlight as the real
-        // terrain. The range is clamped to the shadow map coverage and faded
-        // out at its edge so no hard cutoff appears.
     float dhShadowRange = min(float(DH_SHADOW_DISTANCE), shadowDistance);
     float shadowFade = 1.0 - smoothstep(dhShadowRange * 0.75, dhShadowRange, visibleDistance);
     if (shadowFade > 0.001 && directStrength > 0.002) {
         float nightShadowAmount = 1.0 - smoothstep(0.0, 0.35, dayNightMix);
         vec3 shadowPosition = position.xyz;
             #if DH_TERRAIN_NORMALS == 1
-            // Nudge the sample off the surface. The real chunks around the
-            // LOD are in the shadow map; without a small bias the shared
-            // boundary can pick up shadow acne.
         shadowPosition += geoNormal * 0.06;
             #endif
         float shadowSample = get_shadow(get_shadow_pos(shadowPosition), dither);
@@ -184,17 +159,13 @@ void main() {
 
     vec3 realLight =
         omniLight +
-        (shadowValue * directLightColor * directStrength) * (1.0 - (rainStrength * 0.55)) +
+        (shadowValue * directLightColor * directStrength) * (1.0 - (terrainRain * 0.55)) +
         finalCandleColor;
 
     blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * 0.125);
     blockColor.rgb *= mix(vec3(1.0, 1.0, 1.0), vec3(NV_COLOR_R, NV_COLOR_G, NV_COLOR_B), nightVision);
 
     #if DH_COLOR_MATCH == 1
-        // DH stores a single averaged palette colour per LOD cell, which is
-        // brighter and more saturated than the textured real terrain. Pull it
-        // towards its own luminance and dim it slightly so the transition is
-        // much harder to spot.
     float dhAlbedoLuma = luma(blockColor.rgb);
     blockColor.rgb = mix(blockColor.rgb, vec3(dhAlbedoLuma), DH_COLOR_DESATURATE);
     blockColor.rgb *= DH_COLOR_BRIGHTNESS;

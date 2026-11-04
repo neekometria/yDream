@@ -56,6 +56,10 @@ void main() {
     float visibleSky;
     vec3 zenithSkyColor;
 
+    // Calcula a altura do vértice no mundo e a chuva para este bloco
+    float dhWorldY = (gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex).y + cameraPosition.y;
+    float vertexRain = getTerrainRain(dhWorldY);
+
     #include "/src/basiccoords_vertex_dh.glsl"
     #include "/src/position_vertex_dh.glsl"
     #include "/src/hi_sky.glsl"

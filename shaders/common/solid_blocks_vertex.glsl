@@ -18,6 +18,10 @@ uniform float rainStrength;
 uniform ivec2 eyeBrightnessSmooth;
 uniform mat4 gbufferProjectionInverse;
 
+// ADICIONADO: Garantir que cameraPosition e gbufferModelViewInverse existam sempre
+uniform vec3 cameraPosition;
+uniform mat4 gbufferModelViewInverse;
+
 #ifdef DISTANT_HORIZONS
     uniform int dhRenderDistance;
 #endif
@@ -42,10 +46,6 @@ uniform mat4 gbufferModelView;
     uniform sampler2D gaux2;
 #endif
 
-#if defined FOLIAGE_V || defined SHADOW_CASTING || (defined MATERIAL_GLOSS && !defined NETHER) || defined GROUND_FOG_ON || defined NETHER_HEIGHT_FOG || defined CLOUD_SHADOWS_ON || defined WETNESS_EFFECTS_ON
-    uniform mat4 gbufferModelViewInverse;
-#endif
-
 #if defined MATERIAL_GLOSS && !defined NETHER
     uniform int worldTime;
     uniform vec3 moonPosition;
@@ -55,10 +55,6 @@ uniform mat4 gbufferModelView;
     uniform mat4 shadowModelView;
     uniform mat4 shadowProjection;
     uniform vec3 shadowLightPosition;
-#endif
-
-#if WAVING == 1 || defined GROUND_FOG_ON || defined NETHER_HEIGHT_FOG || defined CLOUD_SHADOWS_ON || defined WETNESS_EFFECTS_ON
-    uniform vec3 cameraPosition;
 #endif
 
 #if WAVING == 1 || defined CLOUD_SHADOWS_ON
@@ -174,8 +170,15 @@ void main() {
     vec3 zenithSkyColor;
     float visibleSky;
 
+    // ORDEM CORRETA RESTAURADA
     #include "/src/basiccoords_vertex.glsl"
     #include "/src/position_vertex.glsl"
+
+    // Calcula a altura do bloco usando a matriz do modelo (seguro para todos os shaders)
+    vec4 worldPosition = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;
+    float worldY = worldPosition.y + cameraPosition.y;
+    float vertexRain = getTerrainRain(worldY);
+
     #include "/src/hi_sky.glsl"
     #include "/src/light_vertex.glsl"
     #include "/src/fog_vertex.glsl"

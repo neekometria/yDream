@@ -64,18 +64,14 @@ if (dot(normal, normal) > 0.0001) {
 #else
     directLightColor = dayBlend(LIGHT_SUNSET_COLOR, LIGHT_DAY_COLOR, LIGHT_NIGHT_COLOR);
     #if defined NORTHSTAR_MOON
-        // Airless Moon: hard, neutral sunlight instead of Earth-tinted daylight.
         directLightColor = vec3(1.0, 0.97, 0.92) * NORTHSTAR_MOON_SUN_LIGHT;
     #endif
     #if defined NORTHSTAR_VENUS
-        // Venus: sunlight reaches the ground through the cloud deck as warm, diffuse light.
         directLightColor = vec3(0.80, 0.56, 0.30) * NORTHSTAR_VENUS_LIGHT;
     #elif defined NORTHSTAR_MARS
-        // Mars: dusty but clear-enough daylight, slightly pale and neutral.
         directLightColor = vec3(1.0, 0.92, 0.84) * NORTHSTAR_MARS_LIGHT;
     #endif
     #if defined NORTHSTAR_MERCURY
-        // Mercury surface: no air, so the direct sunlight matches the Mercury orbit.
         directLightColor = vec3(1.0, 0.97, 0.92) * NORTHSTAR_MERCURY_IRR_VIEW * NORTHSTAR_LIGHT_STRENGTH;
     #endif
     #if defined IS_IRIS && defined THE_END && MC_VERSION >= 12109
@@ -115,7 +111,8 @@ float omniStrength = ((directLightStrength + 1.0) * 0.25) + 0.75;
         omniLight += netherLightHue(fogColor) * (NETHER_FILL * (1.0 - netherHemisphere));
     #endif
 #else
-    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor) * 0.4, getAltitudeRain() * 0.72);
+    // USANDO O VERTEX RAIN DO BLOCO VANILLA
+    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor) * 0.4, vertexRain * 0.72);
 
     vec3 omniColor = mix(ZenithSkyColorRGB, directLightColor * 0.45, OMNI_TINT);
     float omniColorLuma = colorAverage(omniColor);
@@ -127,12 +124,11 @@ float omniStrength = ((directLightStrength + 1.0) * 0.25) + 0.75;
     float hemisphere = dot(normal, normalize(gbufferModelView[1].xyz)) * 0.5 + 0.5;
     omniLight = mix(omniColorMin, omniColor, visibleSky) * omniStrength * mix(0.86, 1.05, hemisphere) * (AMBIENT_STRENGTH * STYLE_AMBIENT_MULT);
     #if defined NORTHSTAR_MOON
-        // No air scatters light into shadow on the Moon: keep only a small floor.
         omniLight = max(omniLight, vec3(NORTHSTAR_MOON_AMBIENT));
     #endif
 
     #if YDREAM_AURORA == 1 && !defined UNKNOWN_DIM
-        float auroraNightAmount = skyNightAmount() * (1.0 - rainStrength) * (AURORA_BIOME == 0 ? smoothstep(0.0, 1.0, auroraBiomeFade) : 1.0);
+        float auroraNightAmount = skyNightAmount() * (1.0 - vertexRain) * (AURORA_BIOME == 0 ? smoothstep(0.0, 1.0, auroraBiomeFade) : 1.0);
         vec3 auroraDirection = normalize((gbufferModelView * vec4(-0.726, 0.30, -0.687, 0.0)).xyz);
         float auroraFacing = dot(normal, auroraDirection) * 0.5 + 0.5;
         omniLight += AURORA_LIGHT_COLOR * (0.045 * AURORA_LIGHT * auroraNightAmount * visibleSky * mix(0.45, 1.0, auroraFacing));

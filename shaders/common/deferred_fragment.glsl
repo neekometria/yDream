@@ -247,10 +247,15 @@ void main() {
             pow(clamp(linearDepth * 1.6, 0.0, 1.0), mix(fogDensityCoeff, 1.0, rainStrength));
 
         float final_ao = 1.0;
-
         if (ao_att < 0.999) {
             final_ao = mix(dbao(dither), 1.0, ao_att);
         }
+
+        // Desliga o AO se a câmera estiver dentro da camada de nuvens
+        float inCloudLayer = smoothstep(CLOUD_PLANE - 10.0, CLOUD_PLANE + 10.0, cameraPosition.y) * 
+                            (1.0 - smoothstep(CLOUD_PLANE_SUP - 10.0, CLOUD_PLANE_SUP + 10.0, cameraPosition.y));
+        final_ao = mix(final_ao, 1.0, inCloudLayer);
+
         blockColor.rgb *= final_ao;
         #if YDREAM_VOXEL_LIGHT > 0
             colorLightSurface *= final_ao;
