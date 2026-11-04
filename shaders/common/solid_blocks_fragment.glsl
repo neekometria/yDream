@@ -366,12 +366,16 @@ void main() {
     #endif
 
     #ifdef FOLIAGE_V
-    if (isFoliage > 0.2) {
-            #if defined SHADOW_CASTING && !defined NETHER && defined COLORED_SHADOW
-        shadowValue = mix(shadowValue, vec3(1.0), 0.5);
-            #else
-        shadowValue = mix(shadowValue, 1.0, 0.5);
-            #endif
+    if(isFoliage > 0.2) {
+        // Aplica o "bônus" de 50% apenas quando o sol está alto (dia).
+        // À noite (dayNightMix próximo de 0), o bônus vai a 0 e a grama escurece com o chão.
+        float foliageShadowMix = 0.5 * smoothstep(0.0, 0.4, dayNightMix);
+        
+        #if defined SHADOW_CASTING && !defined NETHER && defined COLORED_SHADOW
+        shadowValue = mix(shadowValue, vec3(1.0), foliageShadowMix);
+        #else
+        shadowValue = mix(shadowValue, 1.0, foliageShadowMix);
+        #endif
     }
     #endif
 
