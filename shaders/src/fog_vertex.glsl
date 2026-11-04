@@ -15,17 +15,17 @@
     #ifdef DISTANT_HORIZONS
         frogAdjust = pow(
             clamp(gl_FogFragCoord / dhRenderDistance, 0.0, 1.0) * fogIntensityCoeff,
-            mix(fogDensityCoeff * 0.15, 0.5, rainStrength)
+            mix(fogDensityCoeff * 0.15, 0.5, getAltitudeRain())
         );
     #elif defined VOXY
         frogAdjust = pow(
             clamp(gl_FogFragCoord / (vxRenderDistance * 16), 0.0, 1.0) * fogIntensityCoeff,
-            mix(fogDensityCoeff * 0.15, 0.5, rainStrength)
+            mix(fogDensityCoeff * 0.15, 0.5, getAltitudeRain())
         );
     #else
         frogAdjust = pow(
             clamp(gl_FogFragCoord / far, 0.0, 1.0) * fogIntensityCoeff,
-            mix(fogDensityCoeff, 1.0, rainStrength)
+            mix(fogDensityCoeff, 1.0, getAltitudeRain())
         );
     #endif
 
@@ -39,7 +39,7 @@
         float groundFogY = (gbufferModelViewInverse * groundFogView).y + cameraPosition.y;
         float groundFogHeight = exp(-max(groundFogY - float(GROUND_FOG_HEIGHT), 0.0) * 0.055);
         float groundFogTwilight = 1.0 + 1.1 * (1.0 - smoothstep(0.0, 0.45, abs(sunElevation)));
-        float groundFogDensity = GROUND_FOG_DENSITY * STYLE_FOG_MULT * groundFogTwilight * (1.0 + rainStrength * 1.4) * 0.0032;
+        float groundFogDensity = GROUND_FOG_DENSITY * STYLE_FOG_MULT * groundFogTwilight * (1.0 + getAltitudeRain() * 1.4) * 0.0032;
         float groundFogAmount = (1.0 - exp(-gl_FogFragCoord * groundFogDensity * groundFogHeight)) * 0.62;
         frogAdjust = 1.0 - (1.0 - frogAdjust) * (1.0 - groundFogAmount * fogIntensityCoeff);
     #endif

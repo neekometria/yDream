@@ -59,7 +59,7 @@ directLightStrength = clamp(directLightStrength, 0.0, 1.0);
 #if defined THE_END || defined NETHER
     omniLight = LIGHT_DAY_COLOR;
 #else
-    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor) * 0.4, rainStrength);
+    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor) * 0.4, getAltitudeRain());
 
     vec3 omniColor = mix(ZenithSkyColorRGB, directLightColor * 0.45, OMNI_TINT);
     float omniColorLuma = colorAverage(omniColor);

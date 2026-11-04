@@ -13,7 +13,7 @@
     horizonSkyColorRGB = mix(
         horizonSkyColorRGB,
         HORIZON_SKY_RAIN_COLOR * luma(horizonSkyColorRGB),
-        clamp(rainStrength * RAIN_ATMOSPHERE_STRENGTH, 0.0, 1.0)
+        clamp(getAltitudeRain() * RAIN_ATMOSPHERE_STRENGTH, 0.0, 1.0)
     );
 
     vec3 horizonSkyColor = rgbToXyz(horizonSkyColorRGB);

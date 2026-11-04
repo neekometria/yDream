@@ -42,6 +42,7 @@ varying vec3 directLightColor;
 #endif
 
 #include "/lib/luma.glsl"
+uniform vec3 cameraPosition;
 
 void main() {
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
@@ -50,7 +51,7 @@ void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
 
     directLightColor = dayBlend(LIGHT_SUNSET_COLOR, LIGHT_DAY_COLOR, LIGHT_NIGHT_COLOR);
-    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor), rainStrength);
+    directLightColor = mix(directLightColor, ZENITH_SKY_RAIN_COLOR * luma(directLightColor), getAltitudeRain());
 
     #if (VOL_LIGHT == 1 && !defined NETHER) || (VOL_LIGHT == 2 && defined SHADOW_CASTING && !defined NETHER)
         float vol_attenuation;
@@ -65,7 +66,7 @@ void main() {
 
     #if VOL_LIGHT == 1 && !defined NETHER
         astroLightPos = sunPosition * step(0.5, dayNightMix) * 2.0 + moonPosition;
-        vec4 tpos = vec4(astroLightPos, 1.0) * gbufferProjection;
+        vec4 tpos = vec4(astroLightPos, 0.0) * gbufferProjection;
         tpos = vec4(tpos.xyz / tpos.w, 1.0);
         vec2 pos1 = tpos.xy / tpos.z;
         lightpos = pos1 * 0.5 + 0.5;

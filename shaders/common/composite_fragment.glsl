@@ -223,7 +223,7 @@ void main() {
             // space, so it projects with w = 1. Do not reuse lightpos here: that
             // varying is built with a transposed matrix multiply, which makes it
             // unreliable as a screen coordinate.
-            vec4 astroClip = gbufferProjection * vec4(astroLightPos, 1.0);
+            vec4 astroClip = gbufferProjection * vec4(astroLightPos, 0.0);
             float astroFront = step(0.001, astroClip.w);
             vec2 astroUV = astroClip.xy / max(astroClip.w, 0.001) * 0.5 + 0.5;
             float sunOnScreen = astroFront *
@@ -273,7 +273,7 @@ void main() {
             }
 
             blockColor.rgb += volumetricLightColor * beamTint * volumetricLight * volumetricIntensity * waterGlimmer *
-                (GODRAY_STRENGTH * STYLE_GODRAY_MULT * mix(1.0 - rainStrength, 1.3, underwaterBeams));
+                (GODRAY_STRENGTH * STYLE_GODRAY_MULT * mix(1.0 - getAltitudeRain(), 1.3, underwaterBeams));
         #endif
     #endif
 
@@ -285,7 +285,7 @@ void main() {
         #endif
 
         #if !defined THE_END
-            if (isEyeInWater == 0 && (rainStrength > 0.98 || abs(dayNightMix * 2.0 - 1.0) < 0.02)) {
+            if (isEyeInWater == 0 && (getAltitudeRain() > 0.98 || abs(dayNightMix * 2.0 - 1.0) < 0.02)) {
                 godrayActive = false;
             }
         #endif
@@ -319,7 +319,7 @@ void main() {
             vec3 beamTint = mix(vec3(1.0), normalize(WATER_COLOR + 0.0001), underwaterBeams);
             beamTint *= mix(mix(vec3(1.0, 0.97, 0.90), vec3(1.0, 0.80, 0.55), clamp(goldenHour * GODRAY_WARMTH, 0.0, 1.0)), vec3(1.0), underwaterBeams);
             float scatterStrength = GODRAY_STRENGTH * STYLE_GODRAY_MULT *
-                mix(mix(0.56, 0.40, goldenHour) * (1.0 + 0.9 * goldenHour) * (1.0 - rainStrength), 1.25, underwaterBeams) *
+                mix(mix(0.56, 0.40, goldenHour) * (1.0 + 0.9 * goldenHour) * (1.0 - getAltitudeRain()), 1.25, underwaterBeams) *
                 abs(dayNightMix * 2.0 - 1.0);
 
             float waterGlimmer = 1.0;

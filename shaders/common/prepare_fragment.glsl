@@ -230,7 +230,7 @@ void main() {
         fogSky = blockColor;
         fullSky = blockColor;
     #else
-        float rainAmount = clamp(rainStrength * RAIN_ATMOSPHERE_STRENGTH, 0.0, 1.0);
+        float rainAmount = clamp(getAltitudeRain() * RAIN_ATMOSPHERE_STRENGTH, 0.0, 1.0);
 
         vec3 sunDir = normalize(sunPosition);
         vec3 moonDir = normalize(moonPosition);
@@ -348,8 +348,11 @@ void main() {
         #endif
 
         #if YDREAM_STARS == 1 || YDREAM_AURORA == 1 || YDREAM_SHOOTING == 1
-            if (nightVisibility > 0.002 && skyElevation > -0.02) {
-                float horizonFade = smoothstep(-0.02, 0.10, skyElevation);
+            if (nightVisibility > 0.002) { // <--- Removido o 'skyElevation > -0.02'
+                // Se estiver acima das nuvens, o céu inteiro é estrelado (fade = 1.0)
+                float isInSpace = smoothstep(CLOUD_PLANE_CENTER + 50.0, CLOUD_PLANE_CENTER + 150.0, cameraPosition.y);
+                float horizonFade = mix(smoothstep(-0.02, 0.10, skyElevation), 1.0, isInSpace);
+                
                 float pixelAngle = 2.0 * pixelSizeY * gbufferProjectionInverse[1].y;
 
                 float auroraReveal = smoothstep(0.0, 1.0, AURORA_BIOME == 0 ? auroraBiomeFade : 1.0);

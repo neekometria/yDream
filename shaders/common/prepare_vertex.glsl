@@ -1,5 +1,7 @@
 #include "/lib/config.glsl"
 
+
+
 #ifdef THE_END
     #include "/lib/color_utils_end.glsl"
 #elif defined NETHER
@@ -10,6 +12,7 @@
 
 uniform mat4 gbufferModelView;
 uniform float rainStrength;
+uniform vec3 cameraPosition;
 
 varying vec3 upVector;
 varying vec3 zenithSkyColor;

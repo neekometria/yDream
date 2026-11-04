@@ -1,6 +1,7 @@
 #include "/lib/config.glsl"
 
 varying vec2 texcoord;
+uniform vec3 cameraPosition;
 
 #if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
     uniform mat4 gbufferProjection;
@@ -34,7 +35,7 @@ void main() {
 
     #if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
         vec3 sunView = normalize(sunPosition);
-        vec4 sunClip = gbufferProjection * vec4(sunView, 0.0);
+        vec4 sunClip = gbufferProjection * vec4(sunView, 0.0); 
         float sunFront = step(0.001, sunClip.w);
         flareSunUV = sunClip.xy / max(sunClip.w, 0.001) * 0.5 + 0.5;
 
@@ -48,6 +49,6 @@ void main() {
         skyTaps += flare_sky(tapCenter - vec2(0.0, 0.012));
 
         float screenEdge = smoothstep(-0.30, 0.04, min(min(flareSunUV.x, 1.0 - flareSunUV.x), min(flareSunUV.y, 1.0 - flareSunUV.y)));
-        flareVisibility = sunFront * sunUp * (skyTaps * 0.2) * screenEdge * (1.0 - rainStrength);
+        flareVisibility = sunFront * sunUp * (skyTaps * 0.2) * screenEdge * (1.0 - getAltitudeRain());
     #endif
 }
