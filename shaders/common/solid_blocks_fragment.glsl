@@ -81,6 +81,10 @@ uniform vec3 shadowLightPosition;
 uniform mat4 gbufferModelView;
 #endif
 
+#if SHADOW_LOCK > 0 && defined SHADOW_CASTING && !defined NETHER
+uniform mat4 gbufferModelViewInverse;
+#endif
+
 varying vec2 texcoord;
 varying vec4 tintColor;
 varying float frogAdjust;
@@ -154,6 +158,12 @@ varying float lumaPower;
     #include "/lib/shadow_vertex.glsl"
 #endif
 
+#if defined GBUFFER_ENTITIES
+varying vec3 playerViewPos;
+varying vec3 playerSunDir;
+varying vec2 playerLmcoord;
+#endif
+
 void main() {
     #if (defined SHADOW_CASTING && !defined NETHER) || defined DISTANT_HORIZONS
         #if AA_TYPE > 0
@@ -168,7 +178,7 @@ void main() {
     float sup = t * TRANSITION_DH_SUP;
     float inf = t * TRANSITION_DH_INF;
     float umbral = (gl_FogFragCoord - (dhNearPlane + inf)) / (far - sup - inf - dhNearPlane);
-    if(umbral > dither) {
+    if (umbral > dither) {
         discard;
         return;
     }
@@ -185,7 +195,7 @@ void main() {
 
     #if defined GBUFFER_ENTITIES && BLACK_ENTITY_FIX == 1
     vec4 blockColor = texture2D(tex, pomUV);
-    if(blockColor.a < 0.1 && entityId != 10101) {
+    if (blockColor.a < 0.1 && entityId != 10101) {
         discard;
     }
     blockColor *= tintColor;
@@ -202,7 +212,7 @@ void main() {
     #endif
 
     #ifdef FOLIAGE_V
-    if(isFoliage > 0.2) {
+    if (isFoliage > 0.2) {
         float foliageLuma = luma(blockColor.rgb);
         blockColor.rgb = mix(vec3(foliageLuma), blockColor.rgb, FOLIAGE_SATURATION) * FOLIAGE_BRIGHTNESS;
     }
@@ -213,7 +223,7 @@ void main() {
     #if defined GBUFFER_TERRAIN && EMISSIVE_ORES == 1
     vec3 oreAlbedo = blockColor.rgb;
     float oreMask = 0.0;
-    if(isOre > 0.5) {
+    if (isOre > 0.5) {
         float oreChroma = max(max(oreAlbedo.r, oreAlbedo.g), oreAlbedo.b) - min(min(oreAlbedo.r, oreAlbedo.g), oreAlbedo.b);
         float orePeak = max(max(oreAlbedo.r, oreAlbedo.g), oreAlbedo.b);
         float coloredMask = smoothstep(0.62, 0.80, orePeak) * smoothstep(0.18, 0.32, oreChroma);
@@ -241,7 +251,7 @@ void main() {
     float ydreamCandleLuma = 0.0;
     #endif
     #if defined GBUFFER_TERRAIN || defined GBUFFER_HAND || defined GBUFFER_ENTITIES
-    if(isEmissiveEntityLocal > 0.5) {
+    if (isEmissiveEntityLocal > 0.5) {
         finalCandleColor *= block_luma * EMISSIVE_STRENGTH;
     }
     #endif
@@ -252,35 +262,67 @@ void main() {
     #endif
 
     #if defined GBUFFER_ENTITIES
-
-    if(entityId == 10101) {
+    if (entityId == 10101) {
         blockColor.a = 1.0;
+    }
+    #endif
+
+    float playerDLS = directLightStrength;
+    vec3 playerGeoNormalView = vec3(0.0);
+    bool isPlayerEntity = false;
+    #if defined GBUFFER_ENTITIES
+    isPlayerEntity = (entityId == 10301 || entityId == 10302);
+    // Fallback para Epic Fight: o mod não preenche entityId (fica <= 0) e o
+    // fragmento do player é o mais próximo da câmera em 3ª pessoa. Threshold
+    // de 6 blocos cobre todo o corpo; pode ser apertado se pegar mobs por engano.
+    if (!isPlayerEntity && entityId <= 0 && length(playerViewPos) < 6.0) {
+        isPlayerEntity = true;
+    }
+    if (isPlayerEntity) {
+        vec3 playerN = cross(dFdx(playerViewPos), dFdy(playerViewPos));
+        float playerNLen = dot(playerN, playerN);
+        if (playerNLen > 0.0000001) {
+            playerN *= inversesqrt(playerNLen);
+            if (dot(playerN, playerViewPos) > 0.0) playerN = -playerN;
+            playerGeoNormalView = playerN;
+            float playerAstro = dot(playerN, normalize(playerSunDir));
+            float playerRaw = clamp(mix(-playerAstro, playerAstro, dayNightMix), 0.0, 1.0);
+            float playerVisSky = clamp(max(playerLmcoord.y - 0.065, 0.0) * 1.0695, 0.0, 1.0);
+            playerDLS = playerRaw * playerVisSky;
+        }
     }
     #endif
 
     #if defined SHADOW_CASTING && !defined NETHER
         #if SHADOW_LOCK > 0
-    vec3 offsetVector = vNormal * 0.002;
+    vec3 offsetNormal = vNormal;
+    vec3 offsetBias = vBias;
+            #if defined GBUFFER_ENTITIES
+    if (isPlayerEntity && dot(playerGeoNormalView, playerGeoNormalView) > 0.5) {
+        // view -> world (mesmo espaço de vWorldPos / cameraPosition)
+        offsetNormal = normalize((gbufferModelViewInverse * vec4(playerGeoNormalView, 0.0)).xyz);
+        offsetBias = offsetNormal * 0.008;
+    }
+            #endif
+    vec3 offsetVector = offsetNormal * 0.002;
     vec3 preSnapPos = vWorldPos + offsetVector;
     float texelSize = SHADOW_LOCK;
     vec3 absPos = preSnapPos + cameraPosition;
 
     vec3 snappedAbsolute = floor(absPos * texelSize) / texelSize;
     snappedAbsolute += 0.5 / texelSize;
-    vec3 final_world_pos = (snappedAbsolute - cameraPosition) + vBias;
+    vec3 final_world_pos = (snappedAbsolute - cameraPosition) + offsetBias;
     vec3 shadow_real_pos = get_shadow_pos(final_world_pos);
         #else
     vec3 shadow_real_pos = shadowPos;
         #endif
-
-
 
         #if defined COLORED_SHADOW
     vec3 shadowValue = get_colored_shadow(shadow_real_pos, dither);
     shadowValue = mix(shadowValue, vec3(1.0), shadowDiffuse);
         #else
     float nightShadowAmount = 1.0 - smoothstep(0.0, 0.35, dayNightMix);
-    bool needShadow = directLightStrength > 0.002;
+    bool needShadow = playerDLS > 0.002;
             #if NIGHT_SHADOWS == 2
     needShadow = needShadow && nightShadowAmount < 0.99;
             #endif
@@ -297,19 +339,34 @@ void main() {
     #else
     float shadowValue = abs((dayNightMix * 2.0) - 1.0);
     #endif
+
+    // Se as costas ainda ficarem escuras no Epic Fight, descomente o piso abaixo.
+    // Ele força um mínimo de luz direta para o player, mascarando self-shadow
+    // causado por silhueta de shadow pass diferente da pose renderizada.
+     #if defined GBUFFER_ENTITIES
+     if (isPlayerEntity) {
+         #if defined COLORED_SHADOW
+         shadowValue = max(shadowValue, vec3(0.05));
+         #else
+         shadowValue = max(shadowValue, 0.05);
+         #endif
+     }
+     #endif
+
     #if defined SUN_OCCLUSION_ACTIVE && defined GBUFFER_TERRAIN
         #if defined SHADOW_CASTING && !defined NETHER
             #if defined COLORED_SHADOW
-                vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * directLightStrength * (1.0 - rainStrength * 0.55);
+    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - rainStrength * 0.55);
             #else
-                vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * directLightStrength * (1.0 - rainStrength * 0.55);
+    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - rainStrength * 0.55);
             #endif
         #else
-            vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * directLightStrength * (1.0 - rainStrength * 0.55);
+    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - rainStrength * 0.55);
         #endif
     #endif
+
     #ifdef FOLIAGE_V
-    if(isFoliage > 0.2) {
+    if (isFoliage > 0.2) {
             #if defined SHADOW_CASTING && !defined NETHER && defined COLORED_SHADOW
         shadowValue = mix(shadowValue, vec3(1.0), 0.5);
             #else
@@ -324,8 +381,8 @@ void main() {
     blockColor.rgb =
         clamp(vec3(luma(blockColor.rgb)) * vec3(0.75, 0.75, 1.5), vec3(0.3), vec3(1.0));
     vec3 realLight = omniLight +
-            (shadowValue * directLightColor * directLightStrength) * (1.0 - (rainStrength * 0.55)) +
-            finalCandleColor;
+        (shadowValue * directLightColor * playerDLS) * (1.0 - (rainStrength * 0.55)) +
+        finalCandleColor;
     #else
         #if defined PBR_ACTIVE
             #if PBR_MODE == 1
@@ -402,13 +459,13 @@ void main() {
     float pbrEmission = pbrSpecSample.a * 255.0 < 254.5 ? pbrSpecSample.a * 255.0 / 254.0 : 0.0;
     vec3 pbrAdditive = pbrAlbedo * (pbrEmission * 2.0 * PBR_EMISSION_STRENGTH);
 
-    float pbrDirect = directLightStrength;
+    float pbrDirect = playerDLS;
 
             #if !defined THE_END && !defined NETHER
     vec3 pbrLight = normalize(sunPosition) * mix(-1.0, 1.0, dayNightMix);
     float pbrNLGeo = clamp(dot(pbrGeo, pbrLight), 0.0, 1.0);
     float pbrNL = clamp(dot(mappedNormal, pbrLight), 0.0, 1.0);
-    pbrDirect = clamp(directLightStrength * (pbrNL + 0.05) / (pbrNLGeo + 0.05), 0.0, 1.3);
+    pbrDirect = clamp(playerDLS * (pbrNL + 0.05) / (pbrNLGeo + 0.05), 0.0, 1.3);
 
     vec3 pbrHalf = normalize(pbrLight + pbrViewDir);
     float pbrNH = max(dot(mappedNormal, pbrHalf), 0.0);
@@ -422,7 +479,7 @@ void main() {
     vec3 pbrSpecular = min(pbrD * pbrG * pbrFresnel / max(4.0 * pbrNV, 0.001), vec3(12.0));
 
     pbrAdditive += pbrSpecular * (shadowValue * directLightColor) *
-        ((1.0 - rainStrength * 0.55) * step(0.001, directLightStrength) * pbrSpecMask * PBR_SPECULAR_STRENGTH);
+        ((1.0 - rainStrength * 0.55) * step(0.001, playerDLS) * pbrSpecMask * PBR_SPECULAR_STRENGTH);
             #endif
 
     vec3 pbrEnvFresnel = pbrF0 + (1.0 - pbrF0) * pow(1.0 - pbrNV, 5.0);
@@ -437,7 +494,7 @@ void main() {
     float final_gloss_power = glossPower;
     block_luma *= lumaFactor;
 
-    if(lumaPower < 0.0) {
+    if (lumaPower < 0.0) {
         final_gloss_power -= (block_luma * 73.334);
     } else {
         block_luma = pow(block_luma, lumaPower);
@@ -450,11 +507,11 @@ void main() {
     material *= 0.35;
             #endif
     vec3 realLight = omniLight +
-        (shadowValue * ((directLightColor * directLightStrength) + (directLightColor * material))) * (1.0 - (rainStrength * 0.55)) +
+        (shadowValue * ((directLightColor * playerDLS) + (directLightColor * material))) * (1.0 - (rainStrength * 0.55)) +
         finalCandleColor;
         #else
     vec3 realLight = omniLight +
-        (shadowValue * directLightColor * directLightStrength) * (1.0 - (rainStrength * 0.55)) +
+        (shadowValue * directLightColor * playerDLS) * (1.0 - (rainStrength * 0.55)) +
         finalCandleColor;
         #endif
 
@@ -471,7 +528,7 @@ void main() {
     blockColor.rgb *= mix(vec3(1.0, 1.0, 1.0), vec3(NV_COLOR_R, NV_COLOR_G, NV_COLOR_B), nightVision);
 
         #ifdef FOLIAGE_V
-    if(isFoliage > 0.2) {
+    if (isFoliage > 0.2) {
         blockColor.rgb += blockColor.rgb * directLightColor * 0.18;
     }
         #endif
@@ -483,7 +540,7 @@ void main() {
         #ifdef WETNESS_EFFECTS_ON
     float wetnessAmount = clamp(wetness, 0.0, 1.0) * clamp(skyExposure * 1.4 - 0.4, 0.0, 1.0) * WETNESS_STRENGTH;
     blockColor.rgb *= mix(1.0, 0.88, wetnessAmount * 0.5);
-    blockColor.rgb += directLightColor * (wetnessAmount * 0.04 * directLightStrength);
+    blockColor.rgb += directLightColor * (wetnessAmount * 0.04 * playerDLS);
         #endif
 
         #if defined PBR_ACTIVE
@@ -493,7 +550,7 @@ void main() {
     #endif
 
     #if defined GBUFFER_ENTITIES
-    if(entityId == 10101) {
+    if (entityId == 10101) {
         blockColor = vec4(1.0, 1.0, 1.0, 0.5);
     } else if (entityId == 10201) {
         blockColor = originalEntityColor;

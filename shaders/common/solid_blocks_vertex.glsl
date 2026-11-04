@@ -162,6 +162,12 @@ attribute vec4 mc_Entity;
     #include "/lib/cloud_shadow.glsl"
 #endif
 
+#if defined GBUFFER_ENTITIES
+varying vec3 playerViewPos;
+varying vec3 playerSunDir;
+varying vec2 playerLmcoord;
+#endif
+
 void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
     vec3 zenithSkyColor;
@@ -284,6 +290,12 @@ void main() {
 
     #if defined GBUFFER_ENTITY_GLOW
         gl_Position.z *= 0.01;
+    #endif
+
+    #if defined GBUFFER_ENTITIES
+        playerViewPos = viewPosition.xyz;
+        playerSunDir = normalize(sunPosition);
+        playerLmcoord = lmcoord;
     #endif
 
     #if defined SHADOW_CASTING && SHADOW_LOCK > 0 && !defined NETHER
