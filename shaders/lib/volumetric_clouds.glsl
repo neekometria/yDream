@@ -132,7 +132,7 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         }
 
         // Aumenta a densidade da nuvem na chuva
-        float rainDensity = mix(1.0, 6.0, rainStrength); 
+        float rainDensity = mix(1.0, RAIN_CLOUD_DENSITY, rainStrength); 
         float interiorBoost = mix(1.0, CLOUD_INTERIOR_DENSITY, interiorAmount * 0.5) * rainDensity;
         cloud_value = clamp(cloud_value / opacity_dist * interiorBoost, 0.0, 1.0);
 

@@ -242,6 +242,10 @@
 #define AVOID_DARK_LEVEL 0.042 // [0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035 0.040 0.042 0.045 0.050 0.055 0.060]
 #define NIGHT_BRIGHT 0.85 // [0.05 0.10 0.15 0.20 0.25 0.30 0.35 0.40 0.45 0.50 0.55 0.60 0.65 0.70 0.75 0.80 0.85 0.90]
 #define BLACK_ENTITY_FIX 0 // [0 1]
+// Luz mínima que o jogador (Epic Fight e Punchy) recebe, para mascarar o auto-sombreamento.
+#define PLAYER_SHADOW_FLOOR 0.05 // [0.0 0.02 0.05 0.08 0.10 0.15 0.20]
+// Bias da sombra do jogador. Valores altos afastam a sombra do corpo; baixos podem gerar serrilhado.
+#define PLAYER_EF_BIAS 0.008 // [0.002 0.004 0.006 0.008 0.010 0.015 0.020]
 #define ENCHANT_GLINT_COLOR_MODE 3 // [0 1 2 3]
 #define ENCHANT_GLINT_STRENGTH 0.7 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define ENCHANT_GLINT_SPEED 1.0 // [0.25 0.5 0.75 1.0 1.5 2.0 3.0]
@@ -451,6 +455,12 @@
 #define VIGNETTE_STRENGTH 0.28 // [0.1 0.15 0.2 0.25 0.28 0.3 0.35 0.4 0.45 0.5 0.55 0.6]
 #define RAIN_ATMOSPHERE_STRENGTH 1.0 // [0.5 0.7 0.85 1.0 1.15 1.3 1.5]
 #define RAIN_OPACITY 1.0 // [0.4 0.6 0.8 1.0 1.2 1.4]
+// Altura, em blocos acima do centro das nuvens, em que a chuva termina.
+// Abaixo dela a chuva e a névoa aparecem; acima, somem e o sol volta a atingir picos.
+// Mínimo 15.0: o fade começa em +10.0, então valores até 10.0 quebrariam o smoothstep.
+#define RAIN_CLOUD_OFFSET 30.0 // [15.0 20.0 30.0 40.0 50.0 60.0]
+// Densidade extra das nuvens durante a chuva. 1.0 mantém o visual sem reforço.
+#define RAIN_CLOUD_DENSITY 6.0 // [1.0 2.0 3.0 4.0 6.0 8.0 10.0]
 
 #define AA_MODE 2 // [0 1 2 3 4 5]
 #define ATAA_QUALITY 1 // [0 1 2]
@@ -1585,6 +1595,6 @@ const float centerDepthHalflife = 0.66;
     #define FUN_METEOR_EXTRA 0
     #define FUN_METEOR_RATE 1.0
 #endif
-#define getAltitudeRain() (rainStrength * (1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + 30.0, cameraPosition.y)))
+#define getAltitudeRain() (rainStrength * (1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + RAIN_CLOUD_OFFSET, cameraPosition.y)))
 // Calcula a chuva baseada na altura do bloco, não da câmera
-#define getTerrainRain(worldY) (rainStrength * (1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + 30.0, worldY)))
+#define getTerrainRain(worldY) (rainStrength * (1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + RAIN_CLOUD_OFFSET, worldY)))

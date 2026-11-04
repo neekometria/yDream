@@ -260,7 +260,7 @@ void main() {
     #endif
 
     #ifdef GBUFFER_WEATHER
-    float rainAltitudeFade = 1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + 30.0, cameraPosition.y);
+    float rainAltitudeFade = 1.0 - smoothstep(CLOUD_PLANE_CENTER + 10.0, CLOUD_PLANE_CENTER + RAIN_CLOUD_OFFSET, cameraPosition.y);
     if (rainAltitudeFade <= 0.0) {
         discard;
     }
@@ -304,7 +304,7 @@ void main() {
             #if defined GBUFFER_ENTITIES
     if (isPlayerEntity && dot(playerGeoNormalView, playerGeoNormalView) > 0.5) {
         offsetNormal = normalize((gbufferModelViewInverse * vec4(playerGeoNormalView, 0.0)).xyz);
-        offsetBias = offsetNormal * 0.008;
+        offsetBias = offsetNormal * PLAYER_EF_BIAS;
     }
             #endif
     vec3 offsetVector = offsetNormal * 0.002;
@@ -346,9 +346,9 @@ void main() {
     #if defined GBUFFER_ENTITIES
     if (isPlayerEntity) {
         #if defined COLORED_SHADOW
-        shadowValue = max(shadowValue, vec3(0.05));
+        shadowValue = max(shadowValue, vec3(PLAYER_SHADOW_FLOOR));
         #else
-        shadowValue = max(shadowValue, 0.05);
+        shadowValue = max(shadowValue, PLAYER_SHADOW_FLOOR);
         #endif
     }
     #endif
