@@ -202,8 +202,9 @@ void main() {
     #if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER
         if(isEyeInWater == 0) {
             float reflectCoverage;
-            // CORRIGIDO AQUI: Adicionado o '1.0' para o atmosphereFade
-            skyColorReflect = get_cloud(normalize((gbufferModelViewInverse * vec4(reflectWaterVector * far, 1.0)).xyz), skyColorReflect, 0.0, dither, worldposition.xyz, int(CLOUD_STEPS_AVG * 0.5), umbral, cloudColor, darkCloudColor, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9, 1.0, reflectCoverage);
+            vec3 cloudReflect = get_cloud(normalize((gbufferModelViewInverse * vec4(reflectWaterVector * far, 1.0)).xyz), skyColorReflect, 0.0, dither, worldposition.xyz, int(CLOUD_STEPS_AVG * 0.5), umbral, cloudColor, darkCloudColor, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9, 1.0, reflectCoverage);
+            // Garante que o reflexo não fique negativo ou infinito
+            skyColorReflect = max(cloudReflect, vec3(0.0));
         }
     #endif
 

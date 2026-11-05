@@ -41,35 +41,10 @@
                 gl_FragData[1] = vec4(0.0, 0.0, 0.0, ydreamCandleLuma);
             #endif
             gl_FragData[2] = vec4(ydreamAlbedo, 1.0);
-        #elif defined GBUFFER_TERRAIN && defined SUN_OCCLUSION_ACTIVE
-            #if defined YDREAM_LIGHT_BUFFERS
-                /* RENDERTARGETS: 1,2,5,9 */
-                blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-                gl_FragData[0] = blockColor;
-                #if YDREAM_VOXEL_LIGHT > 0
-                    gl_FragData[1] = vec4(emitterTint * isEmissiveEntity, ydreamCandleLuma);
-                #else
-                    gl_FragData[1] = vec4(0.0, 0.0, 0.0, ydreamCandleLuma);
-                #endif
-                gl_FragData[2] = vec4(sunContribution, 1.0);
-                gl_FragData[3] = vec4(ydreamAlbedo, 1.0);
-            #else
-                /* RENDERTARGETS: 1,5 */
-                blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-                gl_FragData[0] = blockColor;
-                gl_FragData[1] = vec4(sunContribution, 1.0);
-            #endif
         #else
-            #ifdef SUN_OCCLUSION_ACTIVE
-                /* RENDERTARGETS: 1,5 */
-                blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-                gl_FragData[0] = blockColor;
-                gl_FragData[1] = vec4(0.0, 0.0, 0.0, 0.0);
-            #else
-                /* DRAWBUFFERS:1 */
-                blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-                gl_FragData[0] = blockColor;
-            #endif
+            /* DRAWBUFFERS:1 */
+            blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
+            gl_FragData[0] = blockColor;
         #endif
     #endif
 #endif

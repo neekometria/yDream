@@ -31,6 +31,11 @@ varying vec2 texcoord;
     varying vec2 flareSunUV;
     varying float flareVisibility;
 
+    // Adicionado: Textura de nuvens
+    #if V_CLOUDS != 0
+        uniform sampler2D colortex6;
+    #endif
+
     float flareHex(vec2 p, float radius, float angle) {
         float s = sin(angle);
         float c = cos(angle);
@@ -41,14 +46,12 @@ varying vec2 texcoord;
     float flareGhostShape(float h) {
         float body = 1.0 - smoothstep(0.35, 1.0, h);
         float rim = smoothstep(0.72, 0.96, h) * (1.0 - smoothstep(0.96, 1.05, h));
-
         return body * 0.30 + rim * 0.70;
     }
 
     vec3 flareGhost(vec2 uv, vec2 center, float radius, float angle, float aspect) {
         vec2 delta = (uv - center) * vec2(aspect, 1.0);
         float h = flareHex(delta, radius, angle);
-
         return vec3(flareGhostShape(h * 1.045), flareGhostShape(h), flareGhostShape(h * 0.955));
     }
 #endif
@@ -87,7 +90,13 @@ void main() {
     #endif
 
     #if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
-        if (flareVisibility > 0.002) {
+        float cloudVisibility = 1.0;
+        #if V_CLOUDS != 0
+            float cloudCoverage = texture2DLod(colortex6, clamp(flareSunUV, 0.02, 0.98), 0.0).r;
+            cloudVisibility = 1.0 - smoothstep(0.1, 0.7, cloudCoverage);
+        #endif
+
+        if (flareVisibility * cloudVisibility > 0.002) {
             float flareAspect = 1.0 / aspectRatioInverse;
             vec2 flareAxis = vec2(0.5) - flareSunUV;
             vec2 toSun = (texcoord - flareSunUV) * vec2(flareAspect, 1.0);
@@ -124,7 +133,7 @@ void main() {
             flare += vec3(1.0, 0.92, 0.78) * (spikes * 0.28 + veil);
             flare += streakColor * (streakLength * (streakCore * 0.85 + streakWide * 0.18) * ANAMORPHIC_STREAK_MULT);
 
-            blockColor.rgb += flare * (flareVisibility * LENS_FLARE_STRENGTH * STYLE_FLARE_STRENGTH * 0.55);
+            blockColor.rgb += flare * (flareVisibility * cloudVisibility * LENS_FLARE_STRENGTH * STYLE_FLARE_STRENGTH * 0.55);
         }
     #endif
 

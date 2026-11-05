@@ -109,7 +109,9 @@ float dh_water_cloud_coverage(vec3 waterPos) {
                 (samplePos.xz * 0.0016) - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6)).r;
             float fieldValue = mix(cloud_field(samplePos.xz), detailNoise, CLOUD_DETAIL_WEIGHT);
             
-            // Aumenta a sensibilidade da água para detectar a nuvem
+            // Proteção contra NaN
+            if (fieldValue != fieldValue) fieldValue = 0.0;
+            
             coverage = max(coverage, smoothstep(0.1, 0.3, fieldValue));
         }
     }
@@ -147,7 +149,6 @@ void main() {
         cloudCoverage = dh_water_cloud_coverage(position.xyz + cameraPosition);
     }
     
-    // Se a cobertura for alta, some com a água imediatamente
     if (waterCloudFade && cloudCoverage > 0.5) {
         discard;
         return;

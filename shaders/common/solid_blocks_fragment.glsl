@@ -211,10 +211,6 @@ void main() {
     vec4 originalEntityColor = blockColor;
     #endif
 
-    #if defined SUN_OCCLUSION_ACTIVE && defined GBUFFER_TERRAIN
-    vec3 sunBaseAlbedo = blockColor.rgb;
-    #endif
-
     #ifdef FOLIAGE_V
     if (isFoliage > 0.2) {
         float foliageLuma = luma(blockColor.rgb);
@@ -354,17 +350,7 @@ void main() {
     }
     #endif
 
-    #if defined SUN_OCCLUSION_ACTIVE && defined GBUFFER_TERRAIN
-        #if defined SHADOW_CASTING && !defined NETHER
-            #if defined COLORED_SHADOW
-    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - getAltitudeRain() * 0.55);
-            #else
-    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - getAltitudeRain() * 0.55);
-            #endif
-        #else
-    vec3 sunContribution = sunBaseAlbedo * shadowValue * directLightColor * playerDLS * (1.0 - getAltitudeRain() * 0.55);
-        #endif
-    #endif
+    // Removido o bloco inútil do sunContribution que causava o erro.
 
     #ifdef FOLIAGE_V
     if(isFoliage > 0.2) {
