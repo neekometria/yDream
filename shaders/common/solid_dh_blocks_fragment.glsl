@@ -179,9 +179,9 @@ void main() {
         float blockY = position.xyz.y + cameraPosition.y;
 
         if (cameraPosition.y > CLOUD_PLANE_SUP && blockY < CLOUD_PLANE) {
-            vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-            vec3 currentFog = texture2DLod(colortex7, screenUV, 0.0).rgb;
-            vec3 rainFog = ZENITH_SKY_RAIN_COLOR * luma(currentFog) * 0.35;
+            // Em vez de ler colortex7 (que pode falhar no DH), 
+            // usamos uma cor de névoa de chuva fixa e escura.
+            vec3 rainFog = ZENITH_SKY_RAIN_COLOR * 0.35;
             
             // Escurece o terreno também para não parecer que está no sol
             blockColor.rgb *= 0.4;

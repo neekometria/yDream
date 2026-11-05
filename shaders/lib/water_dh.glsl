@@ -65,23 +65,17 @@ vec3 get_normals(vec3 bump, vec3 fragpos) {
 vec4 reflection_calc_dh(vec3 fragpos, vec3 normal, vec3 reflected, vec3 infinite_color, float dither) {
     vec3 pos = camera_to_screen(fragpos + reflected * 768.0);
 
-    float border =
-        clamp((1.0 - (max(0.0, abs(pos.y - 0.5)) * 2.0)) * 50.0, 0.0, 1.0);
-
-    border = clamp(border - pow(pos.y, 10.0), 0.0, 1.0);
+    float border = clamp((1.0 - (max(0.0, abs(pos.y - 0.5)) * 1.5)) * 10.0, 0.0, 1.0);
+    border = clamp(border - pow(pos.y, 20.0), 0.0, 1.0);
 
     pos.x = abs(pos.x);
     if (pos.x > 1.0) {
         pos.x = 1.0 - (pos.x - 1.0);
     }
 
-    vec4 final_reflex;
-    if (texture2D(depthtex0, pos.xy).r < 0.999) {
-        final_reflex = vec4(infinite_color, border);
-    } else {
-        final_reflex = vec4(texture2D(gaux1, pos.xy).rgb, border);
-    }
-    return final_reflex;
+    // Como o colortex4 (gaux1) não está inicializado no DH,
+    // usamos apenas a cor do céu para o reflexo (evita o lixo na tela).
+    return vec4(infinite_color, border);
 }
 
 vec3 water_shader_dh(

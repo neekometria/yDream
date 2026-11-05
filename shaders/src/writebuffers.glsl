@@ -42,9 +42,16 @@
             #endif
             gl_FragData[2] = vec4(ydreamAlbedo, 1.0);
         #else
-            /* DRAWBUFFERS:1 */
-            blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-            gl_FragData[0] = blockColor;
+            #ifdef SUN_OCCLUSION_ACTIVE
+                /* RENDERTARGETS: 1,5 */
+                blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
+                gl_FragData[0] = blockColor;
+                gl_FragData[1] = vec4(0.0, 0.0, 0.0, 0.0); // Limpa o buffer 5 para o composite2 ignorar
+            #else
+                /* DRAWBUFFERS:1 */
+                blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
+                gl_FragData[0] = blockColor;
+            #endif
         #endif
     #endif
 #endif
