@@ -1,4 +1,3 @@
-
 name: Automatic Release
 
 on:
@@ -184,18 +183,32 @@ jobs:
             exit 1
           fi
 
+          # Fetch all Minecraft versions >= 1.21 from Modrinth
+          GAME_VERSIONS="$(curl -fsSL \
+            -H "User-Agent: neekometria/yDream/${VERSION} (GitHub Actions)" \
+            "https://api.modrinth.com/v2/tag/game_version" \
+            | jq -c '[.[] | select(.version | test("^1\\.(21|[2-9][0-9])")) | .version]')"
+
+          if [[ -z "$GAME_VERSIONS" || "$GAME_VERSIONS" == "[]" ]]; then
+            echo "::error::No Minecraft versions >= 1.21 found."
+            exit 1
+          fi
+
+          echo "Resolved game versions: $GAME_VERSIONS"
+
           # Generate version metadata
           jq -n \
             --arg project_id "$PROJECT_ID" \
             --arg name "yDream ${VERSION}" \
             --arg version_number "$VERSION" \
             --rawfile changelog dist/CHANGELOG.md \
+            --argjson game_versions "$GAME_VERSIONS" \
             '{
               name: $name,
               version_number: $version_number,
               changelog: $changelog,
               dependencies: [],
-              game_versions: ["1.21", "1.21.1"],
+              game_versions: $game_versions,
               version_type: "alpha",
               loaders: ["iris", "optifine"],
               featured: false,
