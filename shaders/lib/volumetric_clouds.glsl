@@ -23,7 +23,10 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
 
     float belowLayer = 1.0 - smoothstep(CLOUD_PLANE - 20.0, CLOUD_PLANE + 5.0, base_pos.y);
     float horizonFade = mix(1.0, clamp((eyeDirection.y - 0.06) * 5.0, 0.0, 1.0), belowLayer);
-
+    if (maxDist > 1e8) {
+        horizonFade = 1.0;
+    }
+    
     float dif_sup = CLOUD_PLANE_SUP - CLOUD_PLANE_CENTER;
     float dif_inf = CLOUD_PLANE_CENTER - CLOUD_PLANE;
 
@@ -57,9 +60,15 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
     float maxRayDist = (CLOUD_PLANE_SUP - CLOUD_PLANE) * 4.0;
     plane_distance_end = min(plane_distance_end, plane_distance_start + maxRayDist);
 
-    // Distância máxima para a nuvem sumir no horizonte
+    // CORREÇÃO PARA O REFLEXO: Se for a água (maxDist infinito), não aplicar fade de distância nem de horizonte.
+    if (maxDist > 1e8) {
+        horizonFade = 1.0;
+    }
     float distToCloud = plane_distance_start;
     float distanceFade = 1.0 - smoothstep(10000.0, 15000.0, distToCloud);
+    if (maxDist > 1e8) {
+        distanceFade = 1.0;
+    }
 
     if (plane_distance_end > plane_distance_start + 0.001) {
         
@@ -235,7 +244,6 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         
         cloudCoverage = clamp(cloud_value * nightCloudSheer * horizonFade, 0.0, 1.0);
         
-        // Aplica o fade de distância e o fade da atmosfera (para não deformar no espaço)
         cloudCoverage *= distanceFade;
         cloudColor *= atmosphereFade;
         

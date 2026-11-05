@@ -173,24 +173,28 @@ vec3 fastRaymarch(vec3 direction, vec3 hitPoint, inout float infinite, float dit
     int no_hidden_steps = 0;
     bool hiddens = false;
 
+    float currentStep = 0.1; 
+
     for (int i = 0; i < RAYMARCH_STEPS; i++) {
         if (searchFlag) {
             pathIncrement *= 0.5;
             currentMarchPoint += pathIncrement * sign(depthDifference);
         } else {
             oldMarchPoint = currentMarchPoint;
-            currentMarchPoint = hitPoint + ((direction * exp2(i + dither)) - direction);
+            float stepSize = mix(currentStep, exp2(i * 0.5 + dither) * 0.5, float(i) / 8.0);
+            currentMarchPoint = hitPoint + direction * stepSize;
             pathIncrement = currentMarchPoint - oldMarchPoint;
         }
 
         lastScreenMarchPos = screenMarchPos;
         screenMarchPos = camera_to_screen(currentMarchPoint);
 
+        // Aumentado de -0.1 para -0.5 para permitir que o raio saia mais da tela antes de falhar
         if (
-            screenMarchPos.x < 0.0 ||
-            screenMarchPos.x > 1.0 ||
-            screenMarchPos.y < 0.0 ||
-            screenMarchPos.y > 1.0 ||
+            screenMarchPos.x < -0.5 ||
+            screenMarchPos.x > 1.5 ||
+            screenMarchPos.y < -0.5 ||
+            screenMarchPos.y > 1.5 ||
             screenMarchPos.z < 0.0
         ) {
             outOfEyeFlag = true;
@@ -200,7 +204,8 @@ vec3 fastRaymarch(vec3 direction, vec3 hitPoint, inout float infinite, float dit
             toFar = true;
         }
 
-        screenDepth = texture2D(depthtex1, screenMarchPos.xy).x;
+        vec2 clampedUV = clamp(screenMarchPos.xy, vec2(0.001), vec2(0.999));
+        screenDepth = texture2D(depthtex1, clampedUV).x;
         depthDifference = screenDepth - screenMarchPos.z;
 
         if (depthDifference < 0.0 && abs(screenDepth - prevScreenDepth) > abs(screenMarchPos.z - lastScreenMarchPos.z)) {
@@ -227,7 +232,7 @@ vec3 fastRaymarch(vec3 direction, vec3 hitPoint, inout float infinite, float dit
 
     if (outOfEyeFlag) {
         infinite = 1.0;
-        return screenMarchPos;
+        return screenMarchPos; 
     } else if (toFar) {
         if (screenDepth > 0.9999) {
             infinite = 1.0;
@@ -431,44 +436,38 @@ vec3 get_normals(vec3 bump, vec3 fragpos) {
     return normalize(bump * tbn_matrix);
 }
 
-vec4 reflection_calc(vec3 fragpos, vec3 normal, vec3 reflected, inout float infinite, float dither) {
+vec4 reflection_calc(vec3 fragpos, vec3 normal, vec3 reflected, inout float infinite, vec3 sky_reflect, float dither) {
+    vec3 pos;
     #if SSR_TYPE == 0
         #if defined DISTANT_HORIZONS || defined VOXY
-            vec3 pos = camera_to_screen(fragpos + reflected * 768.0);
+            pos = camera_to_screen(fragpos + reflected * 768.0);
         #else
-            vec3 pos = camera_to_screen(fragpos + reflected * 76.0);
+            pos = camera_to_screen(fragpos + reflected * 76.0);
         #endif
+        infinite = step(texture2D(depthtex1, clamp(pos.xy, vec2(0.0), vec2(1.0))).r, 0.9999);
     #else
-        vec3 pos = fastRaymarch(reflected, fragpos, infinite, dither);
+        pos = fastRaymarch(reflected, fragpos, infinite, dither);
     #endif
 
-    float border =
-        clamp((1.0 - (max(0.0, abs(pos.y - 0.5)) * 2.0)) * 50.0, 0.0, 1.0);
-
-    border = clamp(border - pow(pos.y, 10.0), 0.0, 1.0);
+    // Suaviza o infinite em vez de usar binário (0.0 ou 1.0)
+    float border = clamp((1.0 - (max(0.0, abs(pos.y - 0.5)) * 1.5)) * 10.0, 0.0, 1.0);
+    border = clamp(border - pow(pos.y, 20.0), 0.0, 1.0);
 
     pos.x = abs(pos.x);
     if (pos.x > 1.0) {
         pos.x = 1.0 - (pos.x - 1.0);
     }
 
-    #if SSR_TYPE == 0
-        float occluder = step(texture2D(depthtex1, clamp(pos.xy, vec2(0.0), vec2(1.0))).r, 0.9999);
-        infinite = 1.0 - occluder * clamp(border * 2.0, 0.0, 1.0);
-    #endif
+    float skyTest = step(0.9999, texture2D(depthtex1, clamp(pos.xy, vec2(0.001), vec2(0.999))).r);
+    skyTest = max(skyTest, step(0.5, infinite));
+    
+    // Mistura suave entre o reflexo da tela e o céu
+    vec3 reflectColor = mix(texture2D(gaux1, pos.xy).rgb, sky_reflect, skyTest);
+    
+    // Retorna o infinite suavizado para o fresnel
+    infinite = smoothstep(0.0, 1.0, skyTest);
 
-    #if SSR_TYPE == 0
-        vec2 reflectUV = clamp(pos.xy, vec2(0.002), vec2(0.998));
-        vec2 reflectBlur = vec2(pixelSizeX, pixelSizeY) * 2.0;
-        vec3 reflectColor = texture2D(gaux1, reflectUV).rgb * 0.36;
-        reflectColor += texture2D(gaux1, reflectUV + vec2(reflectBlur.x, 0.0)).rgb * 0.16;
-        reflectColor += texture2D(gaux1, reflectUV - vec2(reflectBlur.x, 0.0)).rgb * 0.16;
-        reflectColor += texture2D(gaux1, reflectUV + vec2(0.0, reflectBlur.y)).rgb * 0.16;
-        reflectColor += texture2D(gaux1, reflectUV - vec2(0.0, reflectBlur.y)).rgb * 0.16;
-        return vec4(reflectColor, border);
-    #else
-        return vec4(texture2D(gaux1, pos.xy).rgb, border);
-    #endif
+    return vec4(reflectColor, border);
 }
 
 vec3 water_shader(
@@ -487,7 +486,7 @@ vec3 water_shader(
 
     #if REFLECTION == 1
         if (isEyeInWater == 0) {
-            reflection = reflection_calc(fragpos, normal, reflected, infinite, dither);
+            reflection = reflection_calc(fragpos, normal, reflected, infinite, sky_reflect, dither);
         }
     #endif
 
@@ -501,19 +500,28 @@ vec3 water_shader(
         fresnel *= 0.8;
     #endif
 
+    // AQUI ESTÁ A MÁGICA: Suaviza o reflexo em vez de usar um hard step
+    float final_fresnel = fresnel * REFLEX_INDEX;
+    
+    // Aumenta o fresnel suavemente quando bate no céu (em vez de forçar 0.75 de uma vez)
+    final_fresnel = mix(final_fresnel, 0.75, infinite);
+    
+    // Garante que não fique abaixo de 0.75 se for céu
+    final_fresnel = max(final_fresnel, 0.75 * infinite);
+
     #if SUN_REFLECTION == 1
         #ifndef NETHER
             #ifndef THE_END
-                return mix(color, reflection.rgb, fresnel * REFLEX_INDEX) +
+                return mix(color, reflection.rgb, final_fresnel) +
                     vec3(sun_reflection(reflect(normalize(fragpos), normal))) * lightColor * infinite * visibleSky * float(isEyeInWater == 0);
             #else
-                return mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
+                return mix(color, reflection.rgb, final_fresnel);
             #endif
         #else
-            return mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
+            return mix(color, reflection.rgb, final_fresnel);
         #endif
     #else
-        return mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
+        return mix(color, reflection.rgb, final_fresnel);
     #endif
 }
 
