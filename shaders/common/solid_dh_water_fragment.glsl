@@ -15,9 +15,6 @@ uniform float near;
 uniform float far;
 uniform sampler2D colortex4;
 uniform sampler2D colortex7;
-// water.glsl and water_dh.glsl read the previous frame's opaque scene through
-// gaux1. That alias only exists for the gbuffers/deferred programs, so point it
-// at colortex4 (the buffer the deferred pass copies the opaque scene into).
 #define gaux1 colortex4
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferProjection;
@@ -84,10 +81,6 @@ varying float fogSunScatter;
 #include "/lib/fog_blend.glsl"
 
 #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-    // The DH programs run before the deferred pass, so colortex6 still holds the
-    // prepared sky here, not the cloud coverage written later. Derive the
-    // coverage from the same shared cloud field that the raymarch and the ground
-    // shadows use, so the water fades under the same cloud banks.
 uniform sampler2D gaux2;
     #include "/lib/cloud_noise.glsl"
 
@@ -97,15 +90,9 @@ float dh_water_cloud_coverage(vec3 waterPos) {
         return 0.0;
     }
 
-    float umbral = clamp(CLOUD_BASE_UMBRAL + (1.0 - smoothstep(0.0, 1.0, rainStrength)) * 0.3, 0.0, 0.99);
-    umbral = clamp(umbral / CLOUD_DENSITY, 0.0, 0.99);
-
-    // Camera está dentro da camada de nuvens E dentro de uma coluna densa?
-    // Nesse caso a água está atrás da nuvem que o jogador está atravessando
-    // e deve ficar oculta, exatamente como quando se olha de cima.
     if (cameraPosition.y > CLOUD_PLANE && cameraPosition.y < CLOUD_PLANE_SUP) {
         float camField = cloud_field(cameraPosition.xz);
-        if (camField > umbral + 0.10) {
+        if (camField > 0.4) {
             return 1.0;
         }
     }
@@ -121,16 +108,9 @@ float dh_water_cloud_coverage(vec3 waterPos) {
             float detailNoise = texture2D(gaux2,
                 (samplePos.xz * 0.0016) - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6)).r;
             float fieldValue = mix(cloud_field(samplePos.xz), detailNoise, CLOUD_DETAIL_WEIGHT);
-            #ifdef CLOUD_LIGHT_ENHANCED
-            float erosionNoise = texture2D(gaux2,
-                (samplePos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
-            fieldValue += (erosionNoise - 0.5) * 0.20 * (1.0 - fieldValue);
-            #else
-            float erosionNoise = texture2D(gaux2,
-                (samplePos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
-            fieldValue += (erosionNoise - 0.5) * 0.12 * (1.0 - fieldValue);
-            #endif
-            coverage = max(coverage, smoothstep(umbral - 0.02, umbral + 0.08, fieldValue));
+            
+            // Aumenta a sensibilidade da água para detectar a nuvem
+            coverage = max(coverage, smoothstep(0.1, 0.3, fieldValue));
         }
     }
     return coverage;
@@ -145,7 +125,6 @@ void main() {
     float dither = shiftedRDither(gl_FragCoord.xy);
     #else
     float dither = rDither(gl_FragCoord.xy);
-
     #endif
 
     float t = far - dhNearPlane;
@@ -167,7 +146,9 @@ void main() {
     if (waterCloudFade) {
         cloudCoverage = dh_water_cloud_coverage(position.xyz + cameraPosition);
     }
-    if (waterCloudFade && cloudCoverage > 0.999) {
+    
+    // Se a cobertura for alta, some com a água imediatamente
+    if (waterCloudFade && cloudCoverage > 0.5) {
         discard;
         return;
     }
@@ -285,7 +266,7 @@ void main() {
 
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
     if (waterCloudFade) {
-        blockColor.a *= 1.0 - cloudCoverage;
+        blockColor.a *= 1.0 - smoothstep(0.0, 0.4, cloudCoverage);
     }
     #endif
 

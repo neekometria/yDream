@@ -113,13 +113,6 @@ varying vec3 horizonSkyColor;
 #include "/lib/water.glsl"
 
 #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-    // Volumetric clouds are composited by the deferred pass, which runs before
-    // the translucent water. The clouds have no depth geometry, so the water
-    // would otherwise be painted over the cloud tops. The deferred pass stores
-    // the amount of cloud it composited in colortex6; fading the water alpha by
-    // that value follows the real raymarched opacity. The old test re-derived a
-    // binary coverage from the raw noise field with a different threshold, so it
-    // disagreed with the clouds and let LOD water pop through them.
     uniform sampler2D colortex6;
 #endif
 
@@ -144,8 +137,6 @@ void main() {
         if (waterCloudFade) {
             cloudCoverage = texture2DLod(colortex6, gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY), 0.0).r;
         }
-        // A fully opaque cloud hides the water completely; skipping the fragment
-        // here also saves the expensive water shading.
         if (waterCloudFade && cloudCoverage > 0.999) {
             discard;
             return;
@@ -211,9 +202,11 @@ void main() {
     #if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER
         if(isEyeInWater == 0) {
             float reflectCoverage;
-            skyColorReflect = get_cloud(normalize((gbufferModelViewInverse * vec4(reflectWaterVector * far, 1.0)).xyz), skyColorReflect, 0.0, dither, worldposition.xyz, int(CLOUD_STEPS_AVG * 0.5), umbral, cloudColor, darkCloudColor, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9, reflectCoverage);
+            // CORRIGIDO AQUI: Adicionado o '1.0' para o atmosphereFade
+            skyColorReflect = get_cloud(normalize((gbufferModelViewInverse * vec4(reflectWaterVector * far, 1.0)).xyz), skyColorReflect, 0.0, dither, worldposition.xyz, int(CLOUD_STEPS_AVG * 0.5), umbral, cloudColor, darkCloudColor, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9, 1.0, reflectCoverage);
         }
     #endif
+
     if(blockType > 2.5) {
         #ifdef VANILLA_WATER
             blockColor = texture2D(tex, texcoord);

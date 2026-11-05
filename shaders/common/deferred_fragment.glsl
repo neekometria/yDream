@@ -182,7 +182,26 @@ void main() {
                             // Mars' clouds are thin and high: low density means a higher noise cutoff.
                             northstarCloudUmbral = max(umbral, 0.84 - 0.34 * clamp(NORTHSTAR_MARS_CLOUD_DENSITY, 0.05, 0.50));
                         #endif
-                        blockColor.rgb = get_cloud(eyeDirection, blockColor.rgb, bright, dither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir, sceneDist, cloudCoverage);
+                                        if (isEyeInWater == 0) {
+                    vec3 cloudLightDir = normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * cloudLightSign;
+
+                    // Calcula o fade da atmosfera baseado na altitude
+                    float atmosphereFade = 1.0;
+                    #if defined ATMOSPHERE_LAYER
+                        float atmosphereAltitude = max(cameraPosition.y, 0.0);
+                        float atmosphereLayer = smoothstep(float(ATMOSPHERE_START), float(ATMOSPHERE_END), atmosphereAltitude);
+                        atmosphereLayer = pow(atmosphereLayer, max(ATMOSPHERE_DENSITY, 0.001));
+                        atmosphereFade = mix(1.0, 0.05, atmosphereLayer);
+                    #endif
+
+                    #if !defined NORTHSTAR_CLOUDS_OFF
+                        float northstarCloudUmbral = umbral;
+                        #if defined NORTHSTAR_MARS
+                            northstarCloudUmbral = max(umbral, 0.84 - 0.34 * clamp(NORTHSTAR_MARS_CLOUD_DENSITY, 0.05, 0.50));
+                        #endif
+                        blockColor.rgb = get_cloud(eyeDirection, blockColor.rgb, bright, dither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir, sceneDist, atmosphereFade, cloudCoverage);
+                    #endif
+                }
                     #endif
                 }
             #endif

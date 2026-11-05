@@ -27,7 +27,11 @@ float cloud_field(vec2 posXZ) {
     float value = mix(base, detail, CLOUD_DETAIL_WEIGHT);
     
     // Sharpen the contrast for distinct cloud shapes
-    return smoothstep(0.45, 0.85, value);
+    float rainAmount = clamp(rainStrength, 0.0, 1.0);
+    float low = mix(0.45, 0.15, rainAmount);
+    float high = mix(0.85, 0.65, rainAmount);
+    
+    return smoothstep(low, high, value); 
 }
 
 #endif
