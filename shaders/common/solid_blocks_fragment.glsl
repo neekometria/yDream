@@ -95,6 +95,7 @@ varying vec3 directLightColor;
 varying vec3 candleColor;
 varying float directLightStrength;
 varying vec3 omniLight;
+varying float terrainWorldY;
 
 #if defined SHADOW_CASTING && SHADOW_LOCK > 0 && !defined NETHER
 varying vec3 vWorldPos;
@@ -580,6 +581,22 @@ void main() {
     float emitCore = smoothstep(0.70, 1.0, emitPeak);
     emitColor += mix(emitHue, vec3(1.0), 0.6) * (emitCore * 0.22 * EMISSIVE_HOTCORE);
     blockColor.rgb += emitColor * (emitMask * EMISSIVE_STRENGTH * 0.62 * (1.0 + 0.35 * EMISSIVE_NIGHT_BOOST * emitNight) * (1.0 - nightVision * 0.3));
+    #endif
+
+    // Correção da Fog ao olhar de cima para baixo (Vanilla)
+    #if !defined THE_END && !defined NETHER
+        float blockY = terrainWorldY;
+
+        if (cameraPosition.y > CLOUD_PLANE_SUP && blockY < CLOUD_PLANE) {
+            vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
+            vec3 currentFog = texture2DLod(gaux4, screenUV, 0.0).rgb;
+            vec3 rainFog = ZENITH_SKY_RAIN_COLOR * luma(currentFog) * 0.35;
+            
+            // Escurece o terreno também para não parecer que está no sol
+            blockColor.rgb *= 0.4;
+            
+            blockColor.rgb = mix(blockColor.rgb, rainFog, frogAdjust);
+        }
     #endif
 
     #include "/src/finalcolor.glsl"

@@ -308,7 +308,7 @@ void main() {
         fogSky = sky;
         fullSky = sky;
 
-        float nightVisibility = smoothstep(0.25, 0.85, skyNightAmount()) * (1.0 - rainAmount);
+        float nightVisibility = smoothstep(0.25, 0.85, skyNightAmount() * (1.5 - rainAmount));
 
 
         #if YDREAM_SUN_DISK == 1

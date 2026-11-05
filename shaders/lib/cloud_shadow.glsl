@@ -1,10 +1,3 @@
-// Cloud shadows received by the terrain.
-//
-// Shared by the real chunks (applied to directLightStrength in the vertex
-// stage) and by the Distant Horizons LOD terrain (applied per fragment), so
-// both use the same cloud field projected along the same sun/moon direction.
-// worldPos is the absolute world position of the shaded surface and lightDir the
-// direction of the active light (sun by day, the opposite direction by night).
 #ifndef YDREAM_CLOUD_SHADOW_INCLUDED
 #define YDREAM_CLOUD_SHADOW_INCLUDED
 
@@ -23,7 +16,8 @@ float cloud_shadow_amount(vec3 worldPos, vec3 lightDir) {
     float detailValue = texture2DLod(gaux2, pos * 0.0016 - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6), 0.0).r;
     float noiseValue = mix(fieldValue, detailValue, CLOUD_DETAIL_WEIGHT);
 
-    float umbral = clamp(CLOUD_BASE_UMBRAL + (1.0 - smoothstep(0.0, 1.0, rainStrength)) * 0.3, 0.0, 0.99);
+    // Mantém a mesma lógica do volumetric_clouds_vertex para alinhar as aberturas
+    float umbral = CLOUD_BASE_UMBRAL;
     umbral /= CLOUD_DENSITY;
 
     float coverage = smoothstep(umbral, umbral + 0.14, noiseValue);

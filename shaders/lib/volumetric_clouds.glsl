@@ -131,7 +131,7 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             intersection_pos += increment;
         }
 
-        // Aumenta a densidade da nuvem na chuva
+        // Aumenta a densidade da nuvem na chuva, mas sem fechar os buracos
         float rainDensity = mix(1.0, RAIN_CLOUD_DENSITY, rainStrength); 
         float interiorBoost = mix(1.0, CLOUD_INTERIOR_DENSITY, interiorAmount * 0.5) * rainDensity;
         cloud_value = clamp(cloud_value / opacity_dist * interiorBoost, 0.0, 1.0);
@@ -181,7 +181,7 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             lightOptical += inside * stepLength;
         }
 
-        float lightTrans = exp(-lightOptical * 0.040 * CLOUD_SHADOW_STRENGTH);
+        float lightTrans = exp(-lightOptical * 0.120 * CLOUD_SHADOW_STRENGTH);
         float multiScatter = mix(pow(lightTrans, 0.85), pow(lightTrans, 0.30), 0.42);
 
         float sunForward = pow(clamp(dot(eyeDirection, lightDir) * 0.5 + 0.5, 0.0, 1.0), 10.0);
@@ -203,8 +203,18 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float lightContrast = 1.0 + 0.30 * STYLE_CLOUD_CONTRAST;
         float lightAmount = max(pow(mix(1.0, baseLight, thickFactor * 0.90), lightContrast), 0.10);
         #endif
+        
+        // Deixa o topo visivelmente mais claro que a base, especialmente na chuva
+        float topViewBoost = smoothstep(0.0, -0.8, eyeDirection.y) * mix(0.4, 0.8, rainStrength);
+        
+        topViewBoost *= (1.0 - smoothstep(0.1, 0.5, interiorAmount));
+        
+        lightAmount = clamp(lightAmount + topViewBoost, 0.0, 1.0);
+        
+        // Se estiver dentro da nuvem, escurece a iluminação geral (água bloqueia luz)
+        lightAmount *= mix(1.0, 0.6, interiorAmount);
 
-        vec3 undersideColor = darkCloudColor * 1.10 + cloudColor * (0.08 + 0.10 * (1.0 - eyeDirection.y));
+        vec3 undersideColor = darkCloudColor * mix(1.0, 0.5, rainStrength) + cloudColor * (0.08 + 0.10 * (1.0 - eyeDirection.y));
         vec3 shadedCloud = mix(undersideColor, cloudColor, lightAmount);
 
         float thinEdge = 1.0 - cloud_value_approx;
@@ -212,11 +222,16 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
 
         float edgeBoostMask = 1.0 - smoothstep(0.4, 0.9, interiorAmount);
 
-        cloudColor = (shadedCloud + cloudColor * (rimGlow * (1.8 + 1.6 * sunSide) * STYLE_CLOUD_GLOW_MULT * edgeBoostMask)) * CLOUD_BRIGHTNESS;
+        float topBoost = mix(1.0, 1.4, smoothstep(-0.1, -0.8, eyeDirection.y));
+        
+        cloudColor = (shadedCloud + cloudColor * (rimGlow * (1.8 + 1.6 * sunSide) * STYLE_CLOUD_GLOW_MULT * edgeBoostMask)) * CLOUD_BRIGHTNESS * topBoost;
+        
         float silverLining = thinEdge * thinEdge * thinEdge * sunSide * (1.0 - getAltitudeRain());
         
         cloudColor += cloudColor * (silverLining * 1.1 * STYLE_CLOUD_GLOW_MULT * edgeBoostMask
                                   + sunSide * 0.10 * lightAmount * edgeBoostMask);
+
+        cloudColor = min(cloudColor, vec3(1.8));
 
         float horizonBleed = (1.0 - smoothstep(0.03, 0.32, eyeDirection.y)) * 0.55 * belowLayer;
         cloudColor = mix(cloudColor, blockColor * 1.15 + cloudColor * 0.15, horizonBleed);
@@ -224,8 +239,7 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float nightCloudSheer = 1.0 - 0.34 * (1.0 - smoothstep(-0.18, 0.02, sunElevation)) * (1.0 - cloud_value) * (1.0 - getAltitudeRain());
         
         cloudCoverage = clamp(cloud_value * nightCloudSheer * horizonFade, 0.0, 1.0);
-
-        // Força a opacidade para 100% se a câmera estiver dentro da nuvem
+        
         float cameraInCloud = smoothstep(0.1, 0.4, interiorAmount);
         cloudCoverage = mix(cloudCoverage, 1.0, cameraInCloud);
 

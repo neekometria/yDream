@@ -16,9 +16,18 @@ vec2 cloud_noise_uv(vec2 p) {
 // Shaped 0..1 cloud field at a horizontal world position. Requires the gaux2
 // sampler and frameTimeCounter to be in scope.
 float cloud_field(vec2 posXZ) {
-    float value = texture2DLod(gaux2, posXZ * CLOUD_NOISE_SCALE + (frameTimeCounter * CLOUD_HI_FACTOR), 0.0).r;
-    value += texture2DLod(gaux2, cloud_noise_uv(posXZ) * (CLOUD_NOISE_SCALE * 1.37) + (frameTimeCounter * CLOUD_LOW_FACTOR), 0.0).r;
-    return smoothstep(0.05, 0.95, value * 0.5);
+    float time = frameTimeCounter;
+    vec2 p1 = posXZ * CLOUD_NOISE_SCALE + time * CLOUD_HI_FACTOR;
+    vec2 p2 = cloud_noise_uv(posXZ) * (CLOUD_NOISE_SCALE * 1.7) + time * CLOUD_LOW_FACTOR * 1.2;
+    
+    float base = texture2DLod(gaux2, p1, 0.0).r;
+    float detail = texture2DLod(gaux2, p2, 0.0).r;
+    
+    // Combine them smoothly
+    float value = mix(base, detail, CLOUD_DETAIL_WEIGHT);
+    
+    // Sharpen the contrast for distinct cloud shapes
+    return smoothstep(0.45, 0.85, value);
 }
 
 #endif

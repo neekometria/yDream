@@ -43,6 +43,7 @@ varying float frogAdjust;
 varying float fogSunScatter;
 varying float dhVisibleSky;
 varying float dhSpecialLight;
+varying float terrainWorldY;
 
 #if AA_TYPE > 0
     #include "/src/taa_offset.glsl"
@@ -59,6 +60,7 @@ void main() {
     // Calcula a altura do vértice no mundo e a chuva para este bloco
     float dhWorldY = (gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex).y + cameraPosition.y;
     float vertexRain = getTerrainRain(dhWorldY);
+    terrainWorldY = dhWorldY;
 
     #include "/src/basiccoords_vertex_dh.glsl"
     #include "/src/position_vertex_dh.glsl"

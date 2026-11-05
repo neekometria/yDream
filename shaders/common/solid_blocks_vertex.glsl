@@ -77,6 +77,7 @@ varying vec3 directLightColor;
 varying vec3 candleColor;
 varying float directLightStrength;
 varying vec3 omniLight;
+varying float terrainWorldY;
 
 #if defined SHADOW_CASTING && SHADOW_LOCK > 0 && !defined NETHER
     varying vec3 vWorldPos;
@@ -177,6 +178,7 @@ void main() {
     // Calcula a altura do bloco usando a matriz do modelo (seguro para todos os shaders)
     vec4 worldPosition = gbufferModelViewInverse * gl_ModelViewMatrix * gl_Vertex;
     float worldY = worldPosition.y + cameraPosition.y;
+    terrainWorldY = worldY;
     float vertexRain = getTerrainRain(worldY);
 
     #include "/src/hi_sky.glsl"

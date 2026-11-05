@@ -55,6 +55,7 @@ varying float frogAdjust;
 varying float fogSunScatter;
 varying float dhVisibleSky;
 varying float dhSpecialLight;
+varying float terrainWorldY;
 
 #include "/lib/luma.glsl"
 #include "/lib/dither.glsl"
@@ -172,6 +173,22 @@ void main() {
     #endif
 
     blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
+
+    // Correção da Fog ao olhar de cima para baixo (Específico para DH)
+    #if !defined THE_END && !defined NETHER
+        float blockY = position.xyz.y + cameraPosition.y;
+
+        if (cameraPosition.y > CLOUD_PLANE_SUP && blockY < CLOUD_PLANE) {
+            vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
+            vec3 currentFog = texture2DLod(colortex7, screenUV, 0.0).rgb;
+            vec3 rainFog = ZENITH_SKY_RAIN_COLOR * luma(currentFog) * 0.35;
+            
+            // Escurece o terreno também para não parecer que está no sol
+            blockColor.rgb *= 0.4;
+            
+            blockColor.rgb = mix(blockColor.rgb, rainFog, frogAdjust);
+        }
+    #endif
 
     #include "/src/finalcolor_dh.glsl"
     #include "/src/writebuffers.glsl"

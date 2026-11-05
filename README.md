@@ -11,31 +11,46 @@
     without needing a high-end GPU.
   </p>
 
-  <p>
-    <img src="https://img.shields.io/badge/Minecraft-1.21.1-brightgreen?style=for-the-badge" alt="Minecraft 1.21.1">
-    <img src="https://img.shields.io/badge/NeoForge-Tested-blue?style=for-the-badge" alt="Tested on NeoForge">
-    <img src="https://img.shields.io/badge/Iris-1.8.1%2B-purple?style=for-the-badge" alt="Iris 1.8.1 or newer">
-  </p>
 
-  <p>
-    <img src="https://img.shields.io/badge/Distant%20Horizons-Experimental-yellow?style=flat-square" alt="Distant Horizons Experimental">
+<!-- Shader Compatibility -->
+<p>
+  <a href="https://modrinth.com/mod/epic-fight">
+    <img src="https://img.shields.io/badge/Epic%20Fight-Experimental-yellow?style=flat-square" alt="Epic Fight Experimental">
+  </a>
+  <a href="https://modrinth.com/mod/distanthorizons">
+    <img src="https://img.shields.io/badge/Distant%20Horizons-Integrated-brightgreen?style=flat-square" alt="Distant Horizons Integrated">
+  </a>
+  <a href="https://voxy-mod.com/">
     <img src="https://img.shields.io/badge/Voxy-Planned-orange?style=flat-square" alt="Voxy Planned">
-  </p>
+  </a>
+</p>
 
-  <p>
+<!-- Space & Planetary Mods -->
+<p>
+  <a href="https://modrinth.com/mod/create-northstar">
     <img src="https://img.shields.io/badge/Northstar-Integrated-brightgreen?style=flat-square" alt="Northstar Integrated">
+  </a>
+  <a href="https://modrinth.com/mod/create-cosmonatics">
     <img src="https://img.shields.io/badge/Cosmonautics-Planned-orange?style=flat-square" alt="Cosmonautics Planned">
+  </a>
+  <a href="https://modrinth.com/mod/ad-astra">
     <img src="https://img.shields.io/badge/Ad%20Astra-Planned-orange?style=flat-square" alt="Ad Astra Planned">
+  </a>
+  <a href="https://modrinth.com/mod/create-aeronautics">
     <img src="https://img.shields.io/badge/Aeronautics-Planned-orange?style=flat-square" alt="Aeronautics Planned">
-  </p>
+  </a>
+</p>
 
-  <p>
-    <img src="https://img.shields.io/badge/Language-PT%20%2F%20EN%20%2F%20JP-blue?style=flat-square" alt="Portuguese, English and Japanese">
-  </p>
+<!-- Environment & Seasons -->
+<p>
+  <a href="https://modrinth.com/mod/ecliptic-seasons">
+    <img src="https://img.shields.io/badge/Ecliptic%20Seasons-Planned-orange?style=flat-square" alt="Ecliptic Seasons Planned">
+  </a>
+  <a href="https://modrinth.com/mod/serene-seasons">
+    <img src="https://img.shields.io/badge/Serene%20Seasons-Planned-orange?style=flat-square" alt="Serene Seasons Planned">
+  </a>
+</p>
 
-  <p>
-    <a href="https://modrinth.com/shader/ydream"><img src="https://img.shields.io/badge/Download-Modrinth-1bd96a?style=for-the-badge&logo=modrinth&logoColor=white" alt="Download on Modrinth"></a>
-  </p>
 </div>
 
 ## Overview
