@@ -10,10 +10,11 @@ void main() {
     vColor = gl_Color;
     vIsWater = (dhMaterialId == DH_BLOCK_WATER) ? 1.0 : 0.0;
 
-    // The DH shadow pass keeps the normal shadow projection/modelview.
-    // Do NOT use dhProjection here: that matrix belongs to the main LOD pass
-    // and has a different near/far range.
-    vec4 clipPos = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
+    // Usa exatamente a mesma transformacao de shadow.vsh (gl_ModelViewProjectionMatrix,
+    // que o Iris define como as matrizes do shadow map na passagem de sombra).
+    // Esse e o caminho que ja funciona no terreno vanilla. Nao usar dhProjection
+    // aqui: essa matriz pertence ao passe principal do LOD e tem outro near/far.
+    vec4 clipPos = gl_ModelViewProjectionMatrix * gl_Vertex;
 
     // Must match world0/shadow.vsh and get_shadow_pos() in lib/shadow_vertex.glsl.
     // If this distortion diverges, DH shadows land at the wrong place in the map.

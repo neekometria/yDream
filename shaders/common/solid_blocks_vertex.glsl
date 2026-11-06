@@ -258,7 +258,7 @@ void main() {
         #include "/src/shadow_src_vertex.glsl"
     #endif
 
-    #if defined FOLIAGE_V && !defined NETHER
+    #if defined FOLIAGE_V && !defined NETHER && FOLIAGE_MATCH_LIGHT == 0
         #ifdef SHADOW_CASTING
             if (isFoliage > .2) {
                 directLightStrength =

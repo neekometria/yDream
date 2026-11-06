@@ -150,7 +150,7 @@ void main() {
         float nightShadowAmount = 1.0 - smoothstep(0.0, 0.35, dayNightMix);
         vec3 shadowPosition = position.xyz;
             #if DH_TERRAIN_NORMALS == 1
-        shadowPosition += geoNormal * 0.06;
+        shadowPosition += geoNormal * DH_SHADOW_NORMAL_BIAS;
             #endif
         float shadowSample = get_shadow(get_shadow_pos(shadowPosition), dither);
         shadowSample = mix(shadowSample, 1.0, nightShadowAmount * NIGHT_SHADOW_SOFTEN);

@@ -89,12 +89,16 @@ float omniStrength = ((directLightStrength + 1.0) * 0.25) + 0.75;
     }
 
     if (isFoliage > .2) {
-        #ifdef SHADOW_CASTING
-            directLightStrength = sqrt(abs(directLightStrength));
+        #if FOLIAGE_MATCH_LIGHT == 0
+            #ifdef SHADOW_CASTING
+                directLightStrength = sqrt(abs(directLightStrength));
+            #else
+                directLightStrength = (clamp(directLightStrength, 0.0, 1.0) * 0.5 + 0.5) * 0.75;
+            #endif
+            omniStrength = 1.0;
         #else
-            directLightStrength = (clamp(directLightStrength, 0.0, 1.0) * 0.5 + 0.5) * 0.75;
+            directLightStrength = clamp(directLightStrength, 0.0, 1.0);
         #endif
-        omniStrength = 1.0;
     } else {
         directLightStrength = clamp(directLightStrength, 0.0, 1.0);
     }
@@ -135,7 +139,7 @@ float omniStrength = ((directLightStrength + 1.0) * 0.25) + 0.75;
     #endif
 #endif
 
-#ifdef FOLIAGE_V
+#if defined FOLIAGE_V && FOLIAGE_MATCH_LIGHT == 0
     omniLight *= mix(1.0, 1.14, isFoliage);
 #endif
 

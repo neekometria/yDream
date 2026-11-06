@@ -201,6 +201,10 @@
 // Pair this with dhShadow.enabled=true in shaders.properties so DH also writes
 // into that map and can cast shadows. The old screen-space raymarch is gone.
 #define DH_SHADOWS 1 // [0 1]
+// Deslocamento ao longo da normal da face LOD antes de consultar o shadow map.
+// Aumente se aparecerem listras (acne de sombra); diminua se a sombra se
+// afastar do objeto que a projeta.
+#define DH_SHADOW_NORMAL_BIAS 0.06 // [0.0 0.02 0.04 0.06 0.1 0.15 0.2 0.3]
 // Legacy screen-space options. The raymarch that consumed them was removed in
 // favour of the real shadow map, so these two no longer change the image. They
 // are kept only so existing shader options files keep parsing.
@@ -453,6 +457,13 @@
 #define CLOUD_DETAIL_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define FOLIAGE_SATURATION 1.0 // [0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4]
 #define FOLIAGE_BRIGHTNESS 1.0 // [0.7 0.8 0.9 1.0 1.1 1.2 1.3]
+// 1 = folhas e grama usam o mesmo caminho de luz do terreno (mesma sombra,
+// mesma forca do sol e mesma luz ambiente). 0 = caminho antigo da folhagem,
+// que clareia a sombra e aumenta a luz do sol nas plantas.
+#define FOLIAGE_MATCH_LIGHT 1 // [0 1]
+// Brilho extra do sol somado a folhagem iluminada. E multiplicado pela sombra
+// real, entao some na sombra como o resto do terreno. 0 desliga o brilho.
+#define FOLIAGE_SUN_BOOST 0.18 // [0.0 0.05 0.1 0.14 0.18 0.25 0.35 0.5]
 #define YDREAM_CONTRAST 1.0 // [0.8 0.85 0.9 0.95 1.0 1.05 1.1 1.15 1.2]
 #define YDREAM_SATURATION 1.05 // [0.6 0.7 0.8 0.9 1.0 1.05 1.1 1.2 1.3 1.4]
 #define VIGNETTE_STRENGTH 0.28 // [0.1 0.15 0.2 0.25 0.28 0.3 0.35 0.4 0.45 0.5 0.55 0.6]

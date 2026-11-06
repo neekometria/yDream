@@ -352,7 +352,7 @@ void main() {
 
     // Removido o bloco inútil do sunContribution que causava o erro.
 
-    #ifdef FOLIAGE_V
+    #if defined FOLIAGE_V && FOLIAGE_MATCH_LIGHT == 0
     if(isFoliage > 0.2) {
         float foliageShadowMix = 0.5 * smoothstep(0.0, 0.4, dayNightMix);
         #if defined SHADOW_CASTING && !defined NETHER && defined COLORED_SHADOW
@@ -516,7 +516,12 @@ void main() {
 
         #ifdef FOLIAGE_V
     if (isFoliage > 0.2) {
-        blockColor.rgb += blockColor.rgb * directLightColor * 0.18;
+        #if FOLIAGE_MATCH_LIGHT == 0
+        blockColor.rgb += blockColor.rgb * directLightColor * FOLIAGE_SUN_BOOST;
+        #else
+        // Brilho do sol apenas onde ha luz real: multiplicado pela sombra.
+        blockColor.rgb += blockColor.rgb * directLightColor * shadowValue * (FOLIAGE_SUN_BOOST * playerDLS);
+        #endif
     }
         #endif
 
