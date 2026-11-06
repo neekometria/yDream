@@ -197,13 +197,14 @@
 #define DH_COLOR_MATCH 1 // [0 1]
 #define DH_COLOR_DESATURATE 0.30 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8]
 #define DH_COLOR_BRIGHTNESS 1.00 // [0.60 0.70 0.75 0.80 0.85 0.90 0.95 1.00 1.05 1.10]
-#define DH_SHADOWS 0 // [0 1]
-// How far the screen-space sun shadow of the LOD terrain reaches, in blocks.
-// Large values let a mountain block the sun and throw a long shadow, at the
-// cost of extra texture taps on the LOD pixels.
+// DH receives the real shadow map (vanilla walls + DH terrain shadows).
+// Pair this with dhShadow.enabled=true in shaders.properties so DH also writes
+// into that map and can cast shadows. The old screen-space raymarch is gone.
+#define DH_SHADOWS 1 // [0 1]
+// Legacy screen-space options. The raymarch that consumed them was removed in
+// favour of the real shadow map, so these two no longer change the image. They
+// are kept only so existing shader options files keep parsing.
 #define DH_SHADOW_REACH 320 // [80 120 160 200 260 320 420 520 640]
-// Softness of the screen-space LOD shadows. Higher values fade the edge over a
-// larger distance instead of drawing a hard silhouette.
 #define DH_SHADOW_SOFTNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
 // Let the LOD terrain receive the same cloud shadows as the real chunks.
 #define DH_CLOUD_SHADOWS 1 // [0 1]
@@ -219,7 +220,9 @@
 // can be enabled independently.
 // ============================================================================
 
-#define SUN_OCCLUSION 1                                // [0 1]
+// Terrain sun occlusion is now handled by the real shadow map (DH_SHADOWS=1 +
+// dhShadow). Keep this disabled so the unused colortex5 pass is compiled out.
+#define SUN_OCCLUSION 0                                // [0 1]
 #define SUN_OCCLUSION_LOD_BLOCKS_VANILLA 1             // [0 1]
 #define SUN_OCCLUSION_VANILLA_BLOCKS_VANILLA 1         // [0 1]
 #define SUN_OCCLUSION_LOD_BLOCKS_LOD 1                 // [0 1]
