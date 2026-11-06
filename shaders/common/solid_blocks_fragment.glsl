@@ -72,7 +72,6 @@ varying float skyExposure;
 #endif
 
 #if SHADOW_LOCK > 0 && defined SHADOW_CASTING
-uniform vec3 cameraPosition;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform vec3 shadowLightPosition;

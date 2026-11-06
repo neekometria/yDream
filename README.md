@@ -109,11 +109,15 @@ The catalog covers the **500 brightest stars** (down to magnitude ~4) with accur
 > Nerdy stuff ahead.
 
 ### Distant Horizons
-- LOD depth participates in **fog** and **volumetric-cloud occlusion**, so clouds are clipped by distant terrain instead of appearing behind it.
-- DH water is correctly hidden under the cloud deck.
-- TAA reprojection accounts for DH depth.
-- LOD terrain recomputes per-face normals and can receive the shadow map within a configurable distance — the hand-off between real chunks and LODs is much harder to spot.
-- **Color-match option** desaturates and dims the flat DH palette to approach textured terrain.
+
+Distant Horizons is fully integrated across shadows, fog and temporal effects.
+
+- **Shadow map for LOD terrain.** Distant LOD chunks receive real shadows from nearby terrain, with per-face normals and the same cloud-shadow mask as real chunks.
+- **Sun occlusion.** A screen-space raymarch lets distant terrain cast shadows on near terrain, and near terrain cast shadows on distant terrain. Each direction can be toggled separately in the **Sun Occlusion** menu, with adjustable reach, softness and fade distances.
+- **Smooth hand-off.** The transition between shadow-mapped chunks and screen-space LOD shadows is faded so no seam is visible.
+- **Fog and clouds.** LOD depth occludes volumetric clouds, and DH water is correctly hidden under the cloud deck.
+- **Temporal stability.** TAA and motion blur account for LOD depth, so distant terrain stays stable during movement.
+- **Color match.** An optional desaturation and dim brings the flat LOD palette closer to textured terrain.
 
 ### Northstar planets (requires the Northstar mod)
 Each of Mercury, Venus, Mars, the Moon and the orbital dimensions has its own atmosphere preset, sky colors, haze and sun size.
