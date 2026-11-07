@@ -97,36 +97,33 @@ vec3 water_shader_voxy(
 ) {
     vec4 reflection = vec4(0.0);
     float infinite = 1.0;
+    vec3 result = color;
 
+    // Modos 2/3 usam SSR no composite6 para a água vanilla/DH. O voxy não
+    // escreve os dados de direção/fresnel, então aqui ele mantém o tap rápido
+    // em qualquer modo ligado (fallback barato e sem lag).
     #if REFLECTION == 1
         reflection =
             reflection_calc_voxy(fragpos, normal, reflected);
-    #endif
 
-    reflection.rgb = mix(
-        sky_reflect * visibleSky,
-        reflection.rgb,
-        reflection.a
-    );
+        reflection.rgb = mix(
+            sky_reflect * visibleSky,
+            reflection.rgb,
+            reflection.a
+        );
 
-    #ifdef VANILLA_WATER
-        fresnel *= 0.8;
-    #endif
-
-    #if SUN_REFLECTION == 1
-        #ifndef NETHER
-            #ifndef THE_END
-                return mix(color, reflection.rgb, fresnel * REFLEX_INDEX) +
-                    vec3(sun_reflection(reflect(normalize(fragpos), normal), lmcoord)) * lightColor * infinite * visibleSky;
-            #else
-                return mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
-            #endif
-        #else
-            return mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
+        #ifdef VANILLA_WATER
+            fresnel *= 0.8;
         #endif
-    #else
-        return mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
+
+        result = mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
     #endif
+
+    #if SUN_REFLECTION == 1 && !defined NETHER && !defined THE_END
+        result += vec3(sun_reflection(reflect(normalize(fragpos), normal), lmcoord)) * lightColor * infinite * visibleSky;
+    #endif
+
+    return result;
 }
 
 vec4 cristal_reflection_calc_voxy(vec3 fragpos, vec3 normal) {

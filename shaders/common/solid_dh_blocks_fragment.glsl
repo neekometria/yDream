@@ -87,8 +87,11 @@ void main() {
     }
     #endif
 
-    float t = far - dhNearPlane;
-    float inf = t * TRANSITION_DH_INF;
+    // Quando dhNearPlane >= far (override de altitude do DH) nao existe janela de
+    // crossfade. Clampar o span em zero evita threshold negativo/instavel e deixa
+    // o proprio near plane do DH cuidar do corte.
+    float dhSpan = max(far - dhNearPlane, 0.0);
+    float inf = dhSpan * TRANSITION_DH_INF;
     float visibleDistance = length(position.xyz);
     if(visibleDistance < dhNearPlane + inf) {
         discard;
@@ -150,9 +153,20 @@ void main() {
         float nightShadowAmount = 1.0 - smoothstep(0.0, 0.35, dayNightMix);
         vec3 shadowPosition = position.xyz;
             #if DH_TERRAIN_NORMALS == 1
-        shadowPosition += geoNormal * DH_SHADOW_NORMAL_BIAS;
+        // O bias do vanilla cresce com a distancia. Sem isso a pegada de um texel
+        // do shadow map fica maior que o bias no LOD distante e aparecem blocos
+        // de auto-sombra falsa no chao.
+        float dhBias = min(SHADOW_FIX_FACTOR + visibleDistance * 0.005, 0.5);
+        shadowPosition += geoNormal * max(DH_SHADOW_NORMAL_BIAS, dhBias);
             #endif
-        float shadowSample = get_shadow(get_shadow_pos(shadowPosition), dither);
+        vec3 shadowUV = get_shadow_pos(shadowPosition);
+        // Mesmo fade de borda do terreno vanilla (shadowDiffuse). Fora do frustum
+        // do shadow map a amostra e clampada/repetida e viraria sombra falsa em
+        // blocos. Fade para 1 (iluminado) nas bordas.
+        float shadowEdge = length(shadowUV.xy * 2.0 - 1.0);
+        shadowEdge = clamp(pow(shadowEdge, 10.0), 0.0, 1.0);
+        float shadowSample = get_shadow(shadowUV, dither);
+        shadowSample = mix(shadowSample, 1.0, shadowEdge);
         shadowSample = mix(shadowSample, 1.0, nightShadowAmount * NIGHT_SHADOW_SOFTEN);
         shadowValue = mix(1.0, shadowSample, shadowFade);
     }

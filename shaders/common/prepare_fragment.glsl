@@ -371,12 +371,17 @@ void main() {
             float spaceAmount = smoothstep(float(ATMOSPHERE_END) - 40.0, float(ATMOSPHERE_END) + 60.0, atmosphereAltitude);
 
             // The atmosphere thins out between ATMOSPHERE_START and
-            // ATMOSPHERE_END. Keep the sun, moon and other bright emitters
-            // readable instead of simply dimming the whole sky.
-            float skyLuma = luma(fullSky);
+            // ATMOSPHERE_END. Keep the sun/moon disks readable instead of
+            // dimming the whole sky, but do NOT keep the broad glow: using the
+            // full sky luma made the smoothstep saturate on the sun glow and
+            // produced a huge bright halo that "exploded" as the atmosphere
+            // thinned with altitude.
+            float skyLuma = luma(fogSky);           // céu base + glow (sem discos)
             float emissiveKeep = smoothstep(0.65, 2.2, skyLuma);
+            float emitterKeep = smoothstep(1.4, 2.6, luma(fullSky)); // discos sol/lua
+            float atmosphereKeep = max(emissiveKeep * 0.88, emitterKeep);
             vec3 thinnedSky = fullSky * mix(1.0, 0.05, atmosphereLayer);
-            fullSky = mix(thinnedSky, fullSky, emissiveKeep * 0.88);
+            fullSky = mix(thinnedSky, fullSky, atmosphereKeep);
             fogSky *= mix(1.0, 0.42, atmosphereLayer);
 
             if (spaceAmount > 0.001) {
@@ -391,7 +396,7 @@ void main() {
                 // In space the atmosphere is almost gone, but the sun and moon
                 // must stay visible: keep the bright emitters at full strength
                 // while the air glow fades to black.
-                vec3 spaceSky = mix(fullSky * 0.025, fullSky, emissiveKeep) + spaceStars;
+                vec3 spaceSky = mix(fullSky * 0.025, fullSky, atmosphereKeep) + spaceStars;
                 fullSky = mix(fullSky, spaceSky, spaceAmount);
                 fogSky = mix(fogSky, fogSky * 0.04, spaceAmount);
             }

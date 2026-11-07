@@ -1,5 +1,8 @@
-#include "/lib/config.glsl"
+#ifndef DH_WATER_F
+    #define DH_WATER_F
+#endif
 
+#include "/lib/config.glsl"
 #ifdef THE_END
     #include "/lib/color_utils_end.glsl"
 #elif defined NETHER
@@ -122,15 +125,17 @@ float dh_water_cloud_coverage(vec3 waterPos) {
 void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
     vec3 realLight;
-
+    vec4 waterReflectData = vec4(0.0);
     #if AA_TYPE > 0
     float dither = shiftedRDither(gl_FragCoord.xy);
     #else
     float dither = rDither(gl_FragCoord.xy);
     #endif
 
-    float t = far - dhNearPlane;
-    float inf = t * TRANSITION_DH_INF;
+    // Mesmo guard do terreno DH: sem span valido (dhNearPlane >= far) o corte
+    // fica a cargo do near plane do DH.
+    float dhSpan = max(far - dhNearPlane, 0.0);
+    float inf = dhSpan * TRANSITION_DH_INF;
     float visibleDistance = length(position.xyz);
     float d = texture2DLod(depthtex0, vec2(gl_FragCoord.x / viewWidth, gl_FragCoord.y / viewHeight), 0.0).r;
     float linearDepth = ld(d);
@@ -223,7 +228,12 @@ void main() {
         blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * .125) * tintColor.rgb;
 
         blockColor.rgb = water_shader_dh(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, dither, directLightColor);
-
+        waterReflectData = vec4(0.0);
+        #if WATER_REFLECT_BUFFER == 1
+            if (blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5 && isEyeInWater == 0) {
+                waterReflectData = vec4(normalizedReflectWaterVector * 0.5 + 0.5, fresnel);
+            }
+        #endif
         blockColor.a = sqrt(blockColor.a);
     #else
         #if WATER_TEXTURE == 1
@@ -249,7 +259,12 @@ void main() {
         #endif
 
         blockColor.rgb = water_shader_dh(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, dither, directLightColor);
-
+    waterReflectData = vec4(0.0);
+    #if WATER_REFLECT_BUFFER == 1
+        if (blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5 && isEyeInWater == 0) {
+            waterReflectData = vec4(normalizedReflectWaterVector * 0.5 + 0.5, fresnel);
+        }
+    #endif
     #endif
 
     } else {

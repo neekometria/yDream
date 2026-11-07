@@ -145,7 +145,7 @@ void main() {
 
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
 
-    #if SHADOW_TYPE == 1 || defined DISTANT_HORIZONS || (defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER) || SSR_TYPE > 0
+    #if SHADOW_TYPE == 1 || defined DISTANT_HORIZONS || (defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER)
         #if AA_TYPE > 0
             float dither = shiftedRDither(gl_FragCoord.xy);
         #else
@@ -349,19 +349,36 @@ void main() {
     #endif
 
     #ifdef DISTANT_HORIZONS
-        float t = far - dhNearPlane;
-        float sup = t * TRANSITION_DH_SUP;
-        float inf = t * TRANSITION_DH_INF;
-        float draw_umbral = (gl_FogFragCoord - (dhNearPlane + inf)) / (far - sup - inf - dhNearPlane);
-        if(draw_umbral > dither) {
-            discard;
-            return;
+        // Mesmo guard do terreno solido: sem span valido nao descartamos a agua
+        // vanilla, senao o LOD do DH aparece atraves dela em altitudes altas.
+        float dhSpan = far - dhNearPlane;
+        if (dhSpan > 1.0) {
+            float sup = dhSpan * TRANSITION_DH_SUP;
+            float inf = dhSpan * TRANSITION_DH_INF;
+            float fadeSpan = max(far - sup - inf - dhNearPlane, 1.0);
+            float draw_umbral = (gl_FogFragCoord - (dhNearPlane + inf)) / fadeSpan;
+            if(draw_umbral > dither) {
+                discard;
+                return;
+            }
         }
     #endif
 
     #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
         if (waterCloudFade) {
             blockColor.a *= 1.0 - cloudCoverage;
+        }
+    #endif
+
+    // Dados do reflexo para o SSR do composite (colortex10).
+    // rgb = reflectDir * 0.5 + 0.5, a = fresnel (0 for non-water)
+    // Debaixo d'água não há superfície acima da câmera para o raymarch acertar,
+    // então o fresnel fica 0 e o composite6 não aplica reflexo nesses pixels.
+    vec4 waterReflectData = vec4(0.0);
+    #if WATER_REFLECT_BUFFER == 1
+        if (blockType > 2.5 && isEyeInWater == 0) {
+            vec3 reflDir = normalizedReflectWaterVector;
+            waterReflectData = vec4(reflDir * 0.5 + 0.5, fresnel);
         }
     #endif
 

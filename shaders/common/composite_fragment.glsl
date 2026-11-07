@@ -10,6 +10,9 @@ const bool colortex1MipmapEnabled = true;
 #endif
 
 uniform sampler2D colortex1;
+uniform sampler2D depthtex1;
+uniform mat4 gbufferProjection;
+uniform mat4 gbufferProjectionInverse;
 uniform float far;
 uniform float near;
 uniform float blindness;
@@ -33,12 +36,9 @@ uniform ivec2 eyeBrightnessSmooth;
 #endif
 
 #if VOL_LIGHT == 1 && !defined NETHER
-    uniform sampler2D depthtex1;
     uniform vec3 sunPosition;
     uniform vec3 moonPosition;
     uniform float dayNightMix;
-    uniform mat4 gbufferProjection;
-    uniform mat4 gbufferProjectionInverse;
     uniform mat4 gbufferModelViewInverse;
     uniform mat4 gbufferModelView;
     uniform float volumetricDayMixer;
@@ -46,14 +46,12 @@ uniform ivec2 eyeBrightnessSmooth;
 
 #if VOL_LIGHT == 2 && defined SHADOW_CASTING && !defined NETHER
     uniform float dayNightMix;
-    uniform mat4 gbufferProjectionInverse;
     uniform mat4 gbufferModelViewInverse;
     uniform mat4 gbufferModelView;
     uniform float volumetricDayMixer;
     uniform vec3 shadowLightPosition;
     uniform mat4 shadowModelView;
     uniform mat4 shadowProjection;
-    uniform mat4 gbufferProjection;
     uniform sampler2DShadow shadowtex1;
 
     #if defined COLORED_GODRAYS || defined SCREENSHOT_MODE
@@ -91,10 +89,6 @@ varying vec3 directLightColor;
 #endif
 
 #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
-    // 1 when no Distant Horizons terrain covers the sampled screen position.
-    // depthtex0/depthtex1 never contain the LOD geometry (the DH programs do not
-    // write gl_FragDepth), so the godray march has to test dhDepthTex1 explicitly
-    // or a LOD mountain in front of the sun lets the whole ray bundle through.
     float dh_sun_clear(vec2 uv) {
         vec2 c = clamp(uv, vec2(0.001), vec2(0.999));
         float clear = step(0.999999, texture2DLod(dhDepthTex1, c, 0.0).r);
@@ -187,7 +181,6 @@ void main() {
     #endif
 
     #if MC_VERSION >= 11900
-
         if((blindness > .01 || darknessFactor > .01) && linearDepth > 0.9) {
             blockColor.rgb = vec3(0.0);
         }
@@ -215,14 +208,7 @@ void main() {
             float volumetricLight = ssGodrays(dither);
         #endif
 
-        // The screen-space march cannot see the LOD terrain either, so gate the
-        // whole shaft on the actual visibility of the light disk. When the sun or
-        // moon sits behind a DH mountain there is no glow in front of it.
         #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
-            // astroLightPos is the sun/moon as a point at ~100 blocks in view
-            // space, so it projects with w = 1. Do not reuse lightpos here: that
-            // varying is built with a transposed matrix multiply, which makes it
-            // unreliable as a screen coordinate.
             vec4 astroClip = gbufferProjection * vec4(astroLightPos, 0.0);
             float astroFront = step(0.001, astroClip.w);
             vec2 astroUV = astroClip.xy / max(astroClip.w, 0.001) * 0.5 + 0.5;
@@ -239,19 +225,14 @@ void main() {
         vec3 eyeDirection = normalize(farPlaneClipPos.xyz);
 
         #if defined THE_END
-
             vec3 auxVector =
                 normalize((gbufferModelViewInverse * gbufferModelView * vec4(0.0, 0.89442719, 0.4472136, 0.0)).xyz);
             float volumetricIntensity =
                 clamp(dot(centerEyeDirection, auxVector), 0.0, 1.0);
-
             volumetricIntensity *= clamp(dot(eyeDirection, auxVector), 0.0, 1.0);
-
             volumetricIntensity *= 0.666;
-
             blockColor.rgb += (volumetricLightColor * volumetricLight * volumetricIntensity * 2.0);
         #else
-
             vec3 auxVector =
                 normalize((gbufferModelViewInverse * vec4(astroLightPos, 0.0)).xyz);
             float volumetricIntensity =
@@ -331,15 +312,7 @@ void main() {
                 waterGlimmer = 0.82 + 0.32 * (glimmerA * 0.6 + glimmerB * 0.4);
             }
 
-            // Same LOD occlusion gate as the screen-space march. The shadow map
-            // only contains real chunks, so without this the scatter keeps
-            // glowing in front of a LOD mountain that hides the light.
             #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
-                // Project the same world-space light direction that the phase
-                // term above already uses, instead of assuming a space for
-                // shadowLightPosition. gbufferProjection must be on the left:
-                // "v * M" in GLSL is the transposed product and would put the
-                // sun disk at the wrong screen position.
                 vec3 sunWorldDir = normalize((gbufferModelViewInverse * vec4(shadowLightPosition, 0.0)).xyz);
                 vec3 sunViewDir = mat3(gbufferModelView) * sunWorldDir;
                 vec4 lightClip = gbufferProjection * vec4(sunViewDir, 0.0);

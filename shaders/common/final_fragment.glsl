@@ -60,6 +60,17 @@ const bool colortex8Clear = false;
 const int colortex2Format = R8;
 */
 #endif
+// colortex5 guarda a cor do reflexo SSR (composite6). Quando o reflexo está
+// desligado ele continua sendo o antigo gaux2 (textura de nuvem nos gbuffers).
+#if WATER_REFLECT_BUFFER == 1
+/*
+const int colortex5Format = RGBA16F;
+*/
+#else
+/*
+const int gaux2Format = R8;
+*/
+#endif
 // ATAA needs a floating point history in colortex3. Format directives stay
 // commented out: Iris parses the const line from the preprocessed source
 // (comments are preserved) but the GLSL compiler must not see the RGBA16F
@@ -67,11 +78,28 @@ const int colortex2Format = R8;
 /*
 const int colortex3Format = RGBA16F;
 const int gaux1Format = R11F_G11F_B10F;
-const int gaux2Format = R8;
 const int gaux3Format = R11F_G11F_B10F;
 const int gaux4Format = R11F_G11F_B10F;
 const int shadowcolor0Format = RGBA8;
 */
+
+// Buffer de direção/fresnel do reflexo (escrito por gbuffers_water e dh_water).
+// O blending desse buffer é desligado em shaders.properties para não corromper
+// os dados; ele é limpo no início de cada frame para que pixels sem água
+// tenham fresnel 0. Quando o GI usa colortex10, o reflexo migra para colortex11.
+#if WATER_REFLECT_BUFFER == 1
+    #if WATER_REFLECT_TARGET == 11
+        /*
+        const int colortex11Format = RGBA16F;
+        */
+        const bool colortex11Clear = true;
+    #else
+        /*
+        const int colortex10Format = RGBA16F;
+        */
+        const bool colortex10Clear = true;
+    #endif
+#endif
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;
@@ -93,6 +121,11 @@ const bool gaux4Clear = false;
 #endif
 
 uniform sampler2D colortex1;
+#if WATER_REFLECT_BUFFER == 1
+    // Direção + fresnel da água e cor do reflexo SSR em baixa resolução.
+    uniform sampler2D WATER_REFLECT_TEX;
+    uniform sampler2D colortex5;
+#endif
 uniform float viewWidth;
 uniform float viewHeight;
 uniform int frameCounter;
@@ -227,6 +260,18 @@ void main() {
         #if AA_TYPE == 3 && !defined DOF
             blockColor = fxaa311(blockColor, 5);
         #endif
+    #endif
+
+    #if WATER_REFLECT_BUFFER == 1
+        // O SSR já foi resolvido em composite6 antes do AA. Aplicar depois do
+        // SMAA/FXAA evita borrar o reflexo duas vezes (ele já vem de um buffer
+        // de resolução interna menor) e usa o fresnel em resolução cheia.
+        vec4 waterReflect = texture2D(WATER_REFLECT_TEX, texcoord);
+        float reflectAmount = clamp(waterReflect.a, 0.0, 1.0) * REFLEX_INDEX;
+        if (reflectAmount > 0.001) {
+            vec3 reflectColor = texture2D(colortex5, texcoord).rgb;
+            blockColor = mix(blockColor, reflectColor, reflectAmount);
+        }
     #endif
 
     blockColor *= vec3(YDREAM_EXPOSURE * YDREAM_STYLE_EXPOSURE_MULT);

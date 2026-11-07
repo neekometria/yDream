@@ -4,11 +4,41 @@
         float glassPeak = max(max(glassAlbedo.r, glassAlbedo.g), glassAlbedo.b);
         float glassSaturation = (glassPeak - min(min(glassAlbedo.r, glassAlbedo.g), glassAlbedo.b)) / max(glassPeak, 0.001);
         float glassMask = step(1.5, blockType) * (1.0 - step(2.5, blockType)) * smoothstep(0.16, 0.34, glassSaturation) * smoothstep(0.50, 0.80, lmcoord.x);
+        #if WATER_REFLECT_BUFFER == 1
+            /* RENDERTARGETS: 1,11,10 */
+            gl_FragData[0] = blockColor;
+            gl_FragData[1] = vec4(glassAlbedo / max(glassPeak, 0.001), step(0.5, glassMask));
+            gl_FragData[2] = waterReflectData;
+        #else
+            /* RENDERTARGETS: 1,11 */
+            gl_FragData[0] = blockColor;
+            gl_FragData[1] = vec4(glassAlbedo / max(glassPeak, 0.001), step(0.5, glassMask));
+        #endif
+    #else
+        #if WATER_REFLECT_BUFFER == 1 && WATER_REFLECT_TARGET == 11
+            /* RENDERTARGETS: 1,11 */
+            gl_FragData[0] = blockColor;
+            gl_FragData[1] = waterReflectData;
+        #elif WATER_REFLECT_BUFFER == 1
+            /* RENDERTARGETS: 1,10 */
+            gl_FragData[0] = blockColor;
+            gl_FragData[1] = waterReflectData;
+        #else
+            /* RENDERTARGETS: 1 */
+            gl_FragData[0] = blockColor;
+        #endif
+    #endif
+#elif defined DH_WATER_F
+    #if WATER_REFLECT_BUFFER == 1 && WATER_REFLECT_TARGET == 11
         /* RENDERTARGETS: 1,11 */
         gl_FragData[0] = blockColor;
-        gl_FragData[1] = vec4(glassAlbedo / max(glassPeak, 0.001), step(0.5, glassMask));
+        gl_FragData[1] = waterReflectData;
+    #elif WATER_REFLECT_BUFFER == 1
+        /* RENDERTARGETS: 1,10 */
+        gl_FragData[0] = blockColor;
+        gl_FragData[1] = waterReflectData;
     #else
-        /* DRAWBUFFERS:1 */
+        /* RENDERTARGETS: 1 */
         gl_FragData[0] = blockColor;
     #endif
 #elif (defined SPECIAL_TRANS && MC_VERSION >= 11300) || defined GBUFFER_HAND_WATER

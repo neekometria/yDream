@@ -84,7 +84,6 @@
 #define VANILLA_CLOUD_CELL_HEIGHT 4.0
 #define VANILLA_CLOUD_DETAIL 1 // [0 1]
 
-#define WATER_REFLECTIONS 0 // [0 1 2 3]
 #define WATER_COLOR_PRESET 0 // [0 1 2 3 4 5]
 #define UNDERWATER_BRIGHTNESS 1.0 // [0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5]
 #define WATER_DEPTH_TINT 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5]
@@ -103,9 +102,9 @@
 #define GODRAY_SPREAD 1.0 // [0.5 0.75 1.0 1.5 2.0]
 #define GODRAY_SHARPNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
 #define PERFORMANCE_MODE 2 // [2 1 0]
-#define PERF_CLOUDS 100 // [50 75 100 125 150]
+#define PERF_CLOUDS 100 // [50 75 100 125 150 175 200 300 400 1000 3000 10000]
 #define PERF_GODRAYS 100 // [50 75 100 125 150]
-#define PERF_REFLECTIONS 100 // [50 75 100 125 150]
+#define PERF_REFLECTIONS 100 // [25 35 50 65 75 85 100 125 150]
 #define PERF_AO 100 // [50 75 100 125 150]
 #define FOG_GOLDEN_TINT 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5 1.8]
 #define AERIAL_PERSPECTIVE_DISTANCE 1.0 // [0.5 0.75 1.0 1.5 2.0 3.0]
@@ -1154,19 +1153,81 @@
     #define YDREAM_TONEMAP TONEMAP
 #endif
 
-#if WATER_REFLECTIONS == 0
-    #define REFLECTION_SLIDER STYLE_REFLECTION
-#elif WATER_REFLECTIONS == 1
-    #define REFLECTION_SLIDER 0
-#elif WATER_REFLECTIONS == 2
-    #define REFLECTION_SLIDER 1
+// ============================================================================
+// WATER REFLECTION
+// 0 = off       → sem reflexo (só base + refração + sun glint)
+// 1 = fast      → 1 tap inline em gbuffers_water (barato, 1 frame de lag)
+// 2 = medium    → SSR no composite6, passos curtos (sem lag)
+// 3 = raymarch  → SSR no composite6, mais passos e alcance (sem lag)
+// ============================================================================
+#define WATER_REFLECTIONS 3 // [0 1 2 3]
+
+// Escala do custo do SSR (número de passos dos modos 2 e 3)
+#define WATER_REFLECTION_QUALITY 100 // [25 50 75 100 125]
+
+// Resolução interna do buffer de reflexo (modos 2 e 3). 50/75/100 = % da tela.
+// No modo 1 (fast) o valor controla apenas o borrão do único tap.
+#define WATER_REFLECTION_RESOLUTION 100 // [50 75 100]
+
+#if WATER_REFLECTION_RESOLUTION == 50
+    #define WATER_REFLECT_SCALE 0.5
+    #define WATER_REFLECT_BLUR 1.5
+#elif WATER_REFLECTION_RESOLUTION == 75
+    #define WATER_REFLECT_SCALE 0.75
+    #define WATER_REFLECT_BLUR 0.75
 #else
-    #define REFLECTION_SLIDER 2
+    #define WATER_REFLECT_SCALE 1.0
+    #define WATER_REFLECT_BLUR 0.0
 #endif
 
-#if YDREAM_QUALITY == 5 && WATER_REFLECTIONS != 1
-    #undef REFLECTION_SLIDER
-    #define REFLECTION_SLIDER 2
+// Buffer que guarda a direção do reflexo + fresnel. O colortex10 é livre na
+// configuração padrão. Se o GI estiver ligado ele usa o colortex10, então o
+// reflexo passa a usar o colortex11. Se GI e luz colorida estiverem ligados ao
+// mesmo tempo não sobra buffer livre: caímos no caminho rápido inline.
+#if WATER_REFLECTIONS == 0
+    #define REFLECTION 0
+    #define WATER_REFLECT_FAST 0
+    #define WATER_REFLECT_BUFFER 0
+    #define WATER_REFLECT_TARGET 10
+    #define REFLEX_INDEX 0.45
+#elif WATER_REFLECTIONS == 1
+    #define REFLECTION 1
+    #define WATER_REFLECT_FAST 1
+    #define WATER_REFLECT_BUFFER 0
+    #define WATER_REFLECT_TARGET 10
+    #define REFLEX_INDEX 0.55
+#else
+    #define REFLECTION 1
+    #if SS_GI > 0 && COLORED_LIGHT > 0
+        #define WATER_REFLECT_FAST 1
+        #define WATER_REFLECT_BUFFER 0
+        #define WATER_REFLECT_TARGET 10
+    #elif SS_GI > 0
+        #define WATER_REFLECT_FAST 0
+        #define WATER_REFLECT_BUFFER 1
+        #define WATER_REFLECT_TARGET 11
+    #else
+        #define WATER_REFLECT_FAST 0
+        #define WATER_REFLECT_BUFFER 1
+        #define WATER_REFLECT_TARGET 10
+    #endif
+    #define REFLEX_INDEX 0.70
+#endif
+
+#if WATER_REFLECT_TARGET == 11
+    #define WATER_REFLECT_TEX colortex11
+#else
+    #define WATER_REFLECT_TEX colortex10
+#endif
+
+// Parâmetros do SSR (modos 2 e 3), executado em composite6.
+// WATER_REFLECTION_QUALITY escala o número de passos do raymarch.
+#if WATER_REFLECTIONS == 3
+    #define REFLECT_STEPS (40 + WATER_REFLECTION_QUALITY / 3)
+    #define REFLECT_STRIDE 0.35
+#else
+    #define REFLECT_STEPS (16 + WATER_REFLECTION_QUALITY / 8)
+    #define REFLECT_STRIDE 0.45
 #endif
 
 #if WATER_COLOR_PRESET == 1
@@ -1237,6 +1298,7 @@
     #define MATERIAL_GLOSS
     #define CLOUD_REFLECTION
 #endif
+
 
 // 0 = off, 1 = TAA, 2 = ATAA, 3 = ATAA + FXAA, 4 = SMAA 1x, 5 = SMAA T2x
 #if AA_MODE == 4
@@ -1315,19 +1377,6 @@
 #define VOL_LIGHT GODRAYS
 #define CHEAP_GODRAY_SAMPLES 4
 
-#if REFLECTION_SLIDER == 0
-    #define REFLECTION 0
-    #define SSR_TYPE 0
-    #define REFLEX_INDEX 0.45
-#elif REFLECTION_SLIDER == 1
-    #define REFLECTION 1
-    #define SSR_TYPE 0
-    #define REFLEX_INDEX 0.7
-#elif REFLECTION_SLIDER == 2
-    #define REFLECTION 1
-    #define SSR_TYPE 1
-    #define REFLEX_INDEX 0.7
-#endif
 
 #if NETHER_FOG_DISTANCE == 1
     #define NETHER_SIGHT min(far * 0.6, 128.0)

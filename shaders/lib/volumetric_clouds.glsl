@@ -41,6 +41,12 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
     float insideCloud = smoothstep(cameraSurfaceInf - 20.0, cameraSurfaceInf + 20.0, base_pos.y) *
         (1.0 - smoothstep(cameraSurfaceSup - 20.0, cameraSurfaceSup + 20.0, base_pos.y));
 
+    // Em um buraco entre nuvens cameraShape == 0 e as duas superficies colapsam
+    // em CLOUD_PLANE_CENTER. Sem este gate o smoothstep vira um degrau de 40
+    // blocos e interiorAmount = 1 pinta a tela inteira de nuvem ao cruzar a
+    // altitude do plano, mesmo sem nenhuma nuvem ali.
+    insideCloud *= smoothstep(4.0, 40.0, cameraSurfaceSup - cameraSurfaceInf);
+
     float interiorAmount = insideLayer * insideCloud;
 
     float safeY = max(abs(eyeDirection.y), 0.001);

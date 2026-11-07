@@ -177,13 +177,22 @@ void main() {
     #endif
 
     #if defined DISTANT_HORIZONS && !defined GBUFFER_BEACONBEAM
-    float t = far - dhNearPlane;
-    float sup = t * TRANSITION_DH_SUP;
-    float inf = t * TRANSITION_DH_INF;
-    float umbral = (gl_FogFragCoord - (dhNearPlane + inf)) / (far - sup - inf - dhNearPlane);
-    if (umbral > dither) {
-        discard;
-        return;
+    // Distancia coberta pelo vanilla (de dhNearPlane ate far). Em altitudes muito
+    // altas o DH ativa o override do near plane e dhNearPlane pode ficar maior
+    // que far. Nesse caso o span vira zero/negativo e a formula antiga descartava
+    // TODO o terreno vanilla, deixando o LOD do DH aparecer atraves do chao.
+    // Sem span valido simplesmente nao descartamos nada: o near plane do DH ja
+    // esta longe o bastante para nao haver sobreposicao.
+    float dhSpan = far - dhNearPlane;
+    if (dhSpan > 1.0) {
+        float sup = dhSpan * TRANSITION_DH_SUP;
+        float inf = dhSpan * TRANSITION_DH_INF;
+        float fadeSpan = max(far - sup - inf - dhNearPlane, 1.0);
+        float umbral = (gl_FogFragCoord - (dhNearPlane + inf)) / fadeSpan;
+        if (umbral > dither) {
+            discard;
+            return;
+        }
     }
     #endif
 

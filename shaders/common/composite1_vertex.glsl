@@ -6,6 +6,7 @@ varying vec2 texcoord;
     uniform mat4 gbufferProjection;
     uniform mat4 gbufferModelView;
     uniform vec3 sunPosition;
+    uniform vec3 cameraPosition;
     uniform float rainStrength;
     uniform sampler2D depthtex0;
 
@@ -45,6 +46,10 @@ void main() {
         skyTaps += flare_sky(tapCenter - vec2(0.0, 0.012));
 
         float screenEdge = smoothstep(-0.30, 0.04, min(min(flareSunUV.x, 1.0 - flareSunUV.x), min(flareSunUV.y, 1.0 - flareSunUV.y)));
-        flareVisibility = sunFront * sunUp * (skyTaps * 0.2) * screenEdge;
+        // Um lens flare é um efeito atmosférico. Conforme a atmosfera afina com
+        // a altitude ele deve desaparecer, em vez de "explodir" contra o céu
+        // escuro do espaço. O disco do sol continua sendo preservado em prepare.
+        float flareAtmosphere = 1.0 - smoothstep(float(ATMOSPHERE_START), float(ATMOSPHERE_END), max(cameraPosition.y, 0.0));
+        flareVisibility = sunFront * sunUp * (skyTaps * 0.2) * screenEdge * mix(0.12, 1.0, flareAtmosphere);
     #endif
 }
