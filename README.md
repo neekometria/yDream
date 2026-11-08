@@ -83,7 +83,8 @@ Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javi
 - **v0.6 — Water & Sky Overhaul**
 - **v0.7 — End & Nether Overhaul**
 - **v0.8 — Fog Overhaul**
-
+- **v0.9 — Colors**
+- **v1.0 Release - Listed Mods Integrations**
 ### Ongoing Improvements
 - Fix persistent Distant Horizons LOD plane artifacts.
 - Fix EpicFight Model
