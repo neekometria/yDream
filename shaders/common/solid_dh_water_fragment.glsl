@@ -132,15 +132,44 @@ void main() {
     float dither = rDither(gl_FragCoord.xy);
     #endif
 
-    // Mesmo guard do terreno DH: sem span valido (dhNearPlane >= far) o corte
-    // fica a cargo do near plane do DH.
-    float dhSpan = max(far - dhNearPlane, 0.0);
-    float inf = dhSpan * TRANSITION_DH_INF;
-    float visibleDistance = length(position.xyz);
+    float dhSpan = far - dhNearPlane;
+    // Mesma distancia que a agua vanilla usa no gl_FogFragCoord (view-space).
+    // Precisa bater exatamente para o dither complementar nao deixar costura.
+    // Obs.: nao usar `position` aqui porque a agua DH aplica position.y -= 0.125.
+    float fogDistance = length(fragposition.xyz);
+
+    // O depthtex0 contem a cena opaca principal (pode ser a frame anterior no
+    // passe DH, mas serve de aproximacao). O check antigo (`linearDepth < 0.9999`)
+    // descartava a agua DH sempre que existia QUALQUER geometria opaca no pixel,
+    // inclusive o leito atras da superficie. No anel de transicao a agua vanilla
+    // ja foi removida pelo dither, entao sobrava um buraco mostrando o LOD do DH.
+    // Agora so descartamos quando a cena opaca esta realmente NA FRENTE da agua.
     float d = texture2DLod(depthtex0, vec2(gl_FragCoord.x / viewWidth, gl_FragCoord.y / viewHeight), 0.0).r;
     float linearDepth = ld(d);
+    if(linearDepth < 0.9999) {
+        float sceneViewDepth = linearDepth * far / max(2.0 - linearDepth, 1e-4);
+        float waterViewDepth = abs(fragposition.z);
+        if(sceneViewDepth < waterViewDepth - max(0.5, waterViewDepth * 0.01)) {
+            discard;
+            return;
+        }
+    }
 
-    if(linearDepth < 0.9999 || visibleDistance < dhNearPlane + inf) {
+    // Crossfade complementar ao da agua vanilla (water_blocks_fragment.glsl):
+    // a vanilla desenha quando draw_umbral <= dither, entao a agua DH so pode
+    // desenhar quando draw_umbral > dither. Assim cada pixel e coberto por
+    // exatamente uma das duas superficies (sem double-blend e sem buracos).
+    if(dhSpan > 1.0) {
+        float sup = dhSpan * TRANSITION_DH_SUP;
+        float inf = dhSpan * TRANSITION_DH_INF;
+        float fadeSpan = max(far - sup - inf - dhNearPlane, 1.0);
+        float dhUmbral = (fogDistance - (dhNearPlane + inf)) / fadeSpan;
+        if(dhUmbral <= dither) {
+            discard;
+            return;
+        }
+    } else if(fogDistance < dhNearPlane) {
+        // Sem janela de crossfade o near plane do DH ja cuida do corte.
         discard;
         return;
     }

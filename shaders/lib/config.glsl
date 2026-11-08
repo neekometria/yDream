@@ -1503,6 +1503,14 @@
     #endif
 #endif
 
+// Per-bank variation of the cloud layer. A small bounded displacement, so banks
+// wobble a little differently from each other while the layer keeps moving as one.
+// 0 gives back the original uniform drift.
+#define CLOUD_WIND_VARIATION 0.35 // [0.0 0.1 0.2 0.35 0.5 0.75 1.0]
+#define CLOUD_WIND_AMP (0.08 * CLOUD_WIND_VARIATION)
+#define CLOUD_WIND_SCALE (CLOUD_NOISE_SCALE * 0.35)
+#define CLOUD_WIND_TIME 0.02
+
 // #define COLOR_BLINDNESS
 #define COLOR_BLIND_MODE 0 // [0 1 2]
 

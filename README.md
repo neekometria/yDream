@@ -75,6 +75,19 @@ Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javi
 > All screenshots were captured on a **GTX 750 Ti**.
 ---
 
+## ROADMAP
+
+### Planned
+- **v0.4 — Clouds Overhaul & Distant Horizons Compatibility**
+- **v0.5 — Screen Space Reflections (SSR) Overhaul**
+- **v0.6 — Water & Sky Overhaul**
+- **v0.7 — End & Nether Overhaul**
+- **v0.8 — Fog Overhaul**
+
+### Ongoing Improvements
+- Fix persistent Distant Horizons LOD plane artifacts.
+- Fix EpicFight Model
+
 ## Cinematic Experience
 
 yDream has one cohesive style — but it's extremely customizable.
@@ -107,7 +120,7 @@ The catalog covers the **500 brightest stars** (down to magnitude ~4) with accur
 ## Compatibility
 
 > Nerdy stuff ahead.
-
+> 
 ### Distant Horizons
 
 Distant Horizons is fully integrated across shadows, fog and temporal effects.
@@ -158,14 +171,14 @@ The Real Star Catalog can cause significant performance degradation
 ### Overworld
 Everything described above.
 
-### The Nether
+### The Nether - Need full rework
 - Ember-filled atmosphere with adjustable fog distance.
 - Drifting embers with amount and color modes: **fire orange**, **soul blue**, **crimson**, **warped teal** or **golden**.
 - Glowing haze and adjustable star brightness.
 - Nether clouds follow the same volumetric cloud settings as the overworld.
 - Uses the overworld star layer.
 
-### The End (Lore for my ModPack, you can disable)
+### The End - Need full rework
 A self-contained End atmosphere with:
 
 - **Three sky palettes:** Molten Dusk, Violet Abyss, Ash and Ember.

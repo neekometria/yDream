@@ -1,3 +1,4 @@
+
 name: Automatic Release
 
 on:
@@ -40,8 +41,25 @@ jobs:
               -o -name '.openidea' \
             \) -exec rm -rf -- {} +
 
-          # Generate automatic version
-          TAG="v0.4.${GITHUB_RUN_NUMBER}"
+          # Find previous release tag
+          PREVIOUS_TAG="$(git tag --list 'v0.5.*' \
+            --sort=-version:refname | head -n 1)"
+
+          # Generate automatic version starting at 0.5.0
+          NEXT_BUILD=0
+
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            LAST_BUILD="${PREVIOUS_TAG##*.}"
+
+            if [[ ! "$LAST_BUILD" =~ ^[0-9]+$ ]]; then
+              echo "::error::Invalid previous release tag: $PREVIOUS_TAG"
+              exit 1
+            fi
+
+            NEXT_BUILD=$((10#$LAST_BUILD + 1))
+          fi
+
+          TAG="v0.5.${NEXT_BUILD}"
           VERSION="${TAG#v}"
           ZIP_NAME="yDream-${TAG}.zip"
 
@@ -50,10 +68,6 @@ jobs:
             cd "$STAGING_DIR"
             zip -qr "$GITHUB_WORKSPACE/dist/$ZIP_NAME" .
           )
-
-          # Find previous release tag
-          PREVIOUS_TAG="$(git tag --list 'v0.4.*' \
-            --sort=-version:refname | sed -n '1p')"
 
           # Generate readable changelog
           CHANGELOG_PATH="dist/CHANGELOG.md"
@@ -128,7 +142,7 @@ jobs:
               # First release
               echo "## Initial automated release"
               echo
-              echo "No previous v0.4.x release was found."
+              echo "No previous v0.5.x release was found."
               echo
               echo "### Recent commits"
               echo
