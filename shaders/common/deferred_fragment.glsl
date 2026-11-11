@@ -26,12 +26,15 @@ uniform int frameCounter;
     uniform float fovYInverse;
 #endif
 
+// cameraPosition/sunPosition são usados por vários blocos abaixo (nuvens,
+// atmosfera, SSAO). Sempre declarados: antes eram guardados por
+// `V_CLOUDS != 0 || YDREAM_VOXEL_LIGHT > 0` e o deferred.fsh falhava com
+// "undefined variable cameraPosition" (C1503) quando as opções divergiam.
+uniform vec3 cameraPosition;
+uniform vec3 sunPosition;
+
 #if V_CLOUDS != 0 && !defined UNKNOWN_DIM
     uniform sampler2D noisetex;
-    uniform vec3 cameraPosition;
-    uniform vec3 sunPosition;
-#elif YDREAM_VOXEL_LIGHT > 0
-    uniform vec3 cameraPosition;
 #endif
 
 #ifdef YDREAM_LIGHT_BUFFERS
@@ -120,8 +123,8 @@ void main() {
 
     // Amount of cloud composited over the scene. Stored in colortex6 so the
     // translucent water (drawn after this pass) can fade by the real opacity.
-    // colortex5 is not usable here: it is aliased to the custom cloud-noise
-    // texture bound as gaux2 in this same pass.
+    // colortex5 voltou a ser só o alias gaux2 da textura de nuvem; o registro
+    // da superfície da água não existe mais (reflexo 100% inline).
     float cloudCoverage = 0.0;
 
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);

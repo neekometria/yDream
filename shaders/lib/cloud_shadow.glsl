@@ -13,7 +13,7 @@ float cloud_shadow_amount(vec3 worldPos, vec3 lightDir) {
     vec2 pos = worldPos.xz + lightDir.xz * t;
 
     float fieldValue = cloud_field(pos);
-    float detailValue = texture2DLod(gaux2, pos * 0.0016 - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6), 0.0).r;
+    float detailValue = texture2DLod(YDREAM_CLOUD_NOISE_TEX, pos * 0.0016 - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6), 0.0).r;
     float noiseValue = mix(fieldValue, detailValue, CLOUD_DETAIL_WEIGHT);
 
     // Mantém a mesma lógica do volumetric_clouds_vertex para alinhar as aberturas

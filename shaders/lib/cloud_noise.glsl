@@ -9,6 +9,15 @@
 #ifndef YDREAM_CLOUD_NOISE_INCLUDED
 #define YDREAM_CLOUD_NOISE_INCLUDED
 
+// Sampler do ruído de nuvem. Usa o alias gaux2 (colortex5): desde que o
+// reflexo da água saiu do composite6, o c5 não é mais registro de superfície,
+// e o binding por TEXTURA (texture.<stage>.gaux2) é o caminho comprovado nesta
+// versão do Iris. Nomes arbitrários (ex.: cloudNoise) não renderizaram as
+// nuvens do céu no deferred. Cada programa que usa este include declara gaux2.
+#ifndef YDREAM_CLOUD_NOISE_TEX
+#define YDREAM_CLOUD_NOISE_TEX gaux2
+#endif
+
 vec2 cloud_noise_uv(vec2 p) {
     return vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8);
 }
@@ -22,23 +31,23 @@ vec2 cloud_noise_uv(vec2 p) {
 // Depends only on posXZ, so every ray, shadow sample and light sample agrees.
 vec2 cloud_warp(vec2 posXZ) {
     vec2 q = posXZ * CLOUD_WIND_SCALE;
-    float a = texture2DLod(gaux2, q + vec2(0.37, 0.71), 0.0).r - 0.5;
-    float b = texture2DLod(gaux2, q + vec2(0.83, 0.19), 0.0).r - 0.5;
+    float a = texture2DLod(YDREAM_CLOUD_NOISE_TEX, q + vec2(0.37, 0.71), 0.0).r - 0.5;
+    float b = texture2DLod(YDREAM_CLOUD_NOISE_TEX, q + vec2(0.83, 0.19), 0.0).r - 0.5;
     float phase = frameTimeCounter * CLOUD_WIND_TIME + a * 6.2831853;
     vec2 wobble = vec2(sin(phase), cos(phase * 0.73 + b * 6.2831853));
     return (vec2(a, b) * 2.0 + wobble * 0.5) * CLOUD_WIND_AMP;
 }
 
-// Shaped 0..1 cloud field at a horizontal world position. Requires the gaux2
-// sampler and frameTimeCounter to be in scope.
+// Shaped 0..1 cloud field at a horizontal world position. Requires the
+// `gaux2` sampler (bound per program in shaders.properties).
 float cloud_field(vec2 posXZ) {
     float time = frameTimeCounter;
     vec2 warp = cloud_warp(posXZ);
     vec2 p1 = posXZ * CLOUD_NOISE_SCALE + time * CLOUD_HI_FACTOR + warp;
     vec2 p2 = cloud_noise_uv(posXZ) * (CLOUD_NOISE_SCALE * 1.7) + time * CLOUD_LOW_FACTOR * 1.2 + warp;
 
-    float base = texture2DLod(gaux2, p1, 0.0).r;
-    float detail = texture2DLod(gaux2, p2, 0.0).r;
+    float base = texture2DLod(YDREAM_CLOUD_NOISE_TEX, p1, 0.0).r;
+    float detail = texture2DLod(YDREAM_CLOUD_NOISE_TEX, p2, 0.0).r;
 
     // Combine them smoothly
     float value = mix(base, detail, CLOUD_DETAIL_WEIGHT);

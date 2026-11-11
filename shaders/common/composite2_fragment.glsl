@@ -10,6 +10,8 @@ const bool colortex2Clear = false;
 #endif
 const bool colortex3Clear = false;
 const bool gaux1Clear = false;
+// c5/gaux2 voltou a ser a textura de ruído de nuvem (nenhum passe escreve em
+// c5 desde que o reflexo ficou inline), então o clear volta a ser desligado.
 const bool gaux2Clear = false;
 const bool gaux3Clear = false;
 const bool gaux4Clear = false;

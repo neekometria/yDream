@@ -8,7 +8,9 @@
 // remova esta linha e declare worldTime antes do #moj_import que inclui sky.glsl.
 //
 
-uniform float worldTime;
+// Iris fornece worldTime como INT; declarar float faz o uniform ser
+// descartado com "Wrong uniform type ... expects FLOAT".
+uniform int worldTime;
 
 // Auto-gerado por preprocess_sky_data.py -- NAO EDITAR
 
@@ -1062,10 +1064,7 @@ const float HERO_STAR_MAG[NUM_HERO_STARS] = float[](-26.700,-1.440,-0.620,-0.050
     #define AURORA_RAY_COLOR AURORA_HIGH_COLOR
 #endif
 
-float hgPhase(float cosTheta, float g) {
-    float g2 = g * g;
-    return (1.0 - g2) / (12.566370614359172 * pow(max(1.0 + g2 - 2.0 * g * cosTheta, 0.0001), 1.5));
-}
+#include "/lib/sky_atmosphere.glsl"
 
 float valueNoise3(vec3 p) {
     vec3 cell = floor(p);
@@ -1096,30 +1095,6 @@ float fbm3(vec3 p) {
     return total / 0.9375;
 }
 
-vec3 atmosphericSky(float viewElevation, float cosSun, float sunAltitude, float turbidity) {
-    float viewCos = clamp(viewElevation, 0.0, 1.0);
-    float viewZenith = degrees(acos(viewCos));
-    float airmassView = 1.0 / (viewCos + 0.50572 * pow(max(96.07995 - viewZenith, 0.5), -1.6364));
-
-    float sunCos = clamp(sunAltitude, 0.0, 1.0);
-    float sunZenith = degrees(acos(sunCos));
-    float airmassSun = 1.0 / (sunCos + 0.50572 * pow(max(96.07995 - sunZenith, 0.5), -1.6364));
-
-    vec3 tauRayleigh = vec3(0.0464, 0.108, 0.265);
-    float tauMie = 0.006 * turbidity;
-    vec3 tauTotal = tauRayleigh + vec3(tauMie);
-
-    float lowAir = mix(0.28, 1.0, exp(-viewCos * 3.0));
-    vec3 sunTransmission = exp(-tauTotal * airmassSun * lowAir);
-
-    float phaseRayleigh = 0.05968310365946075 * (1.0 + cosSun * cosSun);
-    float phaseMie = hgPhase(cosSun, 0.78);
-
-    vec3 scatter = tauRayleigh * (phaseRayleigh + 0.09) + vec3(tauMie * phaseMie * 0.55);
-    vec3 inscatter = (1.0 - exp(-tauTotal * airmassView)) / tauTotal;
-
-    return sunTransmission * scatter * inscatter;
-}
 
 vec3 starField(vec3 worldDir, float pixelAngle, float time, float density, float twinkleAmount, float starScale) {
 
@@ -1727,6 +1702,7 @@ vec3 customStarsLayer(vec3 worldDir, float pixelAngle, float time, float density
         min(0.35 * STAR_TWINKLE, 1.0), 105.0) * STAR_BRIGHTNESS;
             #endif
         #endif
+    #endif
 
     #if YDREAM_COLOR_STYLE != 0
         #if REAL_STARS == 1

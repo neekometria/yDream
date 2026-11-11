@@ -1,3 +1,7 @@
+// Declarado também no color_utils.glsl (overworld). O Nether precisa dele
+// porque MOON_PHASE_USED pode expandir para moonPhase em lib/config.glsl.
+uniform int moonPhase;
+
 uniform float dayMoment;
 uniform float dayMixer;
 uniform float nightMixer;

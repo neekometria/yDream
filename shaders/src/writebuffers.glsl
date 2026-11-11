@@ -1,46 +1,27 @@
 #ifdef WATER_F
     blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-    #if YDREAM_VOXEL_LIGHT > 0
+    #if defined GBUFFER_HAND_WATER
+        /* DRAWBUFFERS:1 */
+        gl_FragData[0] = blockColor;
+    #elif YDREAM_VOXEL_LIGHT > 0
         float glassPeak = max(max(glassAlbedo.r, glassAlbedo.g), glassAlbedo.b);
         float glassSaturation = (glassPeak - min(min(glassAlbedo.r, glassAlbedo.g), glassAlbedo.b)) / max(glassPeak, 0.001);
         float glassMask = step(1.5, blockType) * (1.0 - step(2.5, blockType)) * smoothstep(0.16, 0.34, glassSaturation) * smoothstep(0.50, 0.80, lmcoord.x);
-        #if WATER_REFLECT_BUFFER == 1
-            /* RENDERTARGETS: 1,11,10 */
-            gl_FragData[0] = blockColor;
-            gl_FragData[1] = vec4(glassAlbedo / max(glassPeak, 0.001), step(0.5, glassMask));
-            gl_FragData[2] = waterReflectData;
-        #else
-            /* RENDERTARGETS: 1,11 */
-            gl_FragData[0] = blockColor;
-            gl_FragData[1] = vec4(glassAlbedo / max(glassPeak, 0.001), step(0.5, glassMask));
-        #endif
-    #else
-        #if WATER_REFLECT_BUFFER == 1 && WATER_REFLECT_TARGET == 11
-            /* RENDERTARGETS: 1,11 */
-            gl_FragData[0] = blockColor;
-            gl_FragData[1] = waterReflectData;
-        #elif WATER_REFLECT_BUFFER == 1
-            /* RENDERTARGETS: 1,10 */
-            gl_FragData[0] = blockColor;
-            gl_FragData[1] = waterReflectData;
-        #else
-            /* RENDERTARGETS: 1 */
-            gl_FragData[0] = blockColor;
-        #endif
-    #endif
-#elif defined DH_WATER_F
-    #if WATER_REFLECT_BUFFER == 1 && WATER_REFLECT_TARGET == 11
+        vec4 glassData = vec4(glassAlbedo / max(glassPeak, 0.001), step(0.5, glassMask));
         /* RENDERTARGETS: 1,11 */
         gl_FragData[0] = blockColor;
-        gl_FragData[1] = waterReflectData;
-    #elif WATER_REFLECT_BUFFER == 1
-        /* RENDERTARGETS: 1,10 */
-        gl_FragData[0] = blockColor;
-        gl_FragData[1] = waterReflectData;
+        gl_FragData[1] = glassData;
     #else
-        /* RENDERTARGETS: 1 */
+        /* DRAWBUFFERS:1 */
         gl_FragData[0] = blockColor;
     #endif
+#elif defined DH_WATER_F
+    /* DRAWBUFFERS:1 */
+    gl_FragData[0] = blockColor;
+#elif defined DH_BLOCK && YDREAM_VOXEL_LIGHT == 0
+    /* RENDERTARGETS: 1,8 */
+    gl_FragData[0] = blockColor;
+    gl_FragData[1] = vec4(blockColor.rgb, 1.0);
 #elif (defined SPECIAL_TRANS && MC_VERSION >= 11300) || defined GBUFFER_HAND_WATER
     /* DRAWBUFFERS:1 */
     gl_FragData[0] = blockColor;
@@ -72,9 +53,7 @@
             #endif
             gl_FragData[2] = vec4(ydreamAlbedo, 1.0);
         #else
-            // Terrain shadows come from the real shadow map now, so there is no
-            // sun-contribution buffer to write. Keep the single-target path for
-            // every configuration (colortex5 is aliased to the cloud noise).
+            // Terrain shadows come from the real shadow map; no auxiliary output is needed.
             /* DRAWBUFFERS:1 */
             blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
             gl_FragData[0] = blockColor;

@@ -85,7 +85,6 @@ varying vec3 horizonSkyColor;
 #endif
 
 attribute vec4 mc_Entity;
-attribute vec4 at_tangent;
 
 #if AA_TYPE > 0
     #include "/src/taa_offset.glsl"
@@ -119,8 +118,11 @@ void main() {
 
     waterNormal = normal;
 
-    tangent = normalize(gl_NormalMatrix * at_tangent.xyz);
-    binormal = normalize(gl_NormalMatrix * -cross(gl_Normal, at_tangent.xyz));
+    // Bases do plano horizontal em view space (mesmo esquema do DH water).
+    // Não usar at_tangent: o formato de vértice da água pode não fornecê-lo,
+    // o que gera GL_INVALID_OPERATION e normal inválida (reflexo esticado).
+    tangent = normalize(gbufferModelView[0].xyz);
+    binormal = normalize(gbufferModelView[2].xyz);
 
     blockType = 0.0;
     if(mc_Entity.x == ENTITY_WATER) {

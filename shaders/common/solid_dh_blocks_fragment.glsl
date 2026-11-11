@@ -30,6 +30,10 @@ uniform vec3 sunPosition;
 #endif
 
 #if DH_SHADOWS == 1 && defined SHADOW_CASTING && !defined NETHER
+// lib/shadow_frag.glsl usa shadowtex0/shadowcolor0 nos detectores de sombra;
+// sem estas declarações o dh_terrain falha com "undefined variable".
+uniform sampler2DShadow shadowtex0;
+uniform sampler2D shadowcolor0;
 uniform sampler2DShadow shadowtex1;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;

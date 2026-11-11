@@ -66,7 +66,7 @@
 #define SHOOTING_G 0.9 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 #define SHOOTING_B 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 
-#define CLOUD_TYPE 0 // [0 1 2 3 4 5]
+#define CLOUD_TYPE 2 // [0 1 2 3 4 5]
 #define CLOUD_GROUND_SHADOWS 50 // [0 25 50 75 100]
 // Altura do centro da camada de nuvens por dimensão, em blocos (1 bloco ~ 1 m).
 // Overworld: cúmulos 1 a 2 km (NASA/NOAA). Nether: 400 (padrão do pack). Marte: nuvens de gelo de água 20 a 40 km. Vênus: nuvens de ácido sulfúrico 45 a 70 km.
@@ -90,7 +90,7 @@
 #define WATER_FOAM 0 // [0 1 2]
 // Strength of the river flow detection on vanilla water. 0 disables the
 // downstream motion entirely, 1 is the designed look.
-#define WATER_FLOW_STRENGTH 0.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
+#define WATER_FLOW_STRENGTH 0.75 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define SUN_REFLECTION 1 // [0 1]
 #define SUN_GLINT_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define SUN_GLITTER 0 // [0 1 2]
@@ -171,6 +171,12 @@
 #define ACERCADE 0 // [0]
 #define WAVING 1 // [0 1]
 #define REFRACTION 1 // [0 1]
+// Maximum screen-space displacement (normalised UV) that a refracted lookup may
+// move away from the water pixel. A bigger jump samples scenery that is not
+// actually behind the water -- notably Distant Horizons LOD planes near the
+// horizon, which then seem to leak through the surface. 0.02 ~= 2% of the
+// screen; raise it for stronger refraction, lower it if LOD still bleeds in.
+#define WATER_REFRACTION_STRENGTH 100 // [0 25 50 75 100 125 150 175 200] Screen-space distortion strength
 // #define DOF
 #define DOF_STRENGTH 0.09 // [0.06 0.07 0.08 0.09 0.10 0.11 0.12 0.13]
 #define AO 1 // [0 1]
@@ -622,7 +628,7 @@
     #define STYLE_FOAM 0
     #define STYLE_GLITTER 0
     #define STYLE_DEPTH_TINT 0.6
-    #define STYLE_WATER_COLOR vec3(0.10, 0.24, 0.50)
+    #define STYLE_WATER_COLOR vec3(0.060, 0.180, 0.140)
     #define STYLE_STARS 2
     #define STYLE_AURORA 0
     #define STYLE_SHOOTING 0
@@ -1154,81 +1160,52 @@
 #endif
 
 // ============================================================================
-// WATER REFLECTION
-// 0 = off       → sem reflexo (só base + refração + sun glint)
-// 1 = fast      → 1 tap inline em gbuffers_water (barato, 1 frame de lag)
-// 2 = medium    → SSR no composite6, passos curtos (sem lag)
-// 3 = raymarch  → SSR no composite6, mais passos e alcance (sem lag)
+// Water reflection modes. SSR only runs in above-water water fragments.
 // ============================================================================
-#define WATER_REFLECTIONS 3 // [0 1 2 3]
-
-// Escala do custo do SSR (número de passos dos modos 2 e 3)
+#define WATER_REFLECTIONS 2 // [0 1 2 3 4]
 #define WATER_REFLECTION_QUALITY 100 // [25 50 75 100 125]
 
-// Resolução interna do buffer de reflexo (modos 2 e 3). 50/75/100 = % da tela.
-// No modo 1 (fast) o valor controla apenas o borrão do único tap.
-#define WATER_REFLECTION_RESOLUTION 100 // [50 75 100]
+#define WATER_REFLECT_FAST        (WATER_REFLECTIONS == 1)
+#define WATER_REFLECT_BEAUTIFUL   (WATER_REFLECTIONS == 2)
+#define WATER_REFLECT_CINEMATIC   (WATER_REFLECTIONS == 3)
+#define WATER_REFLECT_ALTERNATIVE (WATER_REFLECTIONS == 4)
 
-#if WATER_REFLECTION_RESOLUTION == 50
-    #define WATER_REFLECT_SCALE 0.5
-    #define WATER_REFLECT_BLUR 1.5
-#elif WATER_REFLECTION_RESOLUTION == 75
-    #define WATER_REFLECT_SCALE 0.75
-    #define WATER_REFLECT_BLUR 0.75
-#else
-    #define WATER_REFLECT_SCALE 1.0
-    #define WATER_REFLECT_BLUR 0.0
-#endif
-
-// Buffer que guarda a direção do reflexo + fresnel. O colortex10 é livre na
-// configuração padrão. Se o GI estiver ligado ele usa o colortex10, então o
-// reflexo passa a usar o colortex11. Se GI e luz colorida estiverem ligados ao
-// mesmo tempo não sobra buffer livre: caímos no caminho rápido inline.
-#if WATER_REFLECTIONS == 0
-    #define REFLECTION 0
-    #define WATER_REFLECT_FAST 0
-    #define WATER_REFLECT_BUFFER 0
-    #define WATER_REFLECT_TARGET 10
-    #define REFLEX_INDEX 0.45
-#elif WATER_REFLECTIONS == 1
-    #define REFLECTION 1
-    #define WATER_REFLECT_FAST 1
-    #define WATER_REFLECT_BUFFER 0
-    #define WATER_REFLECT_TARGET 10
-    #define REFLEX_INDEX 0.55
-#else
-    #define REFLECTION 1
-    #if SS_GI > 0 && COLORED_LIGHT > 0
-        #define WATER_REFLECT_FAST 1
-        #define WATER_REFLECT_BUFFER 0
-        #define WATER_REFLECT_TARGET 10
-    #elif SS_GI > 0
-        #define WATER_REFLECT_FAST 0
-        #define WATER_REFLECT_BUFFER 1
-        #define WATER_REFLECT_TARGET 11
+#if WATER_REFLECTIONS == 0 || WATER_REFLECTIONS == 1
+    #define YDREAM_WATER_SSR_STEPS 0
+#elif WATER_REFLECTIONS == 2
+    #if WATER_REFLECTION_QUALITY >= 100
+        #define YDREAM_WATER_SSR_STEPS 8
     #else
-        #define WATER_REFLECT_FAST 0
-        #define WATER_REFLECT_BUFFER 1
-        #define WATER_REFLECT_TARGET 10
+        #define YDREAM_WATER_SSR_STEPS 5
     #endif
-    #define REFLEX_INDEX 0.70
+#elif WATER_REFLECTIONS == 3
+    #if WATER_REFLECTION_QUALITY >= 100
+        #define YDREAM_WATER_SSR_STEPS 12
+    #else
+        #define YDREAM_WATER_SSR_STEPS 8
+    #endif
+#else
+    #define YDREAM_WATER_SSR_STEPS 4
 #endif
 
-#if WATER_REFLECT_TARGET == 11
-    #define WATER_REFLECT_TEX colortex11
+#if WATER_REFLECTIONS == 0
+    #define WATER_REFLECT_STRENGTH 0.0
+#elif WATER_REFLECTIONS == 1
+    #define WATER_REFLECT_STRENGTH 0.30
+#elif WATER_REFLECTIONS == 2
+    #define WATER_REFLECT_STRENGTH 0.72
+#elif WATER_REFLECTIONS == 3
+    #define WATER_REFLECT_STRENGTH 0.88
 #else
-    #define WATER_REFLECT_TEX colortex10
+    #define WATER_REFLECT_STRENGTH 0.60
 #endif
 
-// Parâmetros do SSR (modos 2 e 3), executado em composite6.
-// WATER_REFLECTION_QUALITY escala o número de passos do raymarch.
-#if WATER_REFLECTIONS == 3
-    #define REFLECT_STEPS (40 + WATER_REFLECTION_QUALITY / 3)
-    #define REFLECT_STRIDE 0.35
-#else
-    #define REFLECT_STEPS (16 + WATER_REFLECTION_QUALITY / 8)
-    #define REFLECT_STRIDE 0.45
-#endif
+// Compatibilidade com arquivos antigos; o pipeline de buffer não é mais usado.
+#define WATER_REFLECT_BUFFER 0
+#define WATER_REFLECT_TARGET 10
+#define REFLEX_INDEX 0.70
+// Cristal/vidro ainda usa o tap inline de gaux1 (independente do modo da água).
+#define REFLECTION 1
 
 #if WATER_COLOR_PRESET == 1
     #define WATER_COLOR vec3(0.06, 0.24, 0.55)

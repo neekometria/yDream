@@ -100,14 +100,14 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         intersection_pos += (increment * dither);
 
         for (int i = 0; i < samples; i++) {
-            float detailNoise = texture2D(gaux2, (intersection_pos.xz * 0.0016) - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6)).r;
+            float detailNoise = texture2D(YDREAM_CLOUD_NOISE_TEX, (intersection_pos.xz * 0.0016) - (frameTimeCounter * CLOUD_HI_FACTOR * 1.6)).r;
             float current_value = mix(cloud_field(intersection_pos.xz), detailNoise, CLOUD_DETAIL_WEIGHT);
 
             #ifdef CLOUD_LIGHT_ENHANCED
-            float erosionNoise = texture2D(gaux2, (intersection_pos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
+            float erosionNoise = texture2D(YDREAM_CLOUD_NOISE_TEX, (intersection_pos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
             current_value += (erosionNoise - 0.5) * 0.20 * (1.0 - current_value);
             #else
-            float erosionNoise = texture2D(gaux2, (intersection_pos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
+            float erosionNoise = texture2D(YDREAM_CLOUD_NOISE_TEX, (intersection_pos.xz * 0.0049) + vec2(frameTimeCounter * CLOUD_HI_FACTOR * 2.2, 0.37)).r;
             current_value += (erosionNoise - 0.5) * 0.12 * (1.0 - current_value);
             #endif
 

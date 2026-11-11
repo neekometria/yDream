@@ -14,6 +14,7 @@ uniform float pixelSizeY;
 uniform float near;
 uniform float far;
 uniform sampler2D gaux1;
+uniform sampler2D gaux4;
 uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferProjection;
 uniform sampler2D noisetex;
@@ -28,13 +29,13 @@ uniform float nightVision;
 uniform float rainStrength;
 uniform float dayNightMix;
 uniform ivec2 eyeBrightnessSmooth;
-uniform sampler2D gaux4;
 uniform vec3 cameraPosition;
 
 #if defined DISTANT_HORIZONS
     uniform float dhNearPlane;
     uniform float dhFarPlane;
     uniform sampler2D dhDepthTex1;
+    uniform int dhRenderDistance;
 #endif
 
 #if V_CLOUDS != 0
@@ -131,18 +132,6 @@ varying vec3 horizonSkyColor;
 #endif
 
 void main() {
-    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-        float cloudCoverage = 0.0;
-        bool waterCloudFade = isEyeInWater == 0 && blockType > 2.5 && cameraPosition.y > CLOUD_PLANE_SUP;
-        if (waterCloudFade) {
-            cloudCoverage = texture2DLod(colortex6, gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY), 0.0).r;
-        }
-        if (waterCloudFade && cloudCoverage > 0.999) {
-            discard;
-            return;
-        }
-    #endif
-
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
 
     #if SHADOW_TYPE == 1 || defined DISTANT_HORIZONS || (defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER)
@@ -155,7 +144,15 @@ void main() {
         float dither = 1.0;
     #endif
 
-    vec4 blockColor;
+    // Above water only the top face is meaningful; rendering the coplanar
+    // underside too causes z-fighting squares (backFace.translucent is on for
+    // the underwater Snell window).
+    if (blockType > 2.5 && isEyeInWater == 0 && !gl_FrontFacing) {
+        discard;
+        return;
+    }
+
+    vec4 blockColor = vec4(1.0);
     vec3 realLight;
     vec3 glassAlbedo = vec3(0.0);
 
@@ -208,6 +205,7 @@ void main() {
         }
     #endif
 
+    
     if(blockType > 2.5) {
         #ifdef VANILLA_WATER
             blockColor = texture2D(tex, texcoord);
@@ -246,9 +244,10 @@ void main() {
 
             blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * .125) * tintColor.rgb;
 
+            // Refração e corpo já resolvidos inline; alpha 1 para o blend opaco.
             blockColor.rgb = water_shader(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, dither, directLightColor);
 
-            blockColor.a = sqrt(blockColor.a);
+            blockColor.a = 1.0;
         #else
             #if WATER_TEXTURE == 1
                 blockColor = texture2D(tex, texcoord);
@@ -270,8 +269,7 @@ void main() {
                 blockColor.rgb = 0.3 * waterTexture * realLight * tintColor.rgb;
             #endif
 
-            blockColor = vec4(refraction(fragposition, blockColor.rgb, waterNormalBase), 1.0);
-
+    
             #if !defined NETHER && !defined THE_END
                 if(isEyeInWater == 0) {
                     vec3 sssLight = normalize(mix(moonPosition, sunPosition, step(0.5, dayNightMix)));
@@ -291,6 +289,9 @@ void main() {
 
             blockColor.rgb = water_shader(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, dither, directLightColor);
 
+            // Sem isto o alpha da textura (ou indefinido) deixa a água invisível
+            // no blend. O corpo/refração já resolve a cor final.
+            blockColor.a = 1.0;
         #endif
 
     } else {
@@ -324,35 +325,16 @@ void main() {
     }
 
     #if !defined NETHER && !defined THE_END
-        if(isEyeInWater == 1 && blockType > 2.5) {
-            vec3 uwView = normalize(fragposition);
-            float uwCosI = clamp(abs(dot(surfaceNormal, uwView)), 0.0, 1.0);
-            float outsideWindow = 1.0 - smoothstep(0.58, 0.72, uwCosI);
-
-            vec2 uwUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-            vec3 skyWindow = texture2D(gaux4, uwUV + waterNormalBase.xy * 0.004).rgb;
-            vec3 windowColor = skyWindow * vec3(0.62, 0.86, 1.05) * (0.90 + 0.35 * smoothstep(0.72, 1.0, uwCosI));
-
-            vec3 uwLight = normalize(mix(moonPosition, sunPosition, step(0.5, dayNightMix)));
-            float uwSunAlign = max(dot(uwView, uwLight), 0.0);
-            float uwSunFade = smoothstep(-0.05, 0.20, dot(uwLight, upVector)) * (1.0 - rainStrength);
-            windowColor += directLightColor * vec3(0.55, 0.90, 1.0) * ((pow(uwSunAlign, 70.0) * 0.85 + pow(uwSunAlign, 9.0) * 0.14) * uwSunFade);
-
-            vec3 tirColor = underwaterFogColor(directLightColor, visibleSky) * 1.25 + WATER_COLOR * 0.10;
-            tirColor *= mix(0.78, 1.10, smoothstep(0.0, 0.58, uwCosI));
-
-            float uwRim = exp(-pow((uwCosI - 0.65) / 0.055, 2.0)) * 0.16;
-
-            blockColor.rgb = mix(windowColor, tirColor, outsideWindow) + vec3(0.35, 0.75, 0.90) * (uwRim * (0.4 + 0.6 * visibleSky));
-            blockColor.a = 1.0;
-        }
+        if(isEyeInWater == 1 && blockType > 2.5) blockColor.a = 1.0;
     #endif
 
     #ifdef DISTANT_HORIZONS
         // Mesmo guard do terreno solido: sem span valido nao descartamos a agua
         // vanilla, senao o LOD do DH aparece atraves dela em altitudes altas.
         float dhSpan = far - dhNearPlane;
-        if (dhSpan > 1.0) {
+        // Sem DH realmente renderizando (dhRenderDistance == 0), não descarta a
+        // água vanilla: senão o crossfade abre buracos/água preta.
+        if (dhRenderDistance > 0 && dhNearPlane > 0.0 && dhSpan > 1.0) {
             float sup = dhSpan * TRANSITION_DH_SUP;
             float inf = dhSpan * TRANSITION_DH_INF;
             float fadeSpan = max(far - sup - inf - dhNearPlane, 1.0);
@@ -361,24 +343,6 @@ void main() {
                 discard;
                 return;
             }
-        }
-    #endif
-
-    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-        if (waterCloudFade) {
-            blockColor.a *= 1.0 - cloudCoverage;
-        }
-    #endif
-
-    // Dados do reflexo para o SSR do composite (colortex10).
-    // rgb = reflectDir * 0.5 + 0.5, a = fresnel (0 for non-water)
-    // Debaixo d'água não há superfície acima da câmera para o raymarch acertar,
-    // então o fresnel fica 0 e o composite6 não aplica reflexo nesses pixels.
-    vec4 waterReflectData = vec4(0.0);
-    #if WATER_REFLECT_BUFFER == 1
-        if (blockType > 2.5 && isEyeInWater == 0) {
-            vec3 reflDir = normalizedReflectWaterVector;
-            waterReflectData = vec4(reflDir * 0.5 + 0.5, fresnel);
         }
     #endif
 

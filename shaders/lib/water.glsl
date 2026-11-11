@@ -1,12 +1,18 @@
+#include "/lib/water_body.glsl"
+
+// Parent water TU already declares gbufferProjection[Inverse], depthtex1,
+// gaux1 and worldTime; repeating them here is a GLSL duplicate declaration.
+#if YDREAM_WATER_SSR_STEPS > 0
+    #include "/lib/water_ssr.glsl"
+#endif
+
+#include "/lib/water_motion.glsl"
+#include "/lib/water_compose.glsl"
+
 uniform mat4 gbufferModelViewInverse;
-
-// NÃO redeclare dhDepthTex1 / dhNearPlane / dhFarPlane aqui:
-// eles já são declarados em water_blocks_fragment.glsl (pai deste include).
-// Em GLSL 120 uma uniform não pode ser redeclarada.
-
-float linearizeDepth(float depth) {
-    return gbufferProjection[3][2] / (gbufferProjection[2][2] + 2.0 * depth - 1.0);
-}
+#if AA_TYPE > 0 && MC_VERSION >= 11300
+    uniform vec2 taaOffset;
+#endif
 
 vec2 waterFlowDirection = vec2(1.0, 0.0);
 float waterFlowAmount = 0.0;
@@ -20,18 +26,19 @@ vec3 bedWorldPosition(vec2 sampleUV, float depthValue) {
 
 float bed_height_gradient(vec2 uv, float radiusPixels, float surfaceDepth, out vec2 gradient) {
     gradient = vec2(0.0);
-
     vec2 stepUV = vec2(pixelSizeX, pixelSizeY) * radiusPixels;
-    float depthW = texture2D(depthtex0, uv - vec2(stepUV.x, 0.0)).r;
-    float depthE = texture2D(depthtex0, uv + vec2(stepUV.x, 0.0)).r;
-    float depthS = texture2D(depthtex0, uv - vec2(0.0, stepUV.y)).r;
-    float depthN = texture2D(depthtex0, uv + vec2(0.0, stepUV.y)).r;
+    // depthtex1 (apenas opacos): o leito é sempre geometria sólida. Amostrar
+    // depthtex0 aqui pegava a própria água já desenhada no passe translúcido e
+    // produzia padrões em blocos que se deslocavam com a câmera.
+    float depthW = texture2D(depthtex1, uv - vec2(stepUV.x, 0.0)).r;
+    float depthE = texture2D(depthtex1, uv + vec2(stepUV.x, 0.0)).r;
+    float depthS = texture2D(depthtex1, uv - vec2(0.0, stepUV.y)).r;
+    float depthN = texture2D(depthtex1, uv + vec2(0.0, stepUV.y)).r;
     float maxDepth = max(max(depthW, depthE), max(depthS, depthN));
     float minDepth = min(min(depthW, depthE), min(depthS, depthN));
     if (maxDepth > 0.99999) return 0.0;
 
     float confidence = smoothstep(surfaceDepth - 0.0002, surfaceDepth, minDepth);
-
     vec3 posW = bedWorldPosition(uv - vec2(stepUV.x, 0.0), depthW);
     vec3 posE = bedWorldPosition(uv + vec2(stepUV.x, 0.0), depthE);
     vec3 posS = bedWorldPosition(uv - vec2(0.0, stepUV.y), depthS);
@@ -41,7 +48,6 @@ float bed_height_gradient(vec2 uv, float radiusPixels, float surfaceDepth, out v
     vec2 v = posN.xz - posS.xz;
     float heightU = posE.y - posW.y;
     float heightV = posN.y - posS.y;
-
     float det = u.x * v.y - u.y * v.x;
     float uLen2 = dot(u, u);
     float vLen2 = dot(v, v);
@@ -63,8 +69,7 @@ void detect_river_flow(vec3 surfacePos, out vec2 flowDirection, out float flowAm
 
     vec2 uv = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
     float surfaceDepth = gl_FragCoord.z;
-
-    float bedDepth = texture2D(depthtex0, uv).r;
+    float bedDepth = texture2D(depthtex1, uv).r;
     if (bedDepth > 0.99999 || bedDepth < surfaceDepth) return;
 
     vec3 bedPos = bedWorldPosition(uv, bedDepth) + cameraPosition;
@@ -121,122 +126,27 @@ float scene_depth_sky(vec2 uv) {
             float astroFade = smoothstep(-0.02, 0.10, astroElevation);
             float lowAstro = 1.0 - smoothstep(0.05, 0.40, astroElevation);
 
-            float core = pow(alignment, 700.0);
-            float body = pow(alignment, 70.0);
-            float sheen = pow(alignment, 14.0);
-            float glint = core * 2.4 * (1.0 - 0.45 * lowAstro) + body * 0.28 * (1.0 + 0.5 * lowAstro) + sheen * 0.05 * lowAstro;
+            // A textura animada não faz anti-aliasing: ela só modula o brilho e
+            // cria cintilação temporal. Use uma lobe mais larga e energia limitada.
+            float core = pow(alignment, 16.0);
+            float body = pow(alignment, 4.0);
+            float glint = core * 0.035 + body * 0.012;
 
             #if YDREAM_GLITTER == 1
                 vec2 glitterPos = worldposition.xz * 1.7 + vec2(frameTimeCounter * 0.11, frameTimeCounter * -0.07);
                 vec2 noiseA = texture2D(noisetex, glitterPos * 0.21).rg;
                 vec2 noiseB = texture2D(noisetex, glitterPos.yx * 0.33 - frameTimeCounter * 0.02).rg;
                 float sparkle = smoothstep(0.62, 0.95, noiseA.r * noiseB.g * 1.9);
-                glint *= 0.55 + sparkle * 1.6;
+                glint *= 0.95 + sparkle * 0.10;
             #endif
 
-            return glint * SUN_GLINT_STRENGTH * astroFade * (1.0 - rainStrength);
+            return min(glint * SUN_GLINT_STRENGTH * astroFade * (1.0 - rainStrength), 0.06);
         }
     #endif
 #endif
 
 vec3 normal_waves(vec3 pos, vec2 flowDirection, float flowAmount) {
-    float speed = frameTimeCounter * .025;
-    vec2 wave_1 = texture2D(noisetex, ((pos.xy - pos.z * 0.2) * 0.05) + vec2(speed, speed)).rg - .5;
-    vec2 wave_2 = texture2D(noisetex, ((pos.xy - pos.z * 0.2) * 0.03125) - speed).rg - .5;
-    vec2 wave_3 = texture2D(noisetex, ((pos.xy - pos.z * 0.2) * 0.125) + vec2(speed, -speed)).rg - .5;
-    wave_3 *= 0.66 * (1.0 - smoothstep(18.0, 95.0, gl_FogFragCoord));
-
-    vec2 partialWave = wave_1 + wave_2 + wave_3;
-
-    #ifndef VANILLA_WATER
-        vec2 wave_4 = texture2D(noisetex, ((pos.xy - pos.z * 0.2) * 0.34) + vec2(-speed * 2.3, speed * 1.7)).rg - .5;
-        wave_4 *= 0.35 * (1.0 - smoothstep(24.0, 110.0, gl_FogFragCoord));
-        partialWave += wave_4;
-    #endif
-
-    partialWave *= mix(1.0, 0.22, smoothstep(28.0, 170.0, gl_FogFragCoord));
-
-    float flowMix = clamp(flowAmount * WATER_FLOW_STRENGTH, 0.0, 1.0);
-    if (flowMix > 0.001) {
-        vec2 basePos = pos.xy - pos.z * 0.2;
-        vec2 flowPos = vec2(dot(basePos, flowDirection), dot(basePos, vec2(-flowDirection.y, flowDirection.x)));
-        float meander = texture2D(noisetex, vec2(flowPos.x * 0.004, 0.37) + vec2(frameTimeCounter * 0.004, 0.0)).r - 0.5;
-        flowPos.y += meander * 2.2;
-        float flowSpeed = frameTimeCounter * 0.10;
-        vec2 flowWave1 = texture2D(noisetex, flowPos * vec2(0.012, 0.06) - vec2(flowSpeed * 1.7, flowSpeed * 0.22)).rg - 0.5;
-        vec2 flowWave2 = texture2D(noisetex, flowPos * vec2(0.025, 0.10) - vec2(flowSpeed * 2.9, flowSpeed * 0.12)).rg - 0.5;
-        vec2 directionalWave = (flowWave1 + flowWave2 * 0.65) * 1.15;
-        directionalWave *= mix(1.0, 0.30, smoothstep(28.0, 170.0, gl_FogFragCoord));
-        partialWave = mix(partialWave, directionalWave + partialWave * 0.40, flowMix * 0.80);
-    }
-
-    return normalize(vec3(partialWave, WATER_TURBULENCE - (rainStrength * 0.6 * WATER_TURBULENCE * visibleSky)));
-}
-
-vec3 refraction(vec3 fragpos, vec3 color, vec3 refraction) {
-    vec2 pos = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-    #if REFRACTION == 1
-        pos += refraction.xy * (0.075 / (1.0 + length(fragpos) * 0.4));
-    #endif
-
-    float water_absortion = 0.0;
-    float waterThickness = 0.0;
-
-    #if YDREAM_FOAM == 1
-        float foam = 0.0;
-    #endif
-
-    if (isEyeInWater == 0) {
-        float water_distance = linearizeDepth(gl_FragCoord.z);
-        float earth_distance = linearizeDepth(texture2D(depthtex1, pos.xy).r);
-        #if defined DISTANT_HORIZONS
-            float earth_distance_dh = texture2D(dhDepthTex1, pos.xy).r;
-            earth_distance_dh = 2.0 * dhNearPlane * dhFarPlane / (dhFarPlane + dhNearPlane - (2.0 * earth_distance_dh - 1.0) * (dhFarPlane - dhNearPlane));
-            earth_distance = min(earth_distance, earth_distance_dh);
-        #endif
-        waterThickness = max(earth_distance - water_distance, 0.0);
-        water_absortion = waterThickness * waterThickness;
-        water_absortion = (1.0 / -((water_absortion * WATER_ABSORPTION) + 1.125)) + 1.0;
-
-        #if YDREAM_FOAM == 1
-            vec2 foamPos = worldposition.xz * 0.9 + vec2(frameTimeCounter * 0.06, frameTimeCounter * -0.04);
-            float foamBase = texture2D(noisetex, foamPos * 0.11).r * 0.6 + texture2D(noisetex, foamPos.yx * 0.23).g * 0.4;
-            float foamStreak = texture2D(noisetex, foamPos * 0.25 + vec2(frameTimeCounter * 0.12, 0.0)).r * 0.6 +
-                texture2D(noisetex, foamPos.yx * 0.40 - vec2(0.0, frameTimeCounter * 0.09)).g * 0.4;
-            float shoreDistance = waterThickness + (foamBase - 0.5) * 0.7;
-            float foamShape = (1.0 - smoothstep(0.05, 0.42, shoreDistance));
-            float foamDetail = smoothstep(0.32, 0.82, foamStreak);
-            foam = foamShape * mix(0.35, 1.0, foamDetail) * (0.55 + 0.45 * foamBase);
-            foam *= 1.0 - smoothstep(0.0, 0.02, 0.0 - waterThickness);
-
-            if (waterFlowAmount * WATER_FLOW_STRENGTH > 0.001) {
-                vec2 flowFoamPos = vec2(dot(foamPos, waterFlowDirection), dot(foamPos, vec2(-waterFlowDirection.y, waterFlowDirection.x)));
-                float foamMeander = texture2D(noisetex, vec2(flowFoamPos.x * 0.004, 0.61) + vec2(frameTimeCounter * 0.004, 0.0)).r - 0.5;
-                flowFoamPos.y += foamMeander * 2.2;
-                float flowStreak = texture2D(noisetex, flowFoamPos * vec2(0.05, 0.10) - vec2(frameTimeCounter * 0.18, 0.0)).r;
-                flowStreak = max(flowStreak, texture2D(noisetex, flowFoamPos * vec2(0.09, 0.18) - vec2(frameTimeCounter * 0.31, 0.0)).g * 0.85);
-                flowStreak = smoothstep(0.55, 0.92, flowStreak);
-                float flowStrength = clamp(waterFlowAmount * WATER_FLOW_STRENGTH, 0.0, 1.0);
-                float flowFoam = flowStreak * flowStrength * (1.0 - smoothstep(0.10, 0.48, shoreDistance));
-                foam = max(foam, flowFoam * 0.45);
-            }
-        #endif
-    }
-
-    float depthBlend = 1.0 - exp(-waterThickness * 0.12);
-    vec3 shallowColor = color * vec3(0.95, 1.50, 1.32);
-    vec3 bodyColor = mix(color, mix(shallowColor, color, depthBlend), clamp(YDREAM_WATER_DEPTH_TINT, 0.0, 1.5));
-
-    vec3 floorColor = texture2D(gaux1, pos.xy).rgb * underwaterTransmission(water_absortion * 0.85);
-    vec3 refractedColor = mix(floorColor, bodyColor, water_absortion);
-
-    #if YDREAM_FOAM == 1
-        vec3 foamLight = omniLight + directLightColor * (visibleSky * 0.6) + candleColor * 0.5;
-        vec3 foamColor = vec3(0.92, 0.96, 1.0) * clamp(foamLight, vec3(0.05), vec3(1.4));
-        refractedColor = mix(refractedColor, foamColor, clamp(foam, 0.0, 1.0) * 0.85);
-    #endif
-
-    return refractedColor;
+    return ydr_water_texture_normal(pos, flowDirection, flowAmount, visibleSky);
 }
 
 vec3 get_normals(vec3 bump, vec3 fragpos) {
@@ -251,6 +161,15 @@ vec3 get_normals(vec3 bump, vec3 fragpos) {
     return normalize(bump * tbn_matrix);
 }
 
+vec3 water_specular_normal(vec3 normal) {
+    vec3 macroNormal = normalize(waterNormal);
+    vec3 normalDx = dFdx(normal);
+    vec3 normalDy = dFdy(normal);
+    float normalVariance = dot(normalDx, normalDx) + dot(normalDy, normalDy);
+    float filterAmount = clamp(0.22 + normalVariance * 2.0, 0.22, 0.88);
+    return normalize(mix(normal, macroNormal, filterAmount));
+}
+
 vec3 water_shader(
     vec3 fragpos,
     vec3 normal,
@@ -262,57 +181,61 @@ vec3 water_shader(
     float dither,
     vec3 lightColor
 ) {
-    vec3 result = color;
-
-    #if WATER_REFLECTIONS == 0
-        // off
-    #elif WATER_REFLECT_FAST == 1
-        vec3 skyReflect = sky_reflect * visibleSky;
-        if (isEyeInWater == 0) {
-            #if defined DISTANT_HORIZONS
-                vec3 target = fragpos + reflected * 768.0;
-            #else
-                vec3 target = fragpos + reflected * 76.0;
-            #endif
-            vec3 screen = camera_to_screen(target);
-            vec2 uv = clamp(screen.xy, 0.001, 0.999);
-            float d = scene_depth_sky(uv);
-            float infinite = step(0.9999, d);
-            vec3 reflectColor = texture2D(gaux1, uv).rgb;
-            reflectColor = mix(reflectColor, skyReflect, infinite);
-
-            // Resolução interna do modo rápido: um segundo tap suave simula um
-            // buffer de reflexo menor sem custo de raymarch.
-            #if WATER_REFLECTION_RESOLUTION < 100
-                vec2 blurOffset = vec2(pixelSizeX, pixelSizeY) * WATER_REFLECT_BLUR;
-                vec3 blurred = texture2D(gaux1, clamp(uv + blurOffset, 0.001, 0.999)).rgb;
-                blurred = mix(blurred, skyReflect, infinite);
-                reflectColor = mix(reflectColor, blurred, 0.5);
-            #endif
-
-            #ifdef VANILLA_WATER
-                fresnel *= 0.8;
-            #endif
-            result = mix(color, reflectColor, fresnel * REFLEX_INDEX);
-        } else {
-            // Debaixo d'água o tap screen-space não tem uma superfície acima da
-            // câmera para acertar: mantém o reflexo do céu como antes.
-            result = mix(color, skyReflect, 0.75);
+    // ATENÇÃO: no gbuffers, `texcoord` é a UV do atlas do bloco, NÃO a UV da
+    // tela. Todo sample de depth/scene aqui tem que vir de gl_FragCoord; usar
+    // texcoord fazia cada bloco de água ler uma posição de tela fixa
+    // pseudoaleatória (a do tile no atlas) — xadrez por bloco e validação de
+    // refração no lugar errado.
+    vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
+    float surfaceDepth = max(-fragpos.z, 0.05);
+    float bedDepth = 1e8;
+    float d = texture2D(depthtex1, screenUV).r;
+    if (d < 0.999999) {
+        bedDepth = gbufferProjection[3][2] /
+            (gbufferProjection[2][2] + 2.0 * d - 1.0);
+    }
+    #ifdef DISTANT_HORIZONS
+        float dh = texture2D(dhDepthTex1, screenUV).r;
+        if (dh < 0.999999) {
+            float dhDepth = 2.0 * dhNearPlane * dhFarPlane /
+                (dhFarPlane + dhNearPlane - (2.0 * dh - 1.0) *
+                (dhFarPlane - dhNearPlane));
+            bedDepth = min(bedDepth, dhDepth);
         }
-    #else
-        // modos 2/3: o SSR roda no composite6 (ver common/reflection_fragment.glsl).
     #endif
+    float thickness = (bedDepth < 1e8)
+        ? clamp(bedDepth - surfaceDepth, 0.0, 24.0) : 8.0;
 
-    #if SUN_REFLECTION == 1 && !defined NETHER && !defined THE_END
-        result += vec3(sun_reflection(reflect(normalize(fragpos), normal))) *
-            lightColor * visibleSky * float(isEyeInWater == 0);
+    vec2 offset = vec2(0.0);
+    #if REFRACTION == 1
+        float refractAmount = 0.012 * (WATER_REFRACTION_STRENGTH * 0.01) *
+            clamp(thickness * 0.12, 0.0, 1.0);
+        offset = normal.xy * refractAmount;
     #endif
+    vec2 refractUV = clamp(screenUV + offset, vec2(pixelSizeX, pixelSizeY),
+        vec2(1.0) - vec2(pixelSizeX, pixelSizeY));
+    float destinationDepth = texture2D(depthtex1, refractUV).r;
+    float baseDepth = texture2D(depthtex1, screenUV).r;
+    // Refraction may only sample opaque geometry behind the water. If the
+    // displaced UV crosses an edge or lands on sky/nearer geometry, use the
+    // undisplaced opaque sample instead of importing unrelated scene pixels.
+    if (destinationDepth >= 0.999999 || destinationDepth < baseDepth - 0.00005) {
+        refractUV = screenUV;
+    }
+    vec3 bedColor = texture2D(gaux1, refractUV).rgb;
+    vec3 result = ydr_water_compose(fragpos, normal, color, sky_reflect, bedColor,
+        thickness, fresnel, visibleSky, lightColor);
+
+    if (isEyeInWater == 0) {
+        #if SUN_REFLECTION == 1 && !defined NETHER && !defined THE_END
+            result += vec3(sun_reflection(reflect(normalize(fragpos), normal))) *
+                lightColor * visibleSky * (1.0 - rainStrength) * 0.35;
+        #endif
+    }
 
     return result;
 }
 
-// CORREÇÃO: assinatura volta a ser vec4 — o corpo retorna `color`, que é vec4.
-// (Era vec3 na entrega anterior, causando o cast implícito vec4→vec3.)
 vec4 cristal_shader(
     vec3 fragpos,
     vec3 normal,

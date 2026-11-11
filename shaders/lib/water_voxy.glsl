@@ -22,37 +22,6 @@ vec3 normal_waves_voxy(vec3 pos) {
     return normalize(finalWave);
 }
 
-vec3 refraction_voxy(vec3 fragpos, vec3 color, vec3 refraction) {
-    vec2 pos = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-
-    #if REFRACTION == 1
-        pos = pos + refraction.xy * (0.075 / (1.0 + length(fragpos) * 0.4));
-    #endif
-
-    const float vxNear = 16.0;
-    const float vxFar  = 48000.0;
-
-    float water_absortion;
-
-    if (isEyeInWater == 0) {
-
-        float water_distance =
-            2.0 * vxNear * vxFar / (vxFar + vxNear - (2.0 * gl_FragCoord.z - 1.0) * (vxFar - vxNear));
-
-        float earth_depth = texture(vxDepthTexTrans, pos.xy).r;
-        float earth_distance =
-            2.0 * vxNear * vxFar / (vxFar + vxNear - (2.0 * earth_depth - 1.0) * (vxFar - vxNear));
-
-        water_absortion = (earth_distance - water_distance) * 0.5;
-        water_absortion *= water_absortion;
-        water_absortion = (1.0 / -((water_absortion * WATER_ABSORPTION) + 1.125)) + 1.0;
-
-    } else {
-        water_absortion = 0.0;
-    }
-
-    return mix(texture(gaux1, pos.xy).rgb, color, water_absortion);
-}
 
 vec3 get_normals_voxy(vec3 bump, vec3 fragpos, vec3 tangent, vec3 binormal, vec3 waterNormal) {
     float NdotE = abs(dot(waterNormal, normalize(fragpos)));
@@ -95,35 +64,8 @@ vec3 water_shader_voxy(
     vec3 lightColor,
     vec2 lmcoord
 ) {
-    vec4 reflection = vec4(0.0);
-    float infinite = 1.0;
-    vec3 result = color;
-
-    // Modos 2/3 usam SSR no composite6 para a água vanilla/DH. O voxy não
-    // escreve os dados de direção/fresnel, então aqui ele mantém o tap rápido
-    // em qualquer modo ligado (fallback barato e sem lag).
-    #if REFLECTION == 1
-        reflection =
-            reflection_calc_voxy(fragpos, normal, reflected);
-
-        reflection.rgb = mix(
-            sky_reflect * visibleSky,
-            reflection.rgb,
-            reflection.a
-        );
-
-        #ifdef VANILLA_WATER
-            fresnel *= 0.8;
-        #endif
-
-        result = mix(color, reflection.rgb, fresnel * REFLEX_INDEX);
-    #endif
-
-    #if SUN_REFLECTION == 1 && !defined NETHER && !defined THE_END
-        result += vec3(sun_reflection(reflect(normalize(fragpos), normal), lmcoord)) * lightColor * infinite * visibleSky;
-    #endif
-
-    return result;
+    // Voxy ainda não aplica corpo/reflexo inline neste caminho.
+    return color;
 }
 
 vec4 cristal_reflection_calc_voxy(vec3 fragpos, vec3 normal) {

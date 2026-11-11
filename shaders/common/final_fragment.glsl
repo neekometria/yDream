@@ -4,8 +4,6 @@
 const int noisetexFormat = RG8;
 */
 #if AA_SMAA
-// The SMAA weight pass packs four blending weights into colortex0, so it needs
-// a real alpha channel (R11F_G11F_B10F is RGB only).
 /*
 const int colortex0Format = RGBA16F;
 */
@@ -60,46 +58,25 @@ const bool colortex8Clear = false;
 const int colortex2Format = R8;
 */
 #endif
-// colortex5 guarda a cor do reflexo SSR (composite6). Quando o reflexo está
-// desligado ele continua sendo o antigo gaux2 (textura de nuvem nos gbuffers).
-#if WATER_REFLECT_BUFFER == 1
+
+#if YDREAM_VOXEL_LIGHT == 0
 /*
-const int colortex5Format = RGBA16F;
+const int colortex8Format = RGBA16F;
 */
-#else
-/*
-const int gaux2Format = R8;
-*/
+const bool colortex8Nearest = true;
+const bool colortex8Clear = true;
 #endif
-// ATAA needs a floating point history in colortex3. Format directives stay
-// commented out: Iris parses the const line from the preprocessed source
-// (comments are preserved) but the GLSL compiler must not see the RGBA16F
-// identifier.
+
 /*
 const int colortex3Format = RGBA16F;
 const int gaux1Format = R11F_G11F_B10F;
 const int gaux3Format = R11F_G11F_B10F;
 const int gaux4Format = R11F_G11F_B10F;
+// colortex5/gaux2 voltou a ser a textura de ruído de nuvem (o reflexo inline
+// não usa mais c5 como registro), então ela é R8 de novo.
+const int gaux2Format = R8;
 const int shadowcolor0Format = RGBA8;
 */
-
-// Buffer de direção/fresnel do reflexo (escrito por gbuffers_water e dh_water).
-// O blending desse buffer é desligado em shaders.properties para não corromper
-// os dados; ele é limpo no início de cada frame para que pixels sem água
-// tenham fresnel 0. Quando o GI usa colortex10, o reflexo migra para colortex11.
-#if WATER_REFLECT_BUFFER == 1
-    #if WATER_REFLECT_TARGET == 11
-        /*
-        const int colortex11Format = RGBA16F;
-        */
-        const bool colortex11Clear = true;
-    #else
-        /*
-        const int colortex10Format = RGBA16F;
-        */
-        const bool colortex10Clear = true;
-    #endif
-#endif
 
 const bool colortex0Clear = false;
 const bool colortex1Clear = false;
@@ -110,7 +87,6 @@ const bool colortex2Clear = false;
 #endif
 const bool colortex3Clear = false;
 const bool gaux1Clear = false;
-const bool gaux2Clear = false;
 const bool gaux3Clear = false;
 const bool gaux4Clear = false;
 
@@ -121,14 +97,10 @@ const bool gaux4Clear = false;
 #endif
 
 uniform sampler2D colortex1;
-#if WATER_REFLECT_BUFFER == 1
-    // Direção + fresnel da água e cor do reflexo SSR em baixa resolução.
-    uniform sampler2D WATER_REFLECT_TEX;
-    uniform sampler2D colortex5;
-#endif
 uniform float viewWidth;
 uniform float viewHeight;
 uniform int frameCounter;
+uniform int isEyeInWater;
 
 #if YDREAM_LETTERBOX == 1
     uniform float letterboxAmount;
@@ -138,20 +110,14 @@ uniform int frameCounter;
     uniform sampler2D depthtex0;
     uniform float near;
     uniform float far;
-
-    #if !(AA_TYPE == 3 || defined IMAGE_SHARPENING || AA_SMAA)
-        uniform float pixelSizeX;
-        uniform float pixelSizeY;
-    #endif
 #endif
 
-#if AA_TYPE == 3 || defined IMAGE_SHARPENING || AA_SMAA
+#if AA_TYPE == 3 || defined IMAGE_SHARPENING || AA_SMAA || YDREAM_OUTLINES == 1 || YDREAM_CEL == 1
     uniform float pixelSizeX;
     uniform float pixelSizeY;
 #endif
 
 #if AA_SMAA
-    // Blending weights packed by the SMAA weight pass (composite5).
     uniform sampler2D colortex0;
 #endif
 
@@ -202,13 +168,10 @@ float grainHash(vec2 p) {
     float outlineMask(vec2 uv, float widthScale) {
         float centerInv = outlineInverseDepth(uv);
         float centerDist = 1.0 / max(centerInv, 0.000001);
-
         float fadeEnd = far * OUTLINE_DISTANCE;
         float distanceFade = 1.0 - smoothstep(fadeEnd * 0.45, fadeEnd, centerDist);
 
-        if (distanceFade <= 0.001) {
-            return 0.0;
-        }
+        if (distanceFade <= 0.001) return 0.0;
 
         float resolutionScale = max(viewHeight / 1080.0, 1.0) * 1.15;
         vec2 px = vec2(pixelSizeX, pixelSizeY) * (OUTLINE_THICKNESS * widthScale * resolutionScale * mix(1.0, 0.6, 1.0 - distanceFade));
@@ -228,7 +191,6 @@ float grainHash(vec2 p) {
         float relative = min(lapAxis, lapDiag) / centerInv;
 
         float edge = smoothstep(0.035, 0.11, relative);
-
         float threshold = centerInv * 0.88;
         float farCount = step(sE, threshold) + step(sW, threshold) + step(sN, threshold) + step(sS, threshold) +
             step(sNE, threshold) + step(sSW, threshold) + step(sNW, threshold) + step(sSE, threshold);
@@ -248,7 +210,6 @@ void main() {
         vec3 blockColor = color_aberration();
     #else
         vec3 blockColor;
-
         #if AA_SMAA
             blockColor = smaaBlend(texcoord);
         #elif defined IMAGE_SHARPENING
@@ -256,27 +217,13 @@ void main() {
         #else
             blockColor = texture2D(colortex1, texcoord).rgb;
         #endif
-
         #if AA_TYPE == 3 && !defined DOF
             blockColor = fxaa311(blockColor, 5);
         #endif
     #endif
 
-    #if WATER_REFLECT_BUFFER == 1
-        // O SSR já foi resolvido em composite6 antes do AA. Aplicar depois do
-        // SMAA/FXAA evita borrar o reflexo duas vezes (ele já vem de um buffer
-        // de resolução interna menor) e usa o fresnel em resolução cheia.
-        vec4 waterReflect = texture2D(WATER_REFLECT_TEX, texcoord);
-        float reflectAmount = clamp(waterReflect.a, 0.0, 1.0) * REFLEX_INDEX;
-        if (reflectAmount > 0.001) {
-            vec3 reflectColor = texture2D(colortex5, texcoord).rgb;
-            blockColor = mix(blockColor, reflectColor, reflectAmount);
-        }
-    #endif
-
     blockColor *= vec3(YDREAM_EXPOSURE * YDREAM_STYLE_EXPOSURE_MULT);
     blockColor = custom_sigmoid(blockColor);
-
     float toneLuma = luma(blockColor);
 
     vec3 shadowTint = STYLE_SPLIT_SHADOW - vec3(luma(STYLE_SPLIT_SHADOW));
@@ -293,12 +240,9 @@ void main() {
 
     float coolMask = 1.0 - smoothstep(0.30, 0.95, toneLuma);
     blockColor *= mix(vec3(1.0), vec3(0.93, 0.985, 1.10), STYLE_COOL_GRADE * coolMask);
-
     float gradeLuma = luma(blockColor);
-
     float chroma = max(max(blockColor.r, blockColor.g), blockColor.b) - min(min(blockColor.r, blockColor.g), blockColor.b);
     blockColor = mix(vec3(gradeLuma), blockColor, 1.0 + (GRADE_VIBRANCE + STYLE_VIBRANCE) * (1.0 - clamp(chroma * 1.6, 0.0, 1.0)));
-
     blockColor = mix(vec3(gradeLuma), blockColor, YDREAM_SATURATION * YDREAM_STYLE_SATURATION_MULT);
     blockColor = (blockColor - 0.5) * (YDREAM_CONTRAST * YDREAM_STYLE_CONTRAST_MULT) + 0.5;
 
@@ -393,7 +337,6 @@ void main() {
         } else {
             blockColor = vec3(0.5);
         }
-
         gl_FragData[0] = vec4(blockColor, 1.0);
     #else
         gl_FragData[0] = vec4(blockColor, 1.0);

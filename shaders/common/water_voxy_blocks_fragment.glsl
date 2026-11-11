@@ -124,6 +124,7 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
 
     skyColorReflect = xyzToRgb(skyColorReflect);
 
+    
     if(customId == ENTITY_WATER) {
         #ifdef VANILLA_WATER
             blockColor = parameters.sampledColour;
@@ -141,7 +142,7 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
 
             blockColor.rgb = water_shader_voxy(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, directLightColor, lmcoord);
 
-            blockColor.a = sqrt(blockColor.a);
+            blockColor.a = 1.0; // Alfa 1: a refracao ja inclui o fundo; alfa da textura vazaria o cenario nao refratado.
         #else
             #if WATER_TEXTURE == 1
                 blockColor = parameters.sampledColour;
@@ -160,8 +161,6 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
                 blockColor.rgb = 0.3 * waterTexture * realLight * tintColor.rgb;
             #endif
 
-            blockColor = vec4(refraction_voxy(fragposition, blockColor.rgb, waterNormalBase), 1.0);
-
             #if WATER_TEXTURE == 1
                 waterTexture += 0.25;
                 waterTexture *= waterTexture;
@@ -170,6 +169,9 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
             #endif
 
             blockColor.rgb = water_shader_voxy(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, directLightColor, lmcoord);
+            // Mesmo motivo do caminho DH: blockColor sem inicialização neste
+            // ramo deixava o alfa do blend indefinido (água Voxy sumindo).
+            blockColor.a = 1.0;
         #endif
     } else {
         blockColor = parameters.sampledColour;
@@ -188,6 +190,10 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
             blockColor = cristal_shader_voxy(fragposition, normal, blockColor, skyColorReflect, fresnel * fresnel, visibleSky, directLightColor, lmcoord);
         }
     }
+
+    #if !defined NETHER && !defined THE_END
+        if (isEyeInWater == 1 && customId == ENTITY_WATER) blockColor.a = 1.0;
+    #endif
 
     #include "/src/finalcolor_voxy.glsl"
 

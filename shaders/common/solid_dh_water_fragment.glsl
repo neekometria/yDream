@@ -23,6 +23,7 @@ uniform mat4 gbufferProjectionInverse;
 uniform mat4 gbufferProjection;
 uniform sampler2D noisetex;
 uniform sampler2D depthtex0;
+uniform sampler2D depthtex1;
 uniform sampler2D dhDepthTex1;
 uniform float frameTimeCounter;
 uniform int isEyeInWater;
@@ -38,6 +39,7 @@ uniform float viewHeight;
 uniform float dhNearPlane;
 uniform float dhFarPlane;
 uniform vec3 cameraPosition;
+uniform mat4 gbufferModelViewInverse;
 uniform int dhRenderDistance;
 
 #if defined SHADOW_CASTING && !defined NETHER
@@ -122,10 +124,10 @@ float dh_water_cloud_coverage(vec3 waterPos) {
 }
 #endif
 
+
 void main() {
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
     vec3 realLight;
-    vec4 waterReflectData = vec4(0.0);
     #if AA_TYPE > 0
     float dither = shiftedRDither(gl_FragCoord.xy);
     #else
@@ -143,13 +145,15 @@ void main() {
     // descartava a agua DH sempre que existia QUALQUER geometria opaca no pixel,
     // inclusive o leito atras da superficie. No anel de transicao a agua vanilla
     // ja foi removida pelo dither, entao sobrava um buraco mostrando o LOD do DH.
-    // Agora so descartamos quando a cena opaca esta realmente NA FRENTE da agua.
+    // Com a comparacao correta (cena NA FRENTE da agua) a tolerancia pode ser
+    // pequena: 0.5 bloco deixava a agua DH desenhar por cima de terreno vanilla
+    // fino, e a borda do LOD aparecia "atraves" da agua e do terreno.
     float d = texture2DLod(depthtex0, vec2(gl_FragCoord.x / viewWidth, gl_FragCoord.y / viewHeight), 0.0).r;
     float linearDepth = ld(d);
     if(linearDepth < 0.9999) {
         float sceneViewDepth = linearDepth * far / max(2.0 - linearDepth, 1e-4);
         float waterViewDepth = abs(fragposition.z);
-        if(sceneViewDepth < waterViewDepth - max(0.5, waterViewDepth * 0.01)) {
+        if(sceneViewDepth < waterViewDepth - max(0.05, waterViewDepth * 0.02)) {
             discard;
             return;
         }
@@ -159,7 +163,7 @@ void main() {
     // a vanilla desenha quando draw_umbral <= dither, entao a agua DH so pode
     // desenhar quando draw_umbral > dither. Assim cada pixel e coberto por
     // exatamente uma das duas superficies (sem double-blend e sem buracos).
-    if(dhSpan > 1.0) {
+    if(dhRenderDistance > 0 && dhNearPlane > 0.0 && dhSpan > 1.0) {
         float sup = dhSpan * TRANSITION_DH_SUP;
         float inf = dhSpan * TRANSITION_DH_INF;
         float fadeSpan = max(far - sup - inf - dhNearPlane, 1.0);
@@ -174,20 +178,9 @@ void main() {
         return;
     }
 
-    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-    float cloudCoverage = 0.0;
-    bool waterCloudFade = isEyeInWater == 0
-        && blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5
-        && cameraPosition.y > CLOUD_PLANE;
-    if (waterCloudFade) {
-        cloudCoverage = dh_water_cloud_coverage(position.xyz + cameraPosition);
-    }
-    
-    if (waterCloudFade && cloudCoverage > 0.5) {
-        discard;
-        return;
-    }
-    #endif
+    // NÃO descartar back-face aqui: o DH entrega as faces da água com winding
+    // não garantido; descartar !gl_FrontFacing esconde a água DH inteira.
+    // A face vista de baixo continua necessária para a janela de Snell.
 
     #ifdef VANILLA_WATER
     vec3 waterNormalBase = vec3(0.0, 0.0, 1.0);
@@ -199,12 +192,15 @@ void main() {
     vec3 surfaceNormal;
     if(blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5) {
         surfaceNormal = get_normals(waterNormalBase, fragposition);
+        // Acima da água a face de trás (winding invertido no DH) espelha a
+        // normal, senão o reflexo sai para o lado errado.
+        if (isEyeInWater == 0 && !gl_FrontFacing) surfaceNormal = -surfaceNormal;
     } else {
         surfaceNormal = get_normals(vec3(0.0, 0.0, 1.0), fragposition);
     }
 
     float normalDotEye = dot(surfaceNormal, normalize(fragposition));
-    float fresnel = squarePow(1.0 + normalDotEye);
+    float fresnel = 0.02 + 0.98 * pow(clamp(1.0 + normalDotEye, 0.0, 1.0), STYLE_WATER_FRESNEL);
 
     vec3 reflectWaterVector = reflect(fragposition, surfaceNormal);
     vec3 normalizedReflectWaterVector = normalize(reflectWaterVector);
@@ -218,6 +214,7 @@ void main() {
 
     skyColorReflect = xyzToRgb(skyColorReflect);
 
+    
     #if !defined VANILLA_WATER && WATER_TEXTURE == 1
     vec4 blockColor = vec4(0.1);
 
@@ -230,14 +227,8 @@ void main() {
     float syntheticNoise = (noise * 0.3) + 0.5;
     blockColor.rgb += vec3(syntheticNoise);
     #elif defined VANILLA_WATER
-
-    vec3 synthesisPosition = (position.xyz + cameraPosition) * 8.0;
-    synthesisPosition = floor(synthesisPosition + 0.01);
-    float noise = hash13(synthesisPosition);
-    noise *= noise;
-    noise *= noise;
-    float syntheticNoise = (noise * 0.227) + 0.773;
-    vec4 blockColor = vec4(vec3(syntheticNoise), tintColor.a);
+    // Mesma amostra do atlas do caminho Vanilla: cor e alfa vêm da textura.
+    vec4 blockColor = texture2D(tex, texcoord);
     #else
     vec4 blockColor;
     #endif
@@ -257,13 +248,7 @@ void main() {
         blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * .125) * tintColor.rgb;
 
         blockColor.rgb = water_shader_dh(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, dither, directLightColor);
-        waterReflectData = vec4(0.0);
-        #if WATER_REFLECT_BUFFER == 1
-            if (blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5 && isEyeInWater == 0) {
-                waterReflectData = vec4(normalizedReflectWaterVector * 0.5 + 0.5, fresnel);
-            }
-        #endif
-        blockColor.a = sqrt(blockColor.a);
+        blockColor.a = 1.0; // Alfa 1: a refracao ja inclui o fundo; alfa da textura vazaria o cenario nao refratado.
     #else
         #if WATER_TEXTURE == 1
         float waterTexture = luma(blockColor.rgb);
@@ -281,19 +266,16 @@ void main() {
         blockColor.rgb = 0.3 * waterTexture * realLight * tintColor.rgb;
         #endif
 
-        blockColor = vec4(refraction(fragposition, blockColor.rgb, waterNormalBase), 1.0);
 
         #if WATER_TEXTURE == 1
         fresnel = clamp(fresnel * (waterTexture * waterTexture + 0.5), 0.0, 1.0);
         #endif
 
         blockColor.rgb = water_shader_dh(fragposition, surfaceNormal, blockColor.rgb, skyColorReflect, normalizedReflectWaterVector, fresnel, visibleSky, dither, directLightColor);
-    waterReflectData = vec4(0.0);
-    #if WATER_REFLECT_BUFFER == 1
-        if (blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5 && isEyeInWater == 0) {
-            waterReflectData = vec4(normalizedReflectWaterVector * 0.5 + 0.5, fresnel);
-        }
-    #endif
+        // blockColor é declarado sem inicialização neste ramo: sem alfa
+        // definido o blend do dh_water usa lixo e a água some. O reflexo
+        // inline já embute o fundo, então a superfície é opaca.
+        blockColor.a = 1.0;
     #endif
 
     } else {
@@ -309,10 +291,11 @@ void main() {
         blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * .125);
     }
 
-    #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
-    if (waterCloudFade) {
-        blockColor.a *= 1.0 - smoothstep(0.0, 0.4, cloudCoverage);
-    }
+    #if !defined NETHER && !defined THE_END
+        if (isEyeInWater == 1 &&
+            blockType < DH_BLOCK_WATER + 0.5 && blockType > DH_BLOCK_WATER - 0.5) {
+            blockColor.a = 1.0;
+        }
     #endif
 
     #include "/src/finalcolor_dh.glsl"

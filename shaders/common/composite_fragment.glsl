@@ -11,13 +11,15 @@ const bool colortex1MipmapEnabled = true;
 
 uniform sampler2D colortex1;
 uniform sampler2D depthtex1;
-uniform mat4 gbufferProjection;
-uniform mat4 gbufferProjectionInverse;
 uniform float far;
 uniform float near;
 uniform float blindness;
 uniform float rainStrength;
 uniform sampler2D depthtex0;
+uniform mat4 gbufferProjection;
+uniform mat4 gbufferProjectionInverse;
+uniform float pixelSizeX;
+uniform float pixelSizeY;
 uniform int isEyeInWater;
 uniform ivec2 eyeBrightnessSmooth;
 
@@ -77,15 +79,18 @@ varying vec3 directLightColor;
     varying mat4 modeli_times_projectioni;
 #endif
 
-#ifdef UNDERWATER_FX
-    uniform vec3 cameraPosition;
-#endif
+// Sempre declarado: os macros getAltitudeRain()/getTerrainRain() usam
+// cameraPosition também fora de UNDERWATER_FX (ex.: composite raiz com
+// UNKNOWN_DIM). Sem isto o shader falha com "undefined variable".
+uniform vec3 cameraPosition;
 
 #include "/lib/basic_utils.glsl"
 #include "/lib/depth.glsl"
 
 #ifdef DISTANT_HORIZONS
     uniform sampler2D dhDepthTex1;
+    uniform float dhNearPlane;
+    uniform float dhFarPlane;
 #endif
 
 #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
@@ -126,13 +131,38 @@ varying vec3 directLightColor;
     #include "/lib/volumetric_light.glsl"
 #endif
 
+float ydr_water_scene_distance(vec2 uv) {
+    float depth = texture2DLod(depthtex1, uv, 0.0).r;
+    if (depth >= 0.999999) return 1e9;
+    return max(gbufferProjection[3][2] /
+        (gbufferProjection[2][2] + 2.0 * depth - 1.0), 0.0);
+}
+
+float ydr_underwater_opaque_distance(vec2 uv) {
+    float distance = ydr_water_scene_distance(uv);
+    #ifdef DISTANT_HORIZONS
+        float dhDepth = texture2DLod(dhDepthTex1, uv, 0.0).r;
+        if (dhDepth < 0.999999) {
+            float dhDistance = 2.0 * dhNearPlane * dhFarPlane /
+                (dhFarPlane + dhNearPlane - (2.0 * dhDepth - 1.0) *
+                (dhFarPlane - dhNearPlane));
+            distance = min(distance, dhDistance);
+        }
+    #endif
+    return distance;
+}
+
 void main() {
-    vec4 blockColor = texture2DLod(colortex1, texcoord, 0);
+    vec4 blockColor = texture2DLod(colortex1, texcoord, 0.0);
+
     float d = texture2DLod(depthtex0, texcoord, 0).r;
     float linearDepth = ld(d);
-
+    if (isEyeInWater == 1) {
+        float underwaterDistance = ydr_underwater_opaque_distance(texcoord);
+        if (underwaterDistance >= 1e8) underwaterDistance = far;
+        linearDepth = clamp(underwaterDistance / max(far, 1e-4), 0.0, 1.0);
+    }
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
-
     float screen_distance = linearDepth * far * 0.5;
 
     if(isEyeInWater == 1) {
