@@ -161,15 +161,23 @@ float ydr_water_scene_distance(vec2 uv) {
         (gbufferProjection[2][2] + 2.0 * depth - 1.0), 0.0);
 }
 
+// Usa dhDepthTex0, nao dhDepthTex1: esta versao do Iris ignora bindings de
+// samplers arbitrarios no composite (dhDepthTex1 chega como 0.0 — "vazio"),
+// enquanto dhDepthTex0 funciona (e o mesmo que as nuvens leem com sucesso).
+// O DH so escreve no tex0 o que renderiza; a agua do DH (translucida) nao
+// atrapalha a medida do terreno/LOD aqui.
 float ydr_underwater_opaque_distance(vec2 uv) {
     float distance = ydr_water_scene_distance(uv);
     #ifdef DISTANT_HORIZONS
-        float dhDepth = texture2DLod(dhDepthTex1, uv, 0.0).r;
-        if (dhDepth < 0.999999) {
+        float dhDepth = texture2DLod(dhDepthTex0, uv, 0.0).r;
+        // Sampler sem binding chega como 0.0: tratar como "ceu" (sem oclusao)
+        // em vez de depth ~0, que produziria dhDistance ~ dhNearPlane e
+        // desligaria a nevoa justo nos pixels do LOD — o bug da "cortina".
+        if (dhDepth > 0.000001 && dhDepth < 0.999999) {
             float dhDistance = 2.0 * dhNearPlane * dhFarPlane /
                 (dhFarPlane + dhNearPlane - (2.0 * dhDepth - 1.0) *
                 (dhFarPlane - dhNearPlane));
-            distance = min(distance, dhDistance);
+            if (dhDistance > 0.5) distance = min(distance, dhDistance);
         }
     #endif
     return distance;
@@ -182,9 +190,9 @@ void main() {
     #if defined YDREAM_CLOUD_PASS
     if (isEyeInWater == 0) {
         #if AA_TYPE > 0
-            float cloudDither = shiftedDither17(gl_FragCoord.xy);
+            float cloudDither = shiftedSemiblue(gl_FragCoord.xy);
         #else
-            float cloudDither = rDither(gl_FragCoord.xy);
+            float cloudDither = semiblue(gl_FragCoord.xy);
         #endif
         vec2 sampleNdc = texcoord * 2.0 - 1.0;
         #if AA_TYPE > 0
@@ -253,24 +261,84 @@ void main() {
     float screen_distance = linearDepth * far * 0.5;
 
     if(isEyeInWater == 1) {
+        // Escurecimento realista: quanto mais fundo (e mais longo o caminho
+        // de vista dentro da agua), menos luz sobra. 0.045~0.05 por bloco e
+        // da ordem do coeficiente de absorcao da luz solar na agua real.
+        float uwVertDepth = max(62.0 - cameraPosition.y, 0.0);
+
         #ifdef UNDERWATER_FX
             float uwDistance = linearDepth * far;
 
             vec3 underwaterFog = underwaterFogColor(directLightColor, eyeBrightSmoothFloat.y * 0.004166666666666667);
             underwaterFog = mix(underwaterFog * vec3(0.85, 1.35, 1.20), underwaterFog, clamp((63.0 - cameraPosition.y) * 0.07, 0.0, 1.0));
-            vec3 uwSigma = vec3(0.070, 0.038, 0.022) * ((UNDERWATER_FOG_DENSITY * 0.2 + WATER_ABSORPTION * 2.0) * 0.83);
-            vec3 uwTrans = exp(-uwSigma * uwDistance);
+            // Extincao agora escala de verdade com a densidade escolhida
+            // (antes o coeficiente resultante era ~1.0, e o azul transmitia
+            // longe demais, deixando as silhuetas do LOD legiveis).
+            vec3 uwSigma = vec3(0.070, 0.038, 0.022) * ((UNDERWATER_FOG_DENSITY * 0.5 + WATER_ABSORPTION * 4.0) * 0.83);
+            // Segunda nevoa (por cima da primeira): densidade extra que cresce
+            // com a profundidade da camera. Mergulhar encurta a visibilidade
+            // e, junto do uwDepthDark, escurece tudo — o abismo engole o que
+            // esta longe.
+            float uwDeepDensity = 1.0 + uwVertDepth * 0.055 * UNDERWATER_DARKNESS;
+            vec3 uwTrans = exp(-uwSigma * uwDeepDensity * uwDistance);
 
-            float uwDepthDark = mix(1.0, 0.6, clamp((63.0 - cameraPosition.y) * 0.025, 0.0, 1.0));
-            vec3 uwFogFinal = underwaterFog * uwDepthDark;
+            float uwDepthDark = exp(-uwVertDepth * 0.045 * UNDERWATER_DARKNESS);
+            // A nevoa NAO pode convergir para preto com a distancia: longe,
+            // uwPathDark ia a ~0 e o "fog saturado" virava uma silhueta preta
+            // legivel contra o ceu noturno (o LOD parecia furar a nevoa).
+            // Piso de 30% mantem o veu da cor da nevoa: estrutura distante
+            // desaparece num véu uniforme, nao num recorte preto.
+            float uwPathDark = max(exp(-uwDistance * 0.010 * UNDERWATER_DARKNESS), 0.30);
+            vec3 uwFogFinal = underwaterFog * uwDepthDark * uwPathDark;
 
             blockColor.rgb = blockColor.rgb * uwTrans + uwFogFinal * (vec3(1.0) - uwTrans);
         #else
             float waterAbsorption = clamp(1.0 - pow(1.001 - linearDepth, UNDERWATER_FOG_DENSITY + (4.0 * WATER_ABSORPTION)), 0.0, 1.0);
             vec3 underwaterFog = underwaterFogColor(directLightColor, eyeBrightSmoothFloat.y * 0.004166666666666667);
 
+            underwaterFog *= exp(-uwVertDepth * 0.045 * UNDERWATER_DARKNESS);
+
             blockColor.rgb *= underwaterTransmission(waterAbsorption * 0.9);
             blockColor.rgb = mix(blockColor.rgb, underwaterFog, waterAbsorption);
+        #endif
+
+        #if YDREAM_UW_DEBUG > 0
+            if (YDREAM_UW_DEBUG == 1) {
+                // 1: verde = o jogo reporta "olhos na agua" (barco/freecam mascaram)
+                blockColor.rgb = vec3(0.0, 1.0, 0.0);
+            } else if (YDREAM_UW_DEBUG == 2) {
+                // 2: profundidade vertical abaixo da superficie (fator de escurecimento)
+                blockColor.rgb = vec3(0.0, 1.0, 0.0) * exp(-uwVertDepth * 0.05);
+            } else if (YDREAM_UW_DEBUG == 3) {
+                // 3: distancia da fog (composite) — o caminho ate o fundo/LOD
+                blockColor.rgb = vec3(0.0, 1.0, 0.0) * exp(-linearDepth * far * 0.05);
+            } else if (YDREAM_UW_DEBUG == 4) {
+                // 4: validade do depth do DH no composite (dhDepthTex0) —
+                // 0.0 significa sampler sem binding (Iris ignora) = INVALIDO
+                #ifdef DISTANT_HORIZONS
+                    float dhDepth = texture2DLod(dhDepthTex0, texcoord, 0.0).r;
+                    blockColor.rgb = dhDepth > 0.000001 && dhDepth < 0.999999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+                #else
+                    blockColor.rgb = vec3(1.0, 1.0, 0.0);
+                #endif
+            } else if (YDREAM_UW_DEBUG == 5) {
+                // 5: fogAmount aplicado (extincao)
+                float uwExtinction = (0.035 + 0.014 * UNDERWATER_FOG_DENSITY) * max(UNDERWATER_DARKNESS, 0.5);
+                blockColor.rgb = vec3(0.0, 1.0, 0.0) * (1.0 - exp(-linearDepth * far * uwExtinction));
+            } else if (YDREAM_UW_DEBUG == 6) {
+                // 6: profundidade vertical x distancia da fog (composite)
+                blockColor.rgb = vec3(0.0, 1.0, 0.0) * exp(-uwVertDepth * 0.05) * exp(-linearDepth * far * 0.05);
+            } else if (YDREAM_UW_DEBUG == 7) {
+                // 7: profundidade vertical x fogAmount (composite)
+                float uwExtinction = (0.035 + 0.014 * UNDERWATER_FOG_DENSITY) * max(UNDERWATER_DARKNESS, 0.5);
+                blockColor.rgb = vec3(0.0, 1.0, 0.0) * exp(-uwVertDepth * 0.05) * (1.0 - exp(-linearDepth * far * uwExtinction));
+            } else if (YDREAM_UW_DEBUG == 8) {
+                // 8: verde PURO apos o fog — se o LOD aparece POR CIMA deste
+                // verde, ele esta sendo composto DEPOIS do composite; se o
+                // verde cobre tudo, a ordem esta correta e o problema era/
+                // era a distancia medida.
+                blockColor.rgb = vec3(0.0, 1.0, 0.0);
+            }
         #endif
 
     } else if(isEyeInWater == 2) {

@@ -6,10 +6,12 @@
     #include "/lib/water_ssr.glsl"
 #endif
 
+// Declarado ANTES dos includes: water_compose referencia o uniform dentro
+// de funcao, e GLSL exige declaracao anterior ao uso em ordem de texto.
+uniform mat4 gbufferModelViewInverse;
+
 #include "/lib/water_motion.glsl"
 #include "/lib/water_compose.glsl"
-
-uniform mat4 gbufferModelViewInverse;
 #if AA_TYPE > 0 && MC_VERSION >= 11300
     uniform vec2 taaOffset;
 #endif
@@ -223,6 +225,9 @@ vec3 water_shader(
         refractUV = screenUV;
     }
     vec3 bedColor = texture2D(gaux1, refractUV).rgb;
+    // Nevoa fisica sobre o fundo visto atraves da agua (inclui o LOD do DH).
+    bedColor = ydr_bed_underwater_fog(bedColor, surfaceDepth, refractUV,
+        destinationDepth, visibleSky, lightColor);
     vec3 result = ydr_water_compose(fragpos, normal, color, sky_reflect, bedColor,
         thickness, fresnel, visibleSky, lightColor);
 

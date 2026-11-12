@@ -75,6 +75,16 @@ varying float terrainWorldY;
 #endif
 
 void main() {
+    // Raciocinio Lumina: com a camera submersa o LOD do DH e MORTO. Nada de
+    // casar cores de fog entre passes (a fonte eterna das "cortinas"): a
+    // visibilidade na agua (~40 m) e menor que o vanilla far, entao o corte
+    // acontece dentro da nevoa e o fundo vira a nevoa escura do composite
+    // ("quanto mais fundo, mais escuro e assustador").
+    if (isEyeInWater == 1) {
+        discard;
+        return;
+    }
+
     #if AA_TYPE > 0
     float dither = shiftedRDither(gl_FragCoord.xy);
     #else

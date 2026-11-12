@@ -445,6 +445,15 @@
 #define CHROMA_ABER 0 // [0 1]
 #define CHROMA_ABER_STRENGTH 0.04 // [0.04 0.05 0.06]
 #define UNDERWATER_FOG_DENSITY 5.0 // [2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0 10.0]
+// Escurecimento realista por profundidade: 1.0 e o padrao fisico (a luz morre
+// exponencialmente com a distancia abaixo da superficie). Valores maiores
+// deixam o fundo mais profundo mais escuro/assustador; 0.0 desliga.
+#define UNDERWATER_DARKNESS 1.0 // [0.0 0.5 0.75 1.0 1.5 2.0 3.0]
+// Debug subaquatico (DH na agua): 0=off, 1=verde quando o jogo reporta
+// "olhos na agua" (barco/freecam mascaram isso), 2=profundidade vertical,
+// 3=distancia da fog (composite), 4=validade do dhDepthTex1, 5=fogAmount,
+// 6=fogTexture do DH, 7=DH fogAmount (per-fragment).
+#define YDREAM_UW_DEBUG 0 // [0 1 2 3 4 5 6 7 8]
 #define AERIAL_PERSPECTIVE 0 // [0 1 2]
 #define AERIAL_PERSPECTIVE_STRENGTH 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
 #define WETNESS_EFFECTS 0 // [0 1 2]

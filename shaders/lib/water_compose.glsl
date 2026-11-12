@@ -25,10 +25,18 @@ vec3 ydr_water_compose(
     #if defined UNDERWATER_FX && !defined NETHER && !defined THE_END
         if (isEyeInWater == 1) {
             // Snell window from below: transmission inside the cone, TIR outside.
-            float cosIncident = clamp(abs(dot(normalize(normal), normalize(-fragpos))), 0.0, 1.0);
+            // A mascara usa a normal GEOMETRICA (sem ondas): com a normal
+            // ondulada o limite da janela oscila pixel a pixel e a linha da
+            // agua vira uma moldura de "cortinas pingando".
+            // Linha 1 da matriz inversa = eixo Y do mundo em espaco de visao.
+            vec3 geometricUp = normalize(vec3(gbufferModelViewInverse[0].y,
+                gbufferModelViewInverse[1].y, gbufferModelViewInverse[2].y));
+            float cosIncident = clamp(abs(dot(geometricUp, normalize(-fragpos))), 0.0, 1.0);
             float sinTransmitted = sqrt(max(0.0, 1.0 - cosIncident * cosIncident)) / 1.333;
             float cosTransmitted = sqrt(max(0.0, 1.0 - sinTransmitted * sinTransmitted));
-            float windowMask = smoothstep(0.02, 0.16, cosTransmitted);
+            // Transicao larga: reflexao interna total em agua ondulada nao
+            // e uma fronteira nitida por pixel.
+            float windowMask = smoothstep(0.06, 0.28, cosTransmitted);
 
             vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
             vec2 windowUV = clamp(screenUV + normal.xy * 0.0028,

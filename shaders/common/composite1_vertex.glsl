@@ -9,6 +9,7 @@ varying vec2 texcoord;
     uniform vec3 cameraPosition;
     uniform float rainStrength;
     uniform sampler2D depthtex0;
+    uniform int isEyeInWater;
 
     #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
         uniform sampler2D dhDepthTex0;
@@ -51,5 +52,8 @@ void main() {
         // escuro do espaço. O disco do sol continua sendo preservado em prepare.
         float flareAtmosphere = 1.0 - smoothstep(float(ATMOSPHERE_START), float(ATMOSPHERE_END), max(cameraPosition.y, 0.0));
         flareVisibility = sunFront * sunUp * (skyTaps * 0.2) * screenEdge * mix(0.12, 1.0, flareAtmosphere);
+        // O lens flare é um efeito atmosférico: sob a água ele deve ser
+        // ocluído completamente (a água não escreve depth no depthtex0).
+        flareVisibility *= float(isEyeInWater == 0);
     #endif
 }

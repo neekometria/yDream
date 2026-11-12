@@ -35,6 +35,7 @@ uniform vec3 cameraPosition;
     uniform float dhNearPlane;
     uniform float dhFarPlane;
     uniform sampler2D dhDepthTex1;
+    uniform sampler2D dhDepthTex0;
     uniform int dhRenderDistance;
 #endif
 

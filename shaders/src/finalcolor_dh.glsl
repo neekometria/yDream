@@ -32,13 +32,41 @@
 
         if(isEyeInWater == 0) {
             blockColor.rgb = mix(blockColor.rgb, fog_texture, frogAdjust);
+        } else {
+            // Fog subaquatica tambem no LOD: sem ela o horizonte do DH
+            // (onde a renderizacao corta) fica exposto como cortinas cruas.
+            float uwVertDepth = max(62.0 - cameraPosition.y, 0.0);
+            // Piso de 30%: mesmo raciocinio do composite — a nevoa NAO pode
+            // convergir para preto com a distancia, senao o LOD fica legivel
+            // como silhueta preta contra o ceu. O veu deve manter a cor da nevoa.
+            float uwDarkFactor = max(exp(-uwVertDepth * 0.05 * UNDERWATER_DARKNESS), 0.30);
+            vec3 uwFogTexture = fog_texture * vec3(0.30, 0.56, 0.70) * uwDarkFactor;
+            // Extincao fisica (Beer-Lambert) em vez do ramp de distancia do
+            // DH: com DH_RENDER grande o ramp deixava o LOD legivel por muito
+            // tempo (0.035+0.014*density equivale a ~40 m de visibilidade em
+            // agua media).
+            float uwExtinction = (0.035 + 0.014 * UNDERWATER_FOG_DENSITY) * max(UNDERWATER_DARKNESS, 0.5);
+            float uwFogAmount = 1.0 - exp(-gl_FogFragCoord * uwExtinction);
 
-            #ifdef AERIAL_PERSPECTIVE_ON
+            // Debug subaquatico do DH (per-fragment):
+            //   6: fogTexture do DH (colortex7) — o que a fog do DH pinta
+            //   7: fogAmount do DH (per-fragment)
+            #if YDREAM_UW_DEBUG == 6
+                blockColor.rgb = uwFogTexture;
+            #elif YDREAM_UW_DEBUG == 7
+                blockColor.rgb = vec3(0.0, 1.0, 0.0) * uwFogAmount;
+            #else
+                blockColor.rgb = mix(blockColor.rgb, uwFogTexture, uwFogAmount);
+            #endif
+        }
+
+        #ifdef AERIAL_PERSPECTIVE_ON
+            if (isEyeInWater == 0) {
                 float aerialAmount = (1.0 - exp(-gl_FogFragCoord * (0.0026 * AERIAL_PERSPECTIVE_DISTANCE))) *
                     (AERIAL_PERSPECTIVE_STRENGTH * 0.36) * (1.0 + 0.55 * fogSunScatter * FOG_SUN_SCATTER) * (1.0 - frogAdjust);
                 blockColor.rgb = mix(blockColor.rgb, fog_texture, aerialAmount);
-            #endif
-        }
+            }
+        #endif
     #endif
 #endif
 

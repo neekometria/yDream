@@ -40,4 +40,40 @@ vec3 water_body(vec3 surfaceColor, vec3 refractedColor, float waterThickness) {
     return refractedColor * transmit + scatter * (1.0 - transmit);
 }
 
+// Fog subaquatica fisica (Beer-Lambert) aplicada ao CONTEUDO REFRATADO.
+// O composite foga olhando "de dentro", usando a distancia ate a SUPERFICIE;
+// olhando de fora para dentro, a superficie esta perto e a fog dava 0,
+// deixando o fundo (inclusive o LOD do DH) cru. Aqui medimos o comprimento
+// do caminho dentro da agua ate o fundo no UV refratado e aplicamos a mesma
+// extincao usada pelo composite, para os dois lados baterem.
+// Requer do TU chamador: depthtex1, dhDepthTex0 + dhNearPlane/dhFarPlane
+// (com DISTANT_HORIZONS), gbufferProjection, cameraPosition, visibleSky e
+// lightColor.
+vec3 ydr_bed_underwater_fog(vec3 bedColor, float surfaceDepth, vec2 refractUV,
+    float destinationDepth, float visibleSky, vec3 lightColor) {
+    float bedDist = 1e9;
+    #ifdef DISTANT_HORIZONS
+        float dhd = texture2D(dhDepthTex0, refractUV).r;
+        if (dhd < 0.999999) {
+            bedDist = 2.0 * dhNearPlane * dhFarPlane /
+                (dhFarPlane + dhNearPlane - (2.0 * dhd - 1.0) *
+                (dhFarPlane - dhNearPlane));
+        }
+    #endif
+    if (destinationDepth < 0.999999) {
+        float viewDepth = gbufferProjection[3][2] /
+            (gbufferProjection[2][2] + 2.0 * destinationDepth - 1.0);
+        bedDist = min(bedDist, viewDepth);
+    }
+
+    if (bedDist >= 1e9) return bedColor;
+
+    float waterPath = max(bedDist - surfaceDepth, 0.0);
+    float uwExtinction = (0.035 + 0.014 * UNDERWATER_FOG_DENSITY) * max(UNDERWATER_DARKNESS, 0.5);
+    float uwFogAmount = 1.0 - exp(-waterPath * uwExtinction);
+    float uwDepthDark = exp(-max(62.0 - cameraPosition.y, 0.0) * 0.05 * UNDERWATER_DARKNESS);
+    vec3 uwFogColor = underwaterFogColor(lightColor, visibleSky) * uwDepthDark;
+    return mix(bedColor, uwFogColor, uwFogAmount);
+}
+
 #endif

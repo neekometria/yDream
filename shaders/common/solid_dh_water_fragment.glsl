@@ -25,6 +25,7 @@ uniform sampler2D noisetex;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
 uniform sampler2D dhDepthTex1;
+uniform sampler2D dhDepthTex0;
 uniform float frameTimeCounter;
 uniform int isEyeInWater;
 uniform vec3 sunPosition;

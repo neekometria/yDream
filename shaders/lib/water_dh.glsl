@@ -107,6 +107,11 @@ vec3 water_shader_dh(
         refractUV = screenUV;
     }
     vec3 bedColor = texture2D(gaux1, refractUV).rgb;
+    // Nevoa fisica sobre o fundo visto atraves da agua: o sample do gaux1
+    // no LOD sai com a fog "de ar" do DH, entao a agua precisa absorver
+    // pelo caminho real dentro dela ate o fundo refratado.
+    bedColor = ydr_bed_underwater_fog(bedColor, surfaceDepth, refractUV,
+        destinationDepth, visibleSky, lightColor);
     vec3 result = ydr_water_compose(fragpos, normal, color, sky_reflect, bedColor,
         thickness, fresnel, visibleSky, lightColor);
 
