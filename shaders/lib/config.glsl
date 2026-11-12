@@ -11,6 +11,7 @@
 #define ENTITY_S_EMMISIVE     10090.0
 #define ENTITY_F_EMMISIVE     10213.0
 #define ENTITY_NO_SHADOW_FIRE 10214.0
+#define ENTITY_SNOW_LAYER 10215.0
 #define ENTITY_E_SOUL         10091.0
 #define ENTITY_E_REDSTONE     10092.0
 #define ENTITY_E_SEA          10093.0
@@ -67,6 +68,13 @@
 #define SHOOTING_B 1.0 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
 
 #define CLOUD_TYPE 2 // [0 1 2 3 4 5]
+// Modo de compatibilidade OPT-IN com Create: Atmospherics (aeronauticswinds).
+// Desativa as nuvens volumetricas e as sombras de nuvem da shader (o mod tem o
+// deck dele em Y=192, altura de nuvem vanilla) e ancora o fade de chuva na
+// altitude do deck do mod, que ja alimenta rainStrength por regiao. Com o mod
+// ausente a opcao desligada (padrao 0) nao muda nada; ligada sem o mod, apenas
+// desliga as nuvens da shader.
+#define ATMOSPHERICS_CLOUDS 0 // [0 1]
 #define CLOUD_GROUND_SHADOWS 50 // [0 25 50 75 100]
 // Altura do centro da camada de nuvens por dimensão, em blocos (1 bloco ~ 1 m).
 // Overworld: cúmulos 1 a 2 km (NASA/NOAA). Nether: 400 (padrão do pack). Marte: nuvens de gelo de água 20 a 40 km. Vênus: nuvens de ácido sulfúrico 45 a 70 km.
@@ -188,6 +196,10 @@
 #define COLORED_LIGHT_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define COLORED_LIGHT_RADIUS 8.0 // [4.0 6.0 8.0 10.0 12.0 16.0]
 #define CLOUD_LIGHTING 0 // [0 1 2]
+// Torres de tempestade raras (cumulonimbus com bigorna, tipo cogumelo). O
+// campo usa o mesmo ruído/vento das nuvens, então elas viajam com o vento e
+// somem/aparecem devagar. Com chuva elas ficam mais frequentes.
+#define CLOUD_TOWERS 1 // [0 1]
 // #define MOTION_BLUR
 #define MOTION_BLUR_STRENGTH 1.0 // [0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0]
 #define MOTION_BLUR_SAMPLES 4 // [3 4 5 6 7 8]
@@ -215,6 +227,10 @@
 // are kept only so existing shader options files keep parsing.
 #define DH_SHADOW_REACH 320 // [80 120 160 200 260 320 420 520 640]
 #define DH_SHADOW_SOFTNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
+// Força da sombra que o terreno LOD projeta. 1.0 = sombra real completa;
+// valores menores suavizam as sombras longas que as montanhas LOD projetam ao
+// amanhecer/entardecer (o "blob" na neve). 0 = LOD não projeta sombra.
+#define DH_SHADOW_STRENGTH 1.0 // [0.0 0.25 0.5 0.75 1.0]
 // Let the LOD terrain receive the same cloud shadows as the real chunks.
 #define DH_CLOUD_SHADOWS 1 // [0 1]
 // Hide the sun/moon glow (godrays and lens flare) when LOD terrain covers the
@@ -534,7 +550,7 @@
 #define NIGHT_SKY_DARKNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
 #define NIGHT_AIRGLOW 1.0 // [0.0 0.5 1.0 1.5 2.0]
 #define AURORA_PALETTE 0 // [0 1 2 3 4 5 6 7 8 9]
-#define NIGHT_LOOK 0 // [0 1 2]
+#define NIGHT_LOOK 1 // [0 1 2]
 #define AURORA_LIGHT 1.0 // [0.0 0.5 1.0 1.5 2.0]
 #define AURORA_SPEED 1.0 // [0.25 0.5 0.75 1.0 1.5 2.0 3.0]
 #define AURORA_RAYS 1.0 // [0.0 0.5 0.75 1.0 1.25 1.5]
@@ -874,6 +890,22 @@
 #else
     #define V_CLOUDS 0
     #define CLOUDS_OFF
+#endif
+
+// Atmospherics: o mod desenha o proprio deck de nuvens, então as nuvens da
+// shader saem de cena. CLOUD_SHADOWS_ON deriva de V_CLOUDS, logo as sombras
+// de nuvem analíticas também desligam automaticamente.
+#if ATMOSPHERICS_CLOUDS == 1
+    #undef V_CLOUDS
+    #define V_CLOUDS 0
+    #define CLOUDS_OFF
+#endif
+
+// Passe que compõe as nuvens. AGORA É O COMPOSITE: a água (gbuffers_water e
+// dh_water) renderiza DEPOIS do deferred segundo o Iris, então nuvens
+// compostas no deferred eram apagadas pela água/terreno translúcido por cima.
+#if V_CLOUDS != 0 && !defined UNKNOWN_DIM && !defined NO_CLOUDY_SKY
+    #define YDREAM_CLOUD_PASS
 #endif
 
 #ifdef CLOUD_ROUNDED
@@ -1346,7 +1378,7 @@
     #define GI_TAPS 6
 #endif
 
-#if CLOUD_LIGHTING == 2 || (CLOUD_LIGHTING == 0 && YDREAM_COLOR_STYLE == 2)
+#if CLOUD_LIGHTING == 2 || (CLOUD_LIGHTING == 0 && (YDREAM_COLOR_STYLE == 2 || YDREAM_COLOR_STYLE == 3))
     #define CLOUD_LIGHT_ENHANCED
 #endif
 #define CLOUD_STEPS_AVG PERF_STEPS(YDREAM_CLOUD_STEPS_AVG, PERF_CLOUDS)
@@ -1442,6 +1474,9 @@
 #else
     #if defined NETHER
         #define CLOUD_PLANE_CENTER CLOUD_HEIGHT_NETHER
+    #elif ATMOSPHERICS_CLOUDS == 1
+        // Deck de nuvens do Create: Atmospherics (altura de nuvem vanilla).
+        #define CLOUD_PLANE_CENTER 192.0
     #else
         #define CLOUD_PLANE_CENTER CLOUD_HEIGHT_OVERWORLD
     #endif
@@ -1491,7 +1526,9 @@
 // #define COLOR_BLINDNESS
 #define COLOR_BLIND_MODE 0 // [0 1 2]
 
-const float sunPathRotation = -25.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10.0 -5.0 0.0 5.0 10.0 15.0 20.0 25.0 30.0 35.0 40.0]
+// 0.0 = a sombra segue 100% o sol e a lua reais. Qualquer valor diferente inclina
+// o plano de luz do shadow map em relacao ao disco visivel no ceu.
+const float sunPathRotation = 0.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10.0 -5.0 0.0 5.0 10.0 15.0 20.0 25.0 30.0 35.0 40.0]
 
 #define SHADOW_DISTANCE_SLIDER 1 // [0 1 2]
 #define SHADOW_QTY_SLIDER 2 // [1 2 3]
@@ -1519,16 +1556,21 @@ const float sunPathRotation = -25.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10
     const bool shadowColor0Mipmap = false;
     const bool shadowColor1Mipmap = false;
 
-    const bool shadowtex0Clear = false;
-    const bool shadowtex1Clear = false;
-    const bool shadowcolor0Clear = false;
+    // O shadow map DEVE ser limpo a cada frame. Com clear=false o depth antigo
+    // (de frames e posicoes de camera anteriores) permanece nos texels que a
+    // geometria atual nao cobre, e o receiver compara contra esse depth stale:
+    // sombras fantasmas do proprio terreno e sombras que somem/aparecem conforme
+    // o sol se move (o sun path do shadow map muda a cada frame).
+    const bool shadowtex0Clear = true;
+    const bool shadowtex1Clear = true;
+    const bool shadowcolor0Clear = true;
     #if YDREAM_RSM_GI > 0
         const bool shadowcolor1Clear = true;
         /*
         const int shadowcolor1Format = RGBA16F;
         */
     #else
-        const bool shadowcolor1Clear = false;
+        const bool shadowcolor1Clear = true;
     #endif
 
     #if !defined NO_SHADOWS || YDREAM_RSM_GI > 0

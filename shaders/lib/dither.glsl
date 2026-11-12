@@ -1,3 +1,5 @@
+#ifndef YDREAM_DITHER_INCLUDED
+#define YDREAM_DITHER_INCLUDED
 uniform int frameMod;
 
 #if MC_VERSION >= 11300
@@ -85,3 +87,5 @@ float shiftedDitherMakeup(vec2 point) {
         dot(vec2(0.9996657054871321, 0.9998746076598763), tile)
     );
 }
+
+#endif

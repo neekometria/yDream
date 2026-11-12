@@ -172,6 +172,11 @@ void main() {
         float shadowSample = get_shadow(shadowUV, dither);
         shadowSample = mix(shadowSample, 1.0, shadowEdge);
         shadowSample = mix(shadowSample, 1.0, nightShadowAmount * NIGHT_SHADOW_SOFTEN);
+        // DH_SHADOW_STRENGTH é graduado pela distância: perto do jogador (e do
+        // terreno LOD próximo) a sombra fica 100%; longe, onde as montanhas LOD
+        // escondidas pela névoa projetam as sombras longas, a força é reduzida.
+        float dhShadowStrength = mix(1.0, DH_SHADOW_STRENGTH, smoothstep(48.0, float(int(shadowDistance)), visibleDistance));
+        shadowSample = mix(1.0, shadowSample, dhShadowStrength);
         shadowValue = mix(1.0, shadowSample, shadowFade);
     }
     #endif

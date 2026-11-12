@@ -7,6 +7,11 @@
 float get_shadow(vec3 the_shadow_pos, float dither) {
     float shadow_sample = 1.0;
 
+    // Bias de profundidade do receiver: z*0.2 comprime a faixa de depth do
+    // shadow map; sem offset a superficie compara contra o proprio depth
+    // dela (acne em faixas no chao plano). ~2e-4 em NDC.
+    the_shadow_pos.z -= 0.0002;
+
     #if SHADOW_SAMPLE_TYPE == 0
         shadow_sample = shadow2D(shadowtex1, the_shadow_pos).r;
     #elif SHADOW_SAMPLE_TYPE == 2
@@ -23,7 +28,7 @@ float get_shadow(vec3 the_shadow_pos, float dither) {
         vec2 offset = (vec2(cos(dither), sin(dither)) * current_radius * SHADOW_BLUR) / shadowMapResolution;
         vec2 offset2 = (vec2(cos(dither_2), sin(dither_2)) * (1.0 - current_radius) * SHADOW_BLUR) / shadowMapResolution;
 
-        float z_bias = dither * 0.00002;
+        float z_bias = 0.0002 + dither * 0.00002;
 
         shadow_sample += shadow2D(shadowtex1, vec3(the_shadow_pos.xy + offset, the_shadow_pos.z - z_bias)).r;
         shadow_sample += shadow2D(shadowtex1, vec3(the_shadow_pos.xy - offset, the_shadow_pos.z - z_bias)).r;
@@ -46,6 +51,8 @@ float get_shadow(vec3 the_shadow_pos, float dither) {
 
             float alpha_complement;
 
+            the_shadow_pos.z -= 0.0002;
+
             shadow_detector = shadow2D(shadowtex0, vec3(the_shadow_pos.xy, the_shadow_pos.z)).r;
             if (shadow_detector < 1.0) {
                 shadow_black = shadow2D(shadowtex1, vec3(the_shadow_pos.xy, the_shadow_pos.z)).r;
@@ -63,6 +70,8 @@ float get_shadow(vec3 the_shadow_pos, float dither) {
             return shadowColor.rgb;
 
         #elif SHADOW_SAMPLE_TYPE == 2
+            the_shadow_pos.z -= 0.0002;
+
             float pixelGrid = float(shadowMapResolution) / PIXELATED_SHADOW_SCALE;
             vec2 quantized = floor(the_shadow_pos.xy * pixelGrid) / pixelGrid;
 
@@ -114,7 +123,7 @@ float get_shadow(vec3 the_shadow_pos, float dither) {
             vec2 offset = (vec2(cos(dither), sin(dither)) * current_radius * SHADOW_BLUR) / shadowMapResolution;
             vec2 offset2 = (vec2(cos(dither_2), sin(dither_2)) * (1.0 - current_radius) * SHADOW_BLUR) / shadowMapResolution;
 
-            float z_bias = dither * 0.00002;
+            float z_bias = 0.0002 + dither * 0.00002;
 
             shadow_detector_a = shadow2D(shadowtex0, vec3(the_shadow_pos.xy + offset, the_shadow_pos.z - z_bias)).r;
             shadow_detector_b = shadow2D(shadowtex0, vec3(the_shadow_pos.xy - offset, the_shadow_pos.z - z_bias)).r;

@@ -44,9 +44,26 @@ varying vec3 directLightColor;
 #include "/lib/luma.glsl"
 uniform vec3 cameraPosition;
 
+#if defined YDREAM_CLOUD_PASS
+    // A composição das nuvens acontece no composite (depois da água). Estes
+    // varyings vêm do vertex, calculados igual ao deferred_vertex antigo.
+    varying float umbral;
+    varying vec3 cloudColor;
+    varying vec3 darkCloudColor;
+    varying float cloudLightSign;
+    #if !(VOL_LIGHT == 1 && !defined NETHER)
+        uniform float dayNightMix;
+    #endif
+#endif
+
 void main() {
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
     texcoord = gl_MultiTexCoord0.xy;
+
+    #if defined YDREAM_CLOUD_PASS
+        cloudLightSign = mix(-1.0, 1.0, step(0.5, dayNightMix));
+        #include "/lib/volumetric_clouds_vertex.glsl"
+    #endif
 
     vec2 eyeBrightSmoothFloat = vec2(eyeBrightnessSmooth);
 

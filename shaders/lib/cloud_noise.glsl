@@ -60,4 +60,22 @@ float cloud_field(vec2 posXZ) {
     return smoothstep(low, high, value);
 }
 
+// Torreta de tempestade (cumulonimbus): uma unica amostra do ruído em
+// frequência MUITO baixa (blocos*~0.00002) gera regiões enormes e raras. Os
+// dois limiares sobre a MESMA amostra garantem que a coluna central (core)
+// sempre fique dentro da região da bigorna (broad). Deriva com o mesmo vento
+// do campo (warp + CLOUD_LOW_FACTOR), então a torre viaja junto com as nuvens.
+// .x = bigorna/banco largo (0..1), .y = coluna central (0..1)
+vec2 cloud_tower_field(vec2 posXZ) {
+    float time = frameTimeCounter;
+    vec2 warp = cloud_warp(posXZ);
+    vec2 p = posXZ * (CLOUD_NOISE_SCALE * 0.085) + time * CLOUD_LOW_FACTOR * 0.5 + warp;
+    float n = texture2DLod(YDREAM_CLOUD_NOISE_TEX, p, 0.0).r;
+    // Mais frequente com chuva: o sistema de clima "convoca" as torres.
+    float rare = 0.955 - rainStrength * 0.035;
+    float broad = smoothstep(rare - 0.075, rare + 0.015, n);
+    float core = smoothstep(rare + 0.010, rare + 0.045, n);
+    return vec2(broad, core);
+}
+
 #endif

@@ -40,7 +40,10 @@ void main() {
     gl_Position.z = gl_Position.z * 0.2;
 
     is_noshadow = 0.0;
-    if (mc_Entity.x == ENTITY_NO_SHADOW_FIRE || mc_Entity.x == ENTITY_F_EMMISIVE) {
+    // O tapete de neve (camadas de 1/16) projeta sombra na propria superficie
+    // logo abaixo e vira manchas/bandas em neve; a sombra real dele e
+    // desprezivel. A neve continua RECEBENDO sombra normalmente.
+    if (mc_Entity.x == ENTITY_NO_SHADOW_FIRE || mc_Entity.x == ENTITY_F_EMMISIVE || mc_Entity.x == ENTITY_SNOW_LAYER) {
         is_noshadow = 1.0;
     }
 

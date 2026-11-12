@@ -38,6 +38,16 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
     float cameraShape = clamp(cloudShape(cameraField), 0.0, 1.0);
     float cameraSurfaceInf = CLOUD_PLANE_CENTER - cameraShape * dif_inf * CLOUD_INF_SCALE;
     float cameraSurfaceSup = CLOUD_PLANE_CENTER + cameraShape * dif_sup * CLOUD_SUP_SCALE;
+
+    #if CLOUD_TOWERS == 1
+    // Consistencia: se a camera estiver perto/na torre, o shape da camera
+    // acompanha a coluna (a bigorna nao afeta o interior da camera).
+    vec2 camTower = cloud_tower_field(base_pos.xz);
+    if (camTower.y > 0.001) {
+        cameraSurfaceSup = max(cameraSurfaceSup, CLOUD_PLANE_CENTER + dif_sup * CLOUD_SUP_SCALE * (1.0 + camTower.y * 2.4));
+        cameraSurfaceInf = min(cameraSurfaceInf, CLOUD_PLANE_CENTER - dif_inf * CLOUD_INF_SCALE * (1.0 + camTower.y * 0.6));
+    }
+    #endif
     float insideCloud = smoothstep(cameraSurfaceInf - 20.0, cameraSurfaceInf + 20.0, base_pos.y) *
         (1.0 - smoothstep(cameraSurfaceSup - 20.0, cameraSurfaceSup + 20.0, base_pos.y));
 
@@ -117,6 +127,20 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
             float surface_inf = CLOUD_PLANE_CENTER - (shapedValue * dif_inf * CLOUD_INF_SCALE);
             float surface_sup = CLOUD_PLANE_CENTER + (shapedValue * dif_sup * CLOUD_SUP_SCALE);
 
+            #if CLOUD_TOWERS == 1
+            // Torre de tempestade rara: coluna central muito mais alta e funda
+            // (o cogumelo) + bigorna, um anel largo e fino no topo.
+            vec2 towerF = cloud_tower_field(intersection_pos.xz);
+            if (towerF.x > 0.001) {
+                float towerTop = CLOUD_PLANE_CENTER + dif_sup * CLOUD_SUP_SCALE * (1.0 + towerF.y * 2.4);
+                float towerBot = CLOUD_PLANE_CENTER - dif_inf * CLOUD_INF_SCALE * (1.0 + towerF.y * 0.6);
+                float anvilTop = CLOUD_PLANE_CENTER + dif_sup * CLOUD_SUP_SCALE * (0.75 + 0.55 * towerF.x);
+                float anvilInf = anvilTop - 48.0;
+                surface_sup = max(surface_sup, mix(anvilTop, towerTop, towerF.y));
+                surface_inf = mix(min(surface_inf, anvilInf), towerBot, towerF.y);
+            }
+            #endif
+
             float current_opacity = 0.0;
             float cloud_thickness = surface_sup - surface_inf;
 
@@ -148,7 +172,12 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         }
 
         float rainDensity = mix(1.0, RAIN_CLOUD_DENSITY, rainStrength); 
-        float interiorBoost = mix(1.0, CLOUD_INTERIOR_DENSITY, interiorAmount * 0.5) * rainDensity;
+        // O boost de densidade interna so vale quando o primeiro contato do raio
+        // e profundo (camera de verdade dentro do material). Nuvens vistas como
+        // forma (contato raso, de cima) mantêm cloud_value < 1, preservando o
+        // thinEdge (bordas iluminadas) perto da camera.
+        float boostWeight = smoothstep(0.35, 0.75, density);
+        float interiorBoost = mix(1.0, CLOUD_INTERIOR_DENSITY, interiorAmount * 0.5 * boostWeight) * rainDensity;
         cloud_value = clamp(cloud_value / opacity_dist * interiorBoost, 0.0, 1.0);
 
         density = mix(density, 0.5, interiorAmount * 0.6);
@@ -206,7 +235,7 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float heightLift = (1.0 - sqrt(density)) * 0.16;
         float baseLight = clamp((multiScatter * 0.90 + heightLift) * phaseBoost, 0.0, 1.0);
         float thickFactor = smoothstep(0.05, 0.80, clamp(firstValue, 0.0, 1.0));
-        thickFactor = mix(thickFactor, 0.85, interiorAmount);
+        thickFactor = mix(thickFactor, 0.85, interiorAmount * 0.7);
         float lightAmount = max(pow(mix(1.0, baseLight, thickFactor * 0.95), 1.0 + 0.28 * STYLE_CLOUD_CONTRAST), 0.08);
         #else
         float topLit = 1.0 - clamp(sqrt(density) * CLOUD_SHADOW_STRENGTH, 0.0, 1.0);
@@ -214,15 +243,39 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
         float baseLight = clamp(topLit * (0.30 + 0.70 * directLit) + directLit * (0.16 * STYLE_CLOUD_CONTRAST), 0.0, 1.0);
 
         float thickFactor = smoothstep(0.05, 0.80, clamp(firstValue, 0.0, 1.0));
-        thickFactor = mix(thickFactor, 0.85, interiorAmount);
+        thickFactor = mix(thickFactor, 0.85, interiorAmount * 0.7);
         float lightContrast = 1.0 + 0.30 * STYLE_CLOUD_CONTRAST;
         float lightAmount = max(pow(mix(1.0, baseLight, thickFactor * 0.90), lightContrast), 0.10);
         #endif
         
         float topViewBoost = smoothstep(0.0, -0.8, eyeDirection.y) * mix(0.4, 0.8, rainStrength);
         topViewBoost *= (1.0 - smoothstep(0.1, 0.5, interiorAmount));
+        // Nuvens grossas de perto ja saem com o topo 100% iluminado (density ~ 0
+        // no primeiro contato de cima); o boost gratuito sobre elas era o que
+        // estourava o brilho. Aplica so em material fino/distante.
+        topViewBoost *= 1.0 - clamp(cloud_value, 0.0, 1.0) * 0.8;
         lightAmount = clamp(lightAmount + topViewBoost, 0.0, 1.0);
-        lightAmount *= mix(1.0, 0.6, interiorAmount);
+        lightAmount *= mix(1.0, 0.75, interiorAmount);
+
+        // Gradiente direcional do sol: pista de volume para nuvens vistas de
+        // cima. A densidade no primeiro contato nao diferencia o lado voltado
+        // ao sol do lado oposto (tudo fica 100% iluminado); este termo escurece
+        // a metade anti-solar de acordo com o alinhamento horizontal entre
+        // visao e sol. So atua em material denso (bordas finas ficam).
+        float viewSunCos = 0.5;
+        {
+            vec2 viewH = eyeDirection.xz;
+            vec2 sunH = lightDir.xz;
+            float viewHLen = length(viewH);
+            float sunHLen = length(sunH);
+            if (viewHLen > 0.05 && sunHLen > 0.001) {
+                viewSunCos = clamp(dot(viewH / viewHLen, sunH / sunHLen) * 0.5 + 0.5, 0.0, 1.0);
+            }
+        }
+        float downView = smoothstep(-0.10, -0.70, eyeDirection.y);
+        float volumeGradient = mix(1.0, mix(0.45, 1.0, viewSunCos),
+            downView * (1.0 - smoothstep(0.1, 0.5, interiorAmount)) * clamp(cloud_value, 0.0, 1.0));
+        lightAmount *= volumeGradient;
 
         vec3 undersideColor = darkCloudColor * mix(1.0, 0.5, rainStrength) + cloudColor * (0.08 + 0.10 * (1.0 - eyeDirection.y));
         vec3 shadedCloud = mix(undersideColor, cloudColor, lightAmount);
@@ -232,7 +285,10 @@ vec3 get_cloud(vec3 eyeDirection, vec3 blockColor, float bright, float dither, v
 
         float edgeBoostMask = 1.0 - smoothstep(0.4, 0.9, interiorAmount);
 
-        float topBoost = mix(1.0, 1.4, smoothstep(-0.1, -0.8, eyeDirection.y));
+        // O boost de 1.4x valia para qualquer nuvem vista de cima; nuvens
+        // grossas de perto ficavam estouradas. Fino/distante mantém 1.4,
+        // material denso de perto cai para ~1.05.
+        float topBoost = mix(1.0, mix(1.4, 1.05, clamp(cloud_value, 0.0, 1.0)), smoothstep(-0.1, -0.8, eyeDirection.y));
         
         cloudColor = (shadedCloud + cloudColor * (rimGlow * (1.8 + 1.6 * sunSide) * STYLE_CLOUD_GLOW_MULT * edgeBoostMask)) * CLOUD_BRIGHTNESS * topBoost;
         

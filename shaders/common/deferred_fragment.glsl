@@ -149,55 +149,10 @@ void main() {
             vec4 farPlaneClipPos = gbufferModelViewInverse * gbufferProjectionInverse * vec4(sampleNdc, 1.0, 1.0);
             eyeDirection = normalize(farPlaneClipPos.xyz);
 
-            // Distance to the visible surface along this ray (sky = unlimited).
-            float sceneDist = 1e9;
-            if (linearDepth <= 0.9999) {
-                vec4 scenePos = gbufferProjectionInverse * vec4(sampleNdc, depth * 2.0 - 1.0, 1.0);
-                sceneDist = length(scenePos.xyz / scenePos.w);
-            }
-
-            #ifdef DISTANT_HORIZONS
-                float dhDepth = texture2DLod(dhDepthTex0, texcoord, 0.0).r;
-                if (dhDepth < 0.999999) {
-                    vec4 dhPosition = dhProjectionInverse * vec4(sampleNdc, dhDepth * 2.0 - 1.0, 1.0);
-                    if (abs(dhPosition.w) > 0.000001) {
-                        sceneDist = min(sceneDist, length(dhPosition.xyz / dhPosition.w));
-                    }
-                }
-            #endif
-
-            #ifdef THE_END
-                float bright = dot(eyeDirection, vec3(0.0, 0.89442719, 0.4472136));
-                bright = clamp((bright * 2.0) - 1.0, 0.0, 1.0);
-                bright *= bright * bright * bright;
-            #else
-                float bright = dot(eyeDirection, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz));
-                bright = clamp(bright * bright * bright, 0.0, 1.0);
-            #endif
-
-            #ifndef THE_END
-                if (isEyeInWater == 0) {
-                    vec3 cloudLightDir = normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * cloudLightSign;
-
-                    // Calcula o fade da atmosfera baseado na altitude
-                    float atmosphereFade = 1.0;
-                    #if defined ATMOSPHERE_LAYER
-                        float atmosphereAltitude = max(cameraPosition.y, 0.0);
-                        float atmosphereLayer = smoothstep(float(ATMOSPHERE_START), float(ATMOSPHERE_END), atmosphereAltitude);
-                        atmosphereLayer = pow(atmosphereLayer, max(ATMOSPHERE_DENSITY, 0.001));
-                        atmosphereFade = mix(1.0, 0.05, atmosphereLayer);
-                    #endif
-
-                    #if !defined NORTHSTAR_CLOUDS_OFF
-                        float northstarCloudUmbral = umbral;
-                        #if defined NORTHSTAR_MARS
-                            // Mars' clouds are thin and high: low density means a higher noise cutoff.
-                            northstarCloudUmbral = max(umbral, 0.84 - 0.34 * clamp(NORTHSTAR_MARS_CLOUD_DENSITY, 0.05, 0.50));
-                        #endif
-                        blockColor.rgb = get_cloud(eyeDirection, blockColor.rgb, bright, dither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir, sceneDist, atmosphereFade, cloudCoverage);
-                    #endif
-                }
-            #endif
+            // A composição das nuvens foi MOVIDA para o composite: a água
+            // (gbuffers_water e dh_water) renderiza DEPOIS do deferred e
+            // apagava as nuvens compostas aqui (água/rio por cima da nuvem).
+            // Aqui só fica o eyeDirection usado pelo godray subaquático.
         }
 
     #else

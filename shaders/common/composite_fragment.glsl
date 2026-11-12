@@ -89,6 +89,7 @@ uniform vec3 cameraPosition;
 
 #ifdef DISTANT_HORIZONS
     uniform sampler2D dhDepthTex1;
+    uniform sampler2D dhDepthTex0;
     uniform float dhNearPlane;
     uniform float dhFarPlane;
 #endif
@@ -131,6 +132,28 @@ uniform vec3 cameraPosition;
     #include "/lib/volumetric_light.glsl"
 #endif
 
+#if defined YDREAM_CLOUD_PASS
+    // Nuvens compostas aqui, DEPOIS da água (gbuffers_water e dh_water rodam
+    // após o deferred, e apagavam as nuvens compostas no deferred).
+    varying float umbral;
+    varying vec3 cloudColor;
+    varying vec3 darkCloudColor;
+    varying float cloudLightSign;
+    uniform sampler2D gaux2;
+    #include "/lib/dither.glsl"
+    #include "/lib/volumetric_clouds.glsl"
+    #if !(VOL_LIGHT == 1 && !defined NETHER)
+        uniform vec3 sunPosition;
+    #endif
+    #if !((VOL_LIGHT == 1 || VOL_LIGHT == 2) && !defined NETHER)
+        uniform float dayNightMix;
+        uniform mat4 gbufferModelViewInverse;
+    #endif
+    #if AA_TYPE > 0
+        uniform vec2 taaOffset;
+    #endif
+#endif
+
 float ydr_water_scene_distance(vec2 uv) {
     float depth = texture2DLod(depthtex1, uv, 0.0).r;
     if (depth >= 0.999999) return 1e9;
@@ -153,7 +176,71 @@ float ydr_underwater_opaque_distance(vec2 uv) {
 }
 
 void main() {
+    float cloudCoverage = 0.0;
     vec4 blockColor = texture2DLod(colortex1, texcoord, 0.0);
+
+    #if defined YDREAM_CLOUD_PASS
+    if (isEyeInWater == 0) {
+        #if AA_TYPE > 0
+            float cloudDither = shiftedDither17(gl_FragCoord.xy);
+        #else
+            float cloudDither = rDither(gl_FragCoord.xy);
+        #endif
+        vec2 sampleNdc = texcoord * 2.0 - 1.0;
+        #if AA_TYPE > 0
+            sampleNdc -= taaOffset;
+        #endif
+
+        vec4 farPlaneClipPos = gbufferModelViewInverse * gbufferProjectionInverse * vec4(sampleNdc, 1.0, 1.0);
+        vec3 cloudEyeDirection = normalize(farPlaneClipPos.xyz);
+
+        // Distancia ate a superficie visivel (céu = ilimitada), igual ao
+        // bloqueio que o deferred fazia: terreno DH na frente corta a nuvem.
+        float sceneDist = 1e9;
+        float sceneDepthRaw = texture2DLod(depthtex0, texcoord, 0.0).r;
+        if (sceneDepthRaw < 0.9999) {
+            vec4 scenePos = gbufferProjectionInverse * vec4(sampleNdc, sceneDepthRaw * 2.0 - 1.0, 1.0);
+            sceneDist = length(scenePos.xyz / scenePos.w);
+        }
+        #ifdef DISTANT_HORIZONS
+            float dhCloudDepth = texture2DLod(dhDepthTex0, texcoord, 0.0).r;
+            if (dhCloudDepth < 0.999999) {
+                float dhCloudDist = 2.0 * dhNearPlane * dhFarPlane /
+                    (dhFarPlane + dhNearPlane - (2.0 * dhCloudDepth - 1.0) * (dhFarPlane - dhNearPlane));
+                sceneDist = min(sceneDist, dhCloudDist);
+            }
+        #endif
+
+        #ifdef THE_END
+            float cloudBright = dot(cloudEyeDirection, vec3(0.0, 0.89442719, 0.4472136));
+            cloudBright = clamp((cloudBright * 2.0) - 1.0, 0.0, 1.0);
+            cloudBright *= cloudBright * cloudBright * cloudBright;
+        #else
+            float cloudBright = dot(cloudEyeDirection, normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz));
+            cloudBright = clamp(cloudBright * cloudBright * cloudBright, 0.0, 1.0);
+        #endif
+
+        #ifndef THE_END
+            vec3 cloudLightDir = normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) * cloudLightSign;
+
+            float atmosphereFade = 1.0;
+            #if defined ATMOSPHERE_LAYER
+                float atmosphereAltitude = max(cameraPosition.y, 0.0);
+                float atmosphereLayer = smoothstep(float(ATMOSPHERE_START), float(ATMOSPHERE_END), atmosphereAltitude);
+                atmosphereLayer = pow(atmosphereLayer, max(ATMOSPHERE_DENSITY, 0.001));
+                atmosphereFade = mix(1.0, 0.05, atmosphereLayer);
+            #endif
+
+            #if !defined NORTHSTAR_CLOUDS_OFF
+                float northstarCloudUmbral = umbral;
+                #if defined NORTHSTAR_MARS
+                    northstarCloudUmbral = max(umbral, 0.84 - 0.34 * clamp(NORTHSTAR_MARS_CLOUD_DENSITY, 0.05, 0.50));
+                #endif
+                blockColor.rgb = get_cloud(cloudEyeDirection, blockColor.rgb, cloudBright, cloudDither, cameraPosition, CLOUD_STEPS_AVG, northstarCloudUmbral, cloudColor, darkCloudColor, cloudLightDir, sceneDist, atmosphereFade, cloudCoverage);
+            #endif
+        #endif
+    }
+    #endif
 
     float d = texture2DLod(depthtex0, texcoord, 0).r;
     float linearDepth = ld(d);
@@ -394,15 +481,17 @@ void main() {
         #endif
 
         blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-        /* DRAWBUFFERS:01 */
+        /* RENDERTARGETS: 0,1,6 */
         float bloomCap = mix(3.4, 0.8 + 1.6 * SUN_BLOOM, step(0.9999, d));
         vec3 bloomOut = min(blockColor.rgb, vec3(bloomCap));
         bloomOut /= 1.0 + max(max(bloomOut.r, bloomOut.g), bloomOut.b) * 0.16;
         gl_FragData[0] = vec4(bloomOut * (bloomWeight * 0.62), 1.0);
         gl_FragData[1] = blockColor;
+        gl_FragData[2] = vec4(cloudCoverage, 0.0, 0.0, 1.0);
     #else
         blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 1.0));
-        /* DRAWBUFFERS:1 */
+        /* RENDERTARGETS: 1,6 */
         gl_FragData[0] = blockColor;
+        gl_FragData[1] = vec4(cloudCoverage, 0.0, 0.0, 1.0);
     #endif
 }
