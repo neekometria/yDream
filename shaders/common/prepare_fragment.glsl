@@ -29,6 +29,18 @@ varying vec3 upVector;
 varying vec3 zenithSkyColor;
 varying vec3 horizonSkyColor;
 
+#if !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
+    // Discos reais da NASA (bound via shaders.properties como gaux1/gaux2):
+    //   gaux1 = fotosfera SDO/HMI continuum (granulacao + manchas)
+    //   gaux2 = mosaico LROC da Lunar Reconnaissance Orbiter
+    //IMPORTANTE: nomes arbitrarios de sampler (ex.: "sunDiskTex") sao
+    //ignorados por esta versao do Iris — o sampler fica preto e os discos
+    //desaparecem. Slots gaux1/gaux2 sao reconhecidos e o prepare nao usa
+    //colortex4/colortex5 (ele so escreve em 1/6/7), entao sao livres aqui.
+    uniform sampler2D gaux1;
+    uniform sampler2D gaux2;
+#endif
+
 #include "/lib/luma.glsl"
 #include "/lib/dither.glsl"
 
@@ -313,16 +325,24 @@ void main() {
 
         #if YDREAM_SUN_DISK == 1
             float diskAngle = sunAngle;
+            vec2 diskDelta = vec2(0.0);
             if (sunDir.z < -0.05 && nfragpos.z < -0.05) {
-                vec2 diskDelta = nfragpos.xy / -nfragpos.z - sunDir.xy / -sunDir.z;
+                diskDelta = nfragpos.xy / -nfragpos.z - sunDir.xy / -sunDir.z;
                 diskAngle = -sunDir.z * length(diskDelta);
             }
 
             float diskRadius = radians(STYLE_SUN_RADIUS) * SUN_SIZE;
             float diskEdge = 1.0 - smoothstep(diskRadius * 0.62, diskRadius * 1.18, diskAngle);
             float diskVisibility = smoothstep(-0.02, 0.03, sunAltitude) * (1.0 - rainAmount * 0.9);
-            vec3 diskEdgeColor = mix(vec3(1.0, 0.92, 0.74), vec3(1.0, 0.60, 0.30), lowSun);
-            vec3 diskColor = mix(vec3(1.0, 0.985, 0.95), diskEdgeColor, smoothstep(0.25, 1.0, diskAngle / diskRadius));
+            // Fotosfera real (SDO/HMI continuum, NASA): granulacao e manchas
+            // solares de verdade em vez do disco liso. Mip 0 para o preto da
+            // moldura da foto nao sangrar para dentro da borda do disco.
+            // diskDelta escalado = offset angular / raio do disco, normalizado.
+            // 0.40 mantem o sample dentro da fotosfera da foto (disco vai ate
+            // r~0.88 da moldura; 0.45 tocava a moldura preta na borda).
+            vec2 diskUV = clamp(vec2(0.5) + diskDelta * (-sunDir.z / diskRadius) * 0.40, vec2(0.0), vec2(1.0));
+            vec3 diskColor = texture2DLod(gaux1, diskUV, 0.0).rgb *
+                mix(vec3(1.0, 0.98, 0.92), vec3(1.0, 0.62, 0.32), lowSun);
             fullSky += diskColor * (diskEdge * diskVisibility * 3.4 * SUN_DISK_BRIGHTNESS * STYLE_SUN_CORE);
         #endif
 
@@ -344,7 +364,7 @@ void main() {
         #endif
 
         #if YDREAM_MOON_DISK == 1
-            fullSky += moonDiskLayer(nfragpos, moonDir, upVector, cosMoon, moonAltitude, skyElevation, rainAmount);
+            fullSky += moonDiskLayer(gaux2, nfragpos, moonDir, upVector, cosMoon, moonAltitude, skyElevation, rainAmount);
         #endif
 
         #if YDREAM_STARS == 1 || YDREAM_AURORA == 1 || YDREAM_SHOOTING == 1

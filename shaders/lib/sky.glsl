@@ -1570,7 +1570,7 @@ vec3 auroraCurtains(vec3 worldDir, float time, float reveal) {
 }
 
 #if !defined THE_END && YDREAM_MOON_DISK == 1
-vec3 moonDiskLayer(vec3 nfragpos, vec3 moonDir, vec3 upVector, float cosMoon, float moonAltitude, float skyElevation, float rainAmount) {
+vec3 moonDiskLayer(sampler2D moonTex, vec3 nfragpos, vec3 moonDir, vec3 upVector, float cosMoon, float moonAltitude, float skyElevation, float rainAmount) {
     float moonRadius = radians(STYLE_MOON_RADIUS * MOON_SIZE);
     vec3 result = vec3(0.0);
 
@@ -1592,33 +1592,24 @@ vec3 moonDiskLayer(vec3 nfragpos, vec3 moonDir, vec3 upVector, float cosMoon, fl
             float moonLit = smoothstep(-0.03, 0.26, ndl);
             float moonShade = mix(0.50, 1.0, pow(clamp(ndl, 0.0, 1.0), 0.45));
 
-            float maria = valueNoise2(moonUV * 2.6 + 1.7) * 0.6 + valueNoise2(moonUV * 6.5 + 4.1) * 0.4;
-            float moonAlbedo = mix(0.40, 1.0, smoothstep(0.36, 0.60, maria));
-
-            vec2 craterP = moonUV * 6.0;
-            vec2 craterCell = floor(craterP);
-            float craterShade = 1.0;
-            for (int cy = -1; cy <= 1; cy++) {
-                for (int cx = -1; cx <= 1; cx++) {
-                    vec2 cc = craterCell + vec2(float(cx), float(cy));
-                    vec2 cp = cc + vec2(hash12(cc * 1.7 + 3.1), hash12(cc * 2.3 + 8.7)) * 0.7 + 0.15;
-                    float cr = 0.10 + 0.22 * hash12(cc + 17.0);
-                    float cd = length(craterP - cp);
-                    float present = step(0.45, hash12(cc * 3.3 + 1.1));
-                    float floorDark = smoothstep(cr, cr * 0.35, cd) * 0.22;
-                    float rim = (1.0 - smoothstep(0.0, cr * 0.28, abs(cd - cr))) * 0.16;
-                    craterShade -= (floorDark - rim) * present;
-                }
-            }
+            // Superficie real: mosaico LROC (Lunar Reconnaissance Orbiter, NASA)
+            // em projecao equirretangular — mares, crateras e raios de ejecta
+            // reais em vez do ruido procedural. A normal local do disco (x,y,z
+            // para o observador) vira lon/lat na esfera lunar.
+            vec2 moonMapUV = vec2(
+                0.5 + atan(moonNormal.x, moonNormal.z) * 0.15915494,
+                0.5 - asin(clamp(moonNormal.y, -1.0, 1.0)) * 0.31830989);
+            vec3 moonSurface = texture2DLod(moonTex, moonMapUV, 0.0).rgb;
 
             float moonLimb = 1.0 - smoothstep(0.94, 1.0, moonRadial);
             float limbDark = mix(0.80, 1.0, (1.0 - smoothstep(0.45, 1.0, moonRadial)));
             float moonDiskVisibility = smoothstep(-0.05, 0.03, moonAltitude) * smoothstep(-0.02, 0.02, skyElevation) *
                 mix(0.25, 1.0, skyNightAmount()) * (1.0 - rainAmount * 0.9);
 
-            float surface = moonAlbedo * craterShade * limbDark;
-            result += MOON_DISK_COLOR * ((surface * moonShade * moonLit * 2.5 + 0.030) * moonLimb * moonDiskVisibility);
-            result += vec3(0.30, 0.44, 0.92) * (surface * (1.0 - moonLit) * 0.050 * moonLimb * moonDiskVisibility);
+            // MOON_DISK_BRIGHTNESS evita que o disco sature em branco puro;
+            // o fator base 2.5 com brilho 1.0 deixava a lua como uma bola de luz.
+            result += MOON_DISK_COLOR * ((moonSurface * moonShade * moonLit * (2.5 * MOON_DISK_BRIGHTNESS) + 0.030) * moonLimb * moonDiskVisibility);
+            result += vec3(0.30, 0.44, 0.92) * (moonSurface * (1.0 - moonLit) * 0.050 * moonLimb * moonDiskVisibility);
         }
     }
 
