@@ -41,14 +41,18 @@ float vlMax3(vec3 v) {
     return max(v.r, max(v.g, v.b));
 }
 
-vec3 vlFetch(vec3 idx) {
+vec4 vlFetch4(vec3 idx) {
     if (idx.x < 0.0 || idx.y < 0.0 || idx.z < 0.0 || idx.x >= 96.0 || idx.y >= 48.0 || idx.z >= 96.0) {
-        return vec3(0.0);
+        return vec4(0.0);
     }
     float tileX = mod(idx.y, 7.0);
     float tileY = floor(idx.y / 7.0);
     vec2 texel = vec2(tileX * 96.0 + idx.x, tileY * 96.0 + idx.z) + 0.5;
-    return texture2DLod(colortex8, texel / 672.0, 0.0).rgb;
+    return texture2DLod(colortex8, texel / 672.0, 0.0);
+}
+
+vec3 vlFetch(vec3 idx) {
+    return vlFetch4(idx).rgb;
 }
 
 uniform vec3 previousCameraPosition;
@@ -83,6 +87,55 @@ vec3 vlApply(vec3 color, vec2 uv, vec3 viewPos, out vec3 fieldOut) {
         float strength = vlMax3(field);
         fieldOut = field;
 
+        // Sombras de tocha: estima a direção da luz pelo gradiente do campo
+        // voxel e faz ray march pela solidez do volume. Se a geometria bloqueia
+        // o caminho direto, a luz de vela vanilla (que não tem oclusão) é
+        // escurecida — a face fica na sombra em vez de receber luz “através”
+        // ou “ao redor” do bloco.
+        float torchShadow = 0.0;
+        if (TORCH_SHADOW_STRENGTH > 0.001 && strength > 0.015) {
+            vec3 baseIdx = floor(vlCell(surface));
+            float cVal = vlMax3(vlFetch(baseIdx));
+            float bestRise = 0.03;
+            vec3 bestDir = vec3(0.0);
+
+            float rise;
+            rise = vlMax3(vlFetch(baseIdx + vec3(1.0, 0.0, 0.0))) - cVal;
+            if (rise > bestRise) { bestRise = rise; bestDir = vec3(1.0, 0.0, 0.0); }
+            rise = vlMax3(vlFetch(baseIdx + vec3(-1.0, 0.0, 0.0))) - cVal;
+            if (rise > bestRise) { bestRise = rise; bestDir = vec3(-1.0, 0.0, 0.0); }
+            rise = vlMax3(vlFetch(baseIdx + vec3(0.0, 1.0, 0.0))) - cVal;
+            if (rise > bestRise) { bestRise = rise; bestDir = vec3(0.0, 1.0, 0.0); }
+            rise = vlMax3(vlFetch(baseIdx + vec3(0.0, -1.0, 0.0))) - cVal;
+            if (rise > bestRise) { bestRise = rise; bestDir = vec3(0.0, -1.0, 0.0); }
+            rise = vlMax3(vlFetch(baseIdx + vec3(0.0, 0.0, 1.0))) - cVal;
+            if (rise > bestRise) { bestRise = rise; bestDir = vec3(0.0, 0.0, 1.0); }
+            rise = vlMax3(vlFetch(baseIdx + vec3(0.0, 0.0, -1.0))) - cVal;
+            if (rise > bestRise) { bestRise = rise; bestDir = vec3(0.0, 0.0, -1.0); }
+
+            if (bestDir.x != 0.0 || bestDir.y != 0.0 || bestDir.z != 0.0) {
+                vec3 p = baseIdx + bestDir;
+
+                for (int i = 0; i < 12; i++) {
+                    vec4 s = vlFetch4(p);
+
+                    if (s.a > 0.5) {
+                        // Voxel sólido: se ele carrega a seed do emissor,
+                        // chegamos na fonte (sem sombra); senão, caminho
+                        // direto bloqueado.
+                        torchShadow = vlMax3(s.rgb) > 0.10 ? 0.0 : 1.0;
+                        break;
+                    }
+
+                    if (vlMax3(s.rgb) > 0.35) {
+                        break; // luz forte alcançada pelo ar: sem sombra
+                    }
+
+                    p += bestDir;
+                }
+            }
+        }
+
         if (strength > 0.015) {
             vec3 albedo = texture2DLod(colortex9, uv, 0.0).rgb;
             vec3 hue = field / strength;
@@ -100,6 +153,12 @@ vec3 vlApply(vec3 color, vec2 uv, vec3 viewPos, out vec3 fieldOut) {
             vec3 replaced = albedo * (hueNormal - warmNormal) * (candle * dominance * COLORED_LIGHT_STRENGTH * 0.8);
             vec3 glow = albedo * hueNormal * (spill * 0.42 * facing * reach * COLORED_LIGHT_STRENGTH);
             color = max(color + replaced + glow, vec3(0.0));
+        }
+
+        if (torchShadow > 0.001) {
+            vec3 albedoS = texture2DLod(colortex9, uv, 0.0).rgb;
+            vec3 warmNormalS = vec3(1.0, 0.60, 0.26) / 0.6605;
+            color = max(color - albedoS * warmNormalS * (candle * torchShadow * TORCH_SHADOW_STRENGTH), vec3(0.0));
         }
     }
 

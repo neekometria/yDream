@@ -15,11 +15,12 @@ float vsMax3(vec3 v) {
     return max(v.r, max(v.g, v.b));
 }
 
-vec3 vsHistory(vec3 idx) {
+// Canal alpha do colortex8 = solidez do voxel (mesma convenção do voxel_update).
+vec4 vsHistory(vec3 idx) {
     float tileX = mod(idx.y, 7.0);
     float tileY = floor(idx.y / 7.0);
     vec2 texel = vec2(tileX * 96.0 + idx.x, tileY * 96.0 + idx.z) + 0.5;
-    return texture2DLod(colortex8, texel / 672.0, 0.0).rgb;
+    return texture2DLod(colortex8, texel / 672.0, 0.0);
 }
 
 void main() {
@@ -30,11 +31,31 @@ void main() {
     vec3 idx = vec3(mod(pixel.x, 96.0), slice, mod(pixel.y, 96.0));
 
     vec3 best = vec3(0.0);
+    float solidity = vsHistory(idx).a;
 
     if (slice < 48.0 && tileX < 7.0 && tileY < 7.0) {
-        best = vsHistory(idx);
-
         vec3 rel = (idx - vec3(48.0, 24.0, 48.0)) + 0.5 - fract(cameraPosition);
+
+        // Marcação de solidez com o depth do frame atual (este passe roda
+        // depois da geometria, ao contrário do voxel_update).
+        if (dot(rel, rel) < 576.0) {
+            vec4 viewPos = gbufferModelView * vec4(rel, 1.0);
+
+            if (viewPos.z < -0.3) {
+                vec4 clipPos = gbufferProjection * viewPos;
+                vec2 baseUV = clipPos.xy / clipPos.w * 0.5 + 0.5;
+
+                if (baseUV.x > 0.002 && baseUV.x < 0.998 && baseUV.y > 0.002 && baseUV.y < 0.998) {
+                    float sceneDepth = texture2DLod(depthtex0, baseUV, 0.0).r;
+                    float sceneDistance = 2.0 * near * far / (far + near - (sceneDepth * 2.0 - 1.0) * (far - near));
+                    float gap = (-viewPos.z) - sceneDistance;
+
+                    solidity = (gap > 0.0 && gap < 1.55) ? 1.0 : 0.0;
+                }
+            }
+        }
+
+        best = vsHistory(idx).rgb;
 
         if (dot(rel, rel) < 576.0) {
             vec4 viewPos = gbufferModelView * vec4(rel, 1.0);
@@ -76,5 +97,5 @@ void main() {
     }
 
     /* DRAWBUFFERS:8 */
-    gl_FragData[0] = vec4(best, 1.0);
+    gl_FragData[0] = vec4(best, solidity);
 }

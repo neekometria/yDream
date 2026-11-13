@@ -48,6 +48,9 @@ const bool colortex13Clear = false;
 const bool colortex15Clear = true;
 #endif
 #if YDREAM_VOXEL_LIGHT > 0
+// Formato explicito (RGBA16F) não é reconhecido por esta versão do Iris
+// (C1503: undefined variable) — o default RGBA8 já tem canal alpha para a
+// marca de solidez da oclusão.
 /*
 const int colortex8Format = RGBA16F;
 */

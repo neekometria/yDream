@@ -16,7 +16,12 @@ if (isEyeInWater == 1) {
 float blockLightLevel = clamp(illumination.x, 0.0, 1.0);
 float blockLightCurve = blockLightLevel * sqrt(blockLightLevel) + sixthPow(blockLightLevel * 1.17);
 blockLightCurve += 0.45 * blockLightLevel * blockLightLevel * blockLightLevel * blockLightLevel;
-vec3 blockLightShift = mix(vec3(1.06, 0.92, 0.70), vec3(1.0, 1.04, 1.10), smoothstep(0.55, 1.0, blockLightLevel));
+// Contraste: fator 1 / (1 + contrast*(1-x)) — x=1 (junto à fonte) fica intacto;
+// níveis baixos escurecem, encurtando o alcance visual da luz.
+blockLightCurve /= 1.0 + BLOCKLIGHT_CONTRAST * (1.0 - blockLightLevel);
+// Intensidade global da luz de bloco.
+blockLightCurve *= BLOCKLIGHT_INTENSITY;
+vec3 blockLightShift = mix(vec3(1.06, 0.92, 0.70), vec3(1.0, 1.04, 1.10), smoothstep(0.85, 1.0, blockLightLevel));
 #if BLOCKLIGHT_TEMP == 4
     blockLightShift = vec3(1.0);
 #endif
@@ -26,7 +31,7 @@ candleColor = CANDLE_BASELIGHT * blockLightShift * blockLightCurve;
     if (heldItemId == 11001 || heldItemId2 == 11001 || heldItemId == 11002 || heldItemId2 == 11002) {
         float distanceOffset = (heldItemId == 11001 || heldItemId2 == 11001) ? 0.0 : 0.5;
         float handDistance = (1.0 - clamp((gl_FogFragCoord * 0.06666666666666667) + distanceOffset, 0.0, 1.0));
-        vec3 handLight = CANDLE_BASELIGHT * (handDistance * sqrt(handDistance) + sixthPow(handDistance * 1.17));
+        vec3 handLight = CANDLE_BASELIGHT * (handDistance * sqrt(handDistance) + sixthPow(handDistance * 1.17)) * BLOCKLIGHT_INTENSITY;
         candleColor = max(candleColor, handLight);
     }
 #endif

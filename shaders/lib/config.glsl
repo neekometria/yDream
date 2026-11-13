@@ -29,7 +29,7 @@
 #define ENTITY_ORE_BRIGHT     10421.0
 
 #define YDREAM_COLOR_STYLE 3 // [0 2 3 99]
-#define YDREAM_QUALITY 3 // [0 1 2 3 4]
+#define YDREAM_QUALITY 3 // [0 1 2 3 4 5]
 
 #define REAL_STARS 1                          // [0 1]
 #define REAL_STAR_DENSITY 100                 // [50 100 150 200 300 400 500]
@@ -110,7 +110,7 @@
 #define GODRAY_WARMTH 1.0 // [0.0 0.5 1.0 1.5 2.0]
 #define GODRAY_SPREAD 1.0 // [0.5 0.75 1.0 1.5 2.0]
 #define GODRAY_SHARPNESS 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
-#define PERFORMANCE_MODE 2 // [2 1 0]
+#define PERFORMANCE_MODE 2 // [0 1 2 3]
 #define PERF_CLOUDS 100 // [50 75 100 125 150 175 200 300 400 1000 3000 10000]
 #define PERF_GODRAYS 100 // [50 75 100 125 150]
 #define PERF_REFLECTIONS 100 // [25 35 50 65 75 85 100 125 150]
@@ -193,9 +193,15 @@
 #define SS_DEBUG 0 // [0 1 2 3 4]
 #define GI_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0]
 #define GI_RADIUS 4.0 // [2.0 3.0 4.0 5.0 6.0 8.0]
-#define COLORED_LIGHT 0 // [0 1]
+// Luz global colorida: emissores (fogo, soul, redstone, sea lantern, ochre,
+// verdant...) tingem o ambiente com a própria cor. Ligada por padrão; os perfis
+// Mínimo/Rápido forçam desligada para economizar FPS.
+#define COLORED_LIGHT 1 // [0 1]
 #define COLORED_LIGHT_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define COLORED_LIGHT_RADIUS 8.0 // [4.0 6.0 8.0 10.0 12.0 16.0]
+// Sombras de tocha: escurece a luz de bloco vanilla nas faces cujo caminho
+// direto até a fonte está bloqueado (ray march no volume voxel). 0 desliga.
+#define TORCH_SHADOW_STRENGTH 0.65 // [0.0 0.25 0.5 0.65 0.8 1.0]
 #define CLOUD_LIGHTING 0 // [0 1 2]
 // Torres de tempestade raras (cumulonimbus com bigorna, tipo cogumelo). O
 // campo usa o mesmo ruído/vento das nuvens, então elas viajam com o vento e
@@ -268,7 +274,7 @@
 
 #define WATER_ABSORPTION 0.10 // [0.02 0.04 0.06 0.08 0.10 0.12 0.14 0.16 0.18 0.20 0.22 0.24 0.26 0.28 0.30 0.32 0.34 0.36 0.38 0.40 0.42 0.44 0.46 0.48 0.50 0.52 0.54 0.56 0.58 0.60 0.62 0.64 0.66 0.68 0.70 0.72 0.74 0.76 0.78 0.80]
 #define WATER_TEXTURE 0 // [0 1]
-#define AVOID_DARK_LEVEL 0.042 // [0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035 0.040 0.042 0.045 0.050 0.055 0.060]
+#define AVOID_DARK_LEVEL 0.030 // [0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035 0.040 0.042 0.045 0.050 0.055 0.060]
 #define NIGHT_BRIGHT 0.68 // [0.05 0.10 0.15 0.20 0.25 0.30 0.35 0.40 0.45 0.50 0.55 0.60 0.65 0.68 0.70 0.75 0.80 0.85 0.90]
 #define BLACK_ENTITY_FIX 0 // [0 1]
 // Luz mínima que o jogador (Epic Fight e Punchy) recebe, para mascarar o auto-sombreamento.
@@ -442,6 +448,9 @@
 #endif
 #define BLOOM
 #define BLOOM_INTENSITY 1.0 // [0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0]
+// Multiplicador extra do bloom à noite: faz chamas/lava/lanternas brilharem
+// de verdade depois do pôr do sol (0 = desativa o boost noturno).
+#define BLOOM_NIGHT_BOOST 1.5 // [0.0 0.5 1.0 1.5 2.0 2.5]
 #define BLOOM_THRESHOLD 0.85 // [0.65 0.70 0.75 0.80 0.85 0.90 0.95]
 #define CHROMA_ABER 0 // [0 1]
 #define CHROMA_ABER_STRENGTH 0.04 // [0.04 0.05 0.06]
@@ -461,11 +470,16 @@
 #define WETNESS_STRENGTH 1.0 // [0.5 0.75 1.0 1.25 1.5 2.0]
 #define FOG_ADJUST 2.0 // [10.0 8.0 4.0 2.0 1.0]
 // #define DEBUG_MODE
-#define BLOCKLIGHT_TEMP 1 // [0 1 2 3 4]
-#define EMISSIVE_STRENGTH 1.5 // [0.5 0.75 1.0 1.25 1.5 1.75 2.0 2.25 2.5]
+#define BLOCKLIGHT_TEMP 0 // [0 1 2 3 4]
+// Intensidade geral da luz de bloco (tochas, lanternas, fogo).
+#define BLOCKLIGHT_INTENSITY 1.25 // [0.75 1.0 1.25 1.5 1.75 2.0 2.5]
+// Contraste do falloff: 0.0 = decaimento original (uniforme); valores altos
+// escurecem o "rabo" da luz sem mudar o pico junto à fonte.
+#define BLOCKLIGHT_CONTRAST 0.5 // [0.0 0.25 0.5 0.75 1.0 1.5]
+#define EMISSIVE_STRENGTH 2.0 // [0.5 0.75 1.0 1.25 1.5 1.75 2.0 2.25 2.5]
 #define EMISSIVE_RICHNESS 0.4 // [0.0 0.2 0.4 0.6 0.8 1.0]
-#define EMISSIVE_HOTCORE 1.0 // [0.0 0.5 1.0 1.5 2.0]
-#define EMISSIVE_NIGHT_BOOST 1.0 // [0.0 0.5 1.0 1.5 2.0]
+#define EMISSIVE_HOTCORE 1.5 // [0.0 0.5 1.0 1.5 2.0]
+#define EMISSIVE_NIGHT_BOOST 1.5 // [0.0 0.5 1.0 1.5 2.0]
 #define DYN_HAND_LIGHT
 // #define IMAGE_SHARPENING
 #define SHARPENING 0.4 // [0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]

@@ -23,6 +23,7 @@ uniform float aspectRatioInverse;
 
 #ifdef BLOOM
     uniform float softLod;
+    uniform float dayNightMix;
 #endif
 
 varying vec2 texcoord;
@@ -86,7 +87,11 @@ void main() {
     #ifdef BLOOM
         vec3 bloom = mipmap_bloom(colortex0, texcoord, dither);
         bloom = mix(vec3(dot(bloom, vec3(0.2126, 0.7152, 0.0722))), bloom, BLOOM_SATURATION);
-        blockColor.rgb += bloom * BLOOM_INTENSITY * YDREAM_STYLE_BLOOM_MULT * STYLE_BLOOM_TINT;
+        // À noite as fontes emissoras (chamas, lava, lanternas) ganham bloom
+        // extra, para “brilharem” de verdade contra o céu escuro.
+        float bloomNight = 1.0 - smoothstep(0.0, 0.5, dayNightMix);
+        float bloomWeight = BLOOM_INTENSITY * mix(1.0, BLOOM_NIGHT_BOOST, bloomNight);
+        blockColor.rgb += bloom * bloomWeight * YDREAM_STYLE_BLOOM_MULT * STYLE_BLOOM_TINT;
     #endif
 
     #if YDREAM_LENS_FLARE == 1 && !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
