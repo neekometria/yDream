@@ -1,4 +1,4 @@
-#version 120
+#version 430 compatibility
 #extension GL_ARB_shader_texture_lod : enable
 #define NORTHSTAR_ORBIT_RADIUS 1.0
 #define NORTHSTAR_ORBIT_EARTH

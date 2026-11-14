@@ -190,7 +190,7 @@
 #define DOF_STRENGTH 0.09 // [0.06 0.07 0.08 0.09 0.10 0.11 0.12 0.13]
 #define AO 1 // [0 1]
 #define SS_GI 0 // [0 1 2]
-#define SS_DEBUG 0 // [0 1 2 3 4]
+#define SS_DEBUG 0 // [0 1 2 3 4 5]
 #define GI_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0]
 #define GI_RADIUS 4.0 // [2.0 3.0 4.0 5.0 6.0 8.0]
 // Luz global colorida: emissores (fogo, soul, redstone, sea lantern, ochre,
@@ -199,9 +199,6 @@
 #define COLORED_LIGHT 1 // [0 1]
 #define COLORED_LIGHT_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define COLORED_LIGHT_RADIUS 8.0 // [4.0 6.0 8.0 10.0 12.0 16.0]
-// Sombras de tocha: escurece a luz de bloco vanilla nas faces cujo caminho
-// direto até a fonte está bloqueado (ray march no volume voxel). 0 desliga.
-#define TORCH_SHADOW_STRENGTH 0.65 // [0.0 0.25 0.5 0.65 0.8 1.0]
 #define CLOUD_LIGHTING 0 // [0 1 2]
 // Torres de tempestade raras (cumulonimbus com bigorna, tipo cogumelo). O
 // campo usa o mesmo ruído/vento das nuvens, então elas viajam com o vento e
@@ -1379,20 +1376,16 @@
     #define YDREAM_RSM_GI SS_GI
 #endif
 
-#if YDREAM_QUALITY == 0
-    #define YDREAM_VOXEL_LIGHT 0
+// Colored light is evaluated inline in terrain/entity/hand material shaders.
+// It does not participate in the deferred screen-space lighting path.
+#if COLORED_LIGHT > 0 && YDREAM_QUALITY != 0
+    #define YDREAM_VOXEL_LIGHT 1
 #else
-    #define YDREAM_VOXEL_LIGHT COLORED_LIGHT
+    #define YDREAM_VOXEL_LIGHT 0
 #endif
 
-#define YDREAM_SS_COLORLIGHT 0
-
-#if YDREAM_VOXEL_LIGHT > 0
-    #define YDREAM_VL_GLOW
-    #define YDREAM_VL_GLOW_STEPS 16
-#endif
-
-#if YDREAM_RSM_GI > 0 || YDREAM_VOXEL_LIGHT > 0
+// Screen-space deferred helpers are used only by RSM global illumination.
+#if YDREAM_RSM_GI > 0
     #define YDREAM_SS_ANY
 #endif
 
@@ -1573,6 +1566,9 @@ const float sunPathRotation = 0.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10.0
 #define SHADOW_CASTING
 
 #ifdef SHADOW_CASTING
+    // Iris reversed culling uses this local radius for the unculled voxel area.
+    // Keep it declared even when NO_SHADOWS skips the actual shadow-map setup.
+    const float voxelDistance = 48.0;
     const float shadowIntervalSize = 3.0;
 
     const bool shadowtex0Mipmap = false;
@@ -1682,6 +1678,7 @@ const float sunPathRotation = 0.0; // [-40.0 -35.0 -30.0 -25.0 -20.0 -15.0 -10.0
     #define SHADOW_RES 0
     const int shadowMapResolution = 100;
     const float shadowDistance = 60.0;
+    const float voxelDistance = 48.0;
 #endif
 
 #if AO == 0
@@ -1698,7 +1695,7 @@ const float centerDepthHalflife = 0.66;
     #define TRANSITION_DH_INF 0.90
 #endif
 
-#if YDREAM_RSM_GI > 0 || YDREAM_VOXEL_LIGHT > 0
+#if YDREAM_RSM_GI > 0
     #define YDREAM_LIGHT_BUFFERS
 #endif
 

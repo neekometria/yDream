@@ -12,7 +12,7 @@ Happy editing!
 
 ### shaders/common
 
-In order to avoid duplicate code, the various shaders used in the different dimensions of Minecraft refer to files located in this directory. This is where the main routines for each of the different types of blocks are located, as well as the rest of the steps in the Optifine/Iris work pipeline.
+In order to avoid duplicate code, the various shaders used in the different dimensions of Minecraft refer to files located in this directory. This is where the main routines for each of the different types of blocks are located, as well as the rest of the steps in the Iris rendering pipeline.
 
 The vertex and fragment shaders for each step are separated into individual files, which can be clearly identified by the name of the file in question.
 

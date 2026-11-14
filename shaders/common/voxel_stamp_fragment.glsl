@@ -81,7 +81,9 @@ void main() {
 
                                 float seedGap = voxelDistance - sceneDistance;
 
-                                if (seedGap > -0.2 && seedGap < 0.95) {
+                                // Mesmo gate do voxel_update: -0.85 alcança o voxel do próprio
+                                // emissor e o voxel de ar adjacente (gap -0.375..-0.5).
+                                if (seedGap > -0.85 && seedGap < 0.95) {
                                     hueSum += tint.rgb;
                                 }
                             }

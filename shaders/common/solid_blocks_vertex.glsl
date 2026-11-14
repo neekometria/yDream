@@ -155,6 +155,7 @@ attribute vec4 mc_Entity;
 
 #include "/lib/luma.glsl"
 
+
 #if defined CLOUD_SHADOWS_ON && defined CLOUD_SHADOW_APPLY
     #include "/lib/cloud_shadow.glsl"
 #endif
@@ -163,6 +164,11 @@ attribute vec4 mc_Entity;
 varying vec3 playerViewPos;
 varying vec3 playerSunDir;
 varying vec2 playerLmcoord;
+#endif
+
+#if YDREAM_VOXEL_LIGHT > 0 && (defined GBUFFER_TERRAIN || defined GBUFFER_ENTITIES || defined GBUFFER_HAND)
+varying vec3 vlWorldRelPos;
+varying vec3 vlWorldNormal;
 #endif
 
 
@@ -304,8 +310,16 @@ void main() {
         playerLmcoord = lmcoord;
     #endif
 
+    #if YDREAM_VOXEL_LIGHT > 0 && (defined GBUFFER_TERRAIN || defined GBUFFER_ENTITIES || defined GBUFFER_HAND)
+        // worldPosition is already camera-relative; keep the coordinate space
+        // identical for blocks, entities and the held item.
+        vlWorldRelPos = worldPosition.xyz;
+        vlWorldNormal = mat3(gbufferModelViewInverse) * normal;
+    #endif
+
     #if defined SHADOW_CASTING && SHADOW_LOCK > 0 && !defined NETHER
         vNormal = shadowWorldNormal;
         vBias = bias;
     #endif
+
 }

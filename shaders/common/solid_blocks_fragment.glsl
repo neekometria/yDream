@@ -4,6 +4,8 @@
     #include "/lib/color_utils_end.glsl"
 #elif defined NETHER
     #include "/lib/color_utils_nether.glsl"
+#else
+    #include "/lib/color_utils.glsl"
 #endif
 
 uniform float viewWidth;
@@ -18,6 +20,9 @@ uniform float pixelSizeX;
 uniform float pixelSizeY;
 uniform sampler2D gaux4;
 uniform vec3 cameraPosition;
+// Uniforms custom (avaliadas no CPU) exigidas por voxel_field.glsl — o
+// padrão cameraPosition chega garbage nos passes deferred.
+uniform vec3 ydCameraPosition;
 
 #if defined DISTANT_HORIZONS
 uniform float dhNearPlane;
@@ -109,6 +114,10 @@ varying vec3 emitterTint;
     #endif
 #endif
 
+#if YDREAM_VOXEL_LIGHT > 0 && (defined GBUFFER_TERRAIN || defined GBUFFER_ENTITIES || defined GBUFFER_HAND)
+varying vec3 vlWorldRelPos;
+varying vec3 vlWorldNormal;
+#endif
 #ifdef FOLIAGE_V
 varying float isFoliage;
 varying float foliageBackscatter;
@@ -142,6 +151,12 @@ varying float lumaPower;
 #endif
 
 #include "/lib/luma.glsl"
+
+#if YDREAM_VOXEL_LIGHT > 0 && (defined GBUFFER_TERRAIN || defined GBUFFER_ENTITIES || defined GBUFFER_HAND)
+#define VLF_MATERIAL_LIGHT
+#include "/lib/voxel_field.glsl"
+#undef VLF_MATERIAL_LIGHT
+#endif
 
 #if defined PBR_ACTIVE && PBR_MODE == 1
     #include "/lib/labpbr.glsl"
@@ -216,7 +231,16 @@ void main() {
     #endif
 
     #if defined GBUFFER_ENTITIES
+    // Keep the source coverage untouched. Apply Minecraft's entity overlay to
+    // the albedo before lighting, so colored light cannot modulate overlay
+    // opacity or make the overlay appear to fade in/out with scene brightness.
     vec4 originalEntityColor = blockColor;
+    blockColor.rgb = mix(
+        blockColor.rgb,
+        entityColor.rgb * entityColor.rgb * 2.0,
+        clamp(entityColor.a, 0.0, 1.0)
+    );
+    blockColor.a = originalEntityColor.a;
     #endif
 
     #ifdef FOLIAGE_V
@@ -261,6 +285,22 @@ void main() {
     #if defined GBUFFER_TERRAIN || defined GBUFFER_HAND || defined GBUFFER_ENTITIES
     if (isEmissiveEntityLocal > 0.5) {
         finalCandleColor *= block_luma * EMISSIVE_STRENGTH;
+    }
+    #endif
+
+    #if YDREAM_VOXEL_LIGHT > 0 && (defined GBUFFER_TERRAIN || defined GBUFFER_ENTITIES || defined GBUFFER_HAND)
+    // Emissive geometry keeps its own material/emission treatment. All other
+    // surfaces read the same volume using their own interpolated normal.
+    float voxelLightEligible = 1.0 - clamp(isEmissiveEntity, 0.0, 1.0);
+        #if defined GBUFFER_ENTITIES
+    voxelLightEligible *= 1.0 - isEmissiveEntityLocal;
+        #endif
+    if (voxelLightEligible > 0.5) {
+        finalCandleColor = vlfApplyBlockLight(
+            finalCandleColor,
+            vlWorldRelPos,
+            normalize(vlWorldNormal)
+        );
     }
     #endif
 
@@ -555,9 +595,10 @@ void main() {
     } else if (entityId == 10201) {
         blockColor = originalEntityColor;
         blockColor.rgb = blockColor.rgb * blockColor.rgb;
+        blockColor.a = originalEntityColor.a;
     } else {
-        float entity_poderation = luma(realLight);
-        blockColor.rgb = mix(blockColor.rgb, entityColor.rgb, entityColor.a * entity_poderation * 3.0);
+        // Entity coverage is invariant under colored illumination.
+        blockColor.a = originalEntityColor.a;
     }
     #endif
 

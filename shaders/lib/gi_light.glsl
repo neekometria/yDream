@@ -107,8 +107,13 @@ vec4 giResolve(sampler2D historyTex, vec4 current, vec2 uv, float keepBase) {
     }
 
     vec3 rayDir = normalize(mat3(gbufferModelViewInverse) * giViewPos(uv, 1.0));
-    vec3 rel = rayDir * current.a + (cameraPosition - previousCameraPosition);
-    vec4 prevView = gbufferPreviousModelView * vec4(rel, 1.0);
+    // Reprojeção exata por CADEIA DE MATRIZES: view -> mundo absoluto
+    // (gbufferModelViewInverse tem a translação da câmera embutida) -> view
+    // do frame anterior (gbufferPreviousModelView espera coords de mundo
+    // absolutas). NÃO usa NENHUMA uniform de posição de câmera — o padrão E
+    // o custom chegam garbage em passes deferred, e reprojeção com delta
+    // errado treme/desliza em movimento (parado, delta=0, parecia ok).
+    vec4 prevView = gbufferPreviousModelView * (gbufferModelViewInverse * vec4(giViewPos(uv, current.a), 1.0));
     vec4 prevClip = gbufferPreviousProjection * prevView;
 
     if (prevClip.w <= 0.0) {

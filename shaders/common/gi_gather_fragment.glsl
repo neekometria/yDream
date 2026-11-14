@@ -4,6 +4,8 @@
 
 
 uniform sampler2D depthtex0;
+// Usado só como repasse quando o GI RSM está desligado (ver final do main).
+uniform sampler2D colortex2;
 uniform sampler2D shadowcolor0;
 uniform sampler2D shadowcolor1;
 uniform mat4 shadowModelView;
@@ -31,6 +33,14 @@ void main() {
         }
     #endif
 
-    /* DRAWBUFFERS:2 */
-    gl_FragData[0] = result;
+    #if YDREAM_RSM_GI > 0
+        /* DRAWBUFFERS:2 */
+        gl_FragData[0] = result;
+    #else
+        // GI RSM desligado: repassa colortex2 sem alterar. O passe nem deveria
+        // rodar (program.deferred2.enabled fica false no shaders.properties),
+        // mas se rodar não deve apagar o conteúdo do buffer.
+        /* DRAWBUFFERS:2 */
+        gl_FragData[0] = texture2DLod(colortex2, texcoord, 0.0);
+    #endif
 }

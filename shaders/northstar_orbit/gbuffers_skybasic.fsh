@@ -1,6 +1,10 @@
 #version 120
 #extension GL_ARB_shader_texture_lod : enable
 
+#define NORTHSTAR_DIM
+
+#define NORTHSTAR_ORBIT
+
 #define GBUFFER_SKYBASIC
 #define NO_SHADOWS
 

@@ -14,10 +14,6 @@ uniform float pixelSizeY;
     uniform sampler2D colortex14;
 #endif
 
-#if YDREAM_VOXEL_LIGHT > 0
-    uniform sampler2D colortex15;
-#endif
-
 varying vec2 texcoord;
 
 #include "/lib/gi_light.glsl"
@@ -48,32 +44,13 @@ void main() {
         }
     #endif
 
-    #if YDREAM_VOXEL_LIGHT > 0
-        vec4 clHistory = texture2DLod(colortex15, texcoord, 0.0);
-
-        if (depth > 0.56) {
-            blockColor.rgb = max(blockColor.rgb + clHistory.rgb, vec3(0.0));
-        }
-    #endif
-
     blockColor = clamp(blockColor, vec4(0.0), vec4(vec3(50.0), 50.0));
 
-    #if YDREAM_RSM_GI > 0 && YDREAM_VOXEL_LIGHT > 0
-        /* RENDERTARGETS: 1,4,10,13 */
-        gl_FragData[0] = blockColor;
-        gl_FragData[1] = vec4(blockColor.rgb, 1.0);
-        gl_FragData[2] = giHistory;
-        gl_FragData[3] = clHistory;
-    #elif YDREAM_RSM_GI > 0
+    #if YDREAM_RSM_GI > 0
         /* RENDERTARGETS: 1,4,10 */
         gl_FragData[0] = blockColor;
         gl_FragData[1] = vec4(blockColor.rgb, 1.0);
         gl_FragData[2] = giHistory;
-    #elif YDREAM_VOXEL_LIGHT > 0
-        /* RENDERTARGETS: 1,4,13 */
-        gl_FragData[0] = blockColor;
-        gl_FragData[1] = vec4(blockColor.rgb, 1.0);
-        gl_FragData[2] = clHistory;
     #else
         /* RENDERTARGETS: 1 */
         gl_FragData[0] = blockColor;

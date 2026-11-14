@@ -55,7 +55,7 @@
 
 ## Overview
 
-**yDream Shaders** is a cinematic, highly customizable Minecraft shader pack built for **Iris 1.8.1+** and **OptiFine**. It is tested on **Minecraft 1.21.1 with NeoForge** and is designed with **Create Aeronautics** in mind.
+**yDream Shaders** is a cinematic, highly customizable Minecraft shader pack built for **Iris 1.8.1+**. It is tested on **Minecraft 1.21.1 with NeoForge** and is designed with **Create Aeronautics** in mind.
 
 Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javiergcim/MakeUpUltraFast), yDream extends it with custom visual systems and atmospheric features. It also builds on [Gleam Shaders](https://modrinth.com/mod/gleam-shaders), with credits to its [original creator](https://modrinth.com/user/FihMC).
 
@@ -69,7 +69,7 @@ Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javi
 |-----------|---------|
 | Minecraft | 1.21.1 |
 | Loader (tested) | NeoForge |
-| Shader loader | Iris **1.8.1+** or OptiFine |
+| Shader loader | Iris **1.8.1+** |
 | GPU (reference) | GTX 750 Ti |
 
 > All screenshots were captured on a **GTX 750 Ti**.
@@ -246,3 +246,7 @@ You can **use, modify and share** yDream under the **GNU Lesser General Public L
 If you redistribute it, please **keep the credit** to MakeUp UltraFast and Javier Garduño. You don't need to ask first — though I'd love to hear about it!
 
 <p align="center"><strong>どんなマイクでも構いません！</strong></p>
+
+## Colored lighting (Iris 1.8+)
+
+The experimental voxel colored-light system uses Iris custom 3D images and compute shaders. It is intentionally Iris-only and does not target OptiFine.

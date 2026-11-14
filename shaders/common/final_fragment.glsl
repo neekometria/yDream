@@ -38,23 +38,12 @@ const bool colortex14Clear = true;
 #if YDREAM_VOXEL_LIGHT > 0
 /*
 const int colortex11Format = RGBA8;
-const int colortex12Format = RGBA16F;
-const int colortex13Format = RGBA16F;
-const int colortex15Format = RGBA16F;
 */
 const bool colortex11Clear = true;
-const bool colortex12Clear = true;
-const bool colortex13Clear = false;
-const bool colortex15Clear = true;
 #endif
 #if YDREAM_VOXEL_LIGHT > 0
-// Formato explicito (RGBA16F) não é reconhecido por esta versão do Iris
-// (C1503: undefined variable) — o default RGBA8 já tem canal alpha para a
-// marca de solidez da oclusão.
-/*
-const int colortex8Format = RGBA16F;
-*/
-const bool colortex8Clear = false;
+// O campo de luz colorida agora vive em imagens 3D (ydField/ydFieldCopy);
+// colortex8 voltou a ser só capture DH (default, clear padrão).
 #endif
 #else
 /*
@@ -122,6 +111,15 @@ uniform int isEyeInWater;
 
 #if AA_SMAA
     uniform sampler2D colortex0;
+#endif
+
+#if YDREAM_VOXEL_LIGHT > 0
+uniform vec3 cameraPosition;
+uniform vec3 previousCameraPosition;
+// Uniforms custom (avaliada no CPU) — o padrão chega garbage nos passes
+// deferred; voxel_field.glsl usa esta.
+uniform vec3 ydCameraPosition;
+#include "/lib/voxel_field.glsl"
 #endif
 
 varying vec2 texcoord;
@@ -342,6 +340,13 @@ void main() {
         }
         gl_FragData[0] = vec4(blockColor, 1.0);
     #else
+        #if YDREAM_VOXEL_LIGHT > 0 && SS_DEBUG == 5
+        // Fatia TOP-DOWN CRUA do campo (nível cy=24): grade 96×96, coluna =
+        // cell.x, linha = cell.z. Acesso direto por texel do volume.
+        vec2 dbgSq = min(floor(texcoord * 96.0), 95.0);
+        gl_FragData[0] = vec4(vlfSampleLatest((vec3(dbgSq.x, 24.0, dbgSq.y) + vec3(0.5)) / vec3(96.0, 48.0, 96.0)).rgb, 1.0);
+        #else
         gl_FragData[0] = vec4(blockColor, 1.0);
+        #endif
     #endif
 }
