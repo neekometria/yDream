@@ -85,7 +85,7 @@ void main() {
 
     upVector = normalize(gbufferModelView[1].xyz);
 
-    if(dhMaterialId == DH_BLOCK_WATER) {
-        blockType = float(DH_BLOCK_WATER);
-    }
+    // Sempre define: no ramo "nao agua" o varying ficava indefinido e o
+    // fragment shader decidia por lixo.
+    blockType = (dhMaterialId == DH_BLOCK_WATER) ? float(DH_BLOCK_WATER) : 0.0;
 }

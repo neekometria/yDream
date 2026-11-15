@@ -1,6 +1,12 @@
 #include "/lib/config.glsl"
 
 uniform sampler2D tex;
+// Jogador submerso: o corpo dele no shadow map carva a silhueta nos feixes
+// volumétricos e os godrays ficam horriveis. Fora d'água a sombra continua.
+// Iris zera entityId fora de draw de entidade, então o descarte atinge só o
+// modelo do jogador (mesmos ids de entity.properties usados nos gbuffers).
+uniform int entityId;
+uniform int isEyeInWater;
 
 varying vec2 texcoord;
 varying float is_noshadow;
@@ -15,6 +21,10 @@ varying float is_noshadow;
 #endif
 
 void main() {
+    if (isEyeInWater == 1 && (entityId == 10301 || entityId == 10302)) {
+        discard;
+    }
+
     #ifdef COLORED_SHADOW
         if(is_water > 0.98)
             discard;

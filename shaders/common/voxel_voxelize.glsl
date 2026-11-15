@@ -1,5 +1,5 @@
 // ============================================================
-// Uma imagem 3D r32ui (96×48×96, limpa TODO frame) recebe um CÓDIGO por
+// Uma imagem 3D r32ui (96×96×96, limpa TODO frame) recebe um CÓDIGO por
 // célula, escrito por imageAtomicMax no vertex shader. A prioridade evita que
 // água/folhas sobrescrevam um bloco sólido quando duas geometrias ocupam a
 // mesma célula e são rasterizadas em ordem variável.
@@ -14,7 +14,7 @@
 //              quente, soul, redstone, sea, ochre, verdant, pearl, void
 //
 // Imagem (shaders.properties):
-//   image.ydVoxel = ydVoxelSampler r r32ui unsigned_int true false 96 48 96
+//   image.ydVoxel = ydVoxelSampler r r32ui unsigned_int true false 96 96 96
 //   - "true" = limpa a cada frame (reconstruída no shadow pass);
 //     células NUNCA escritas = ar. A geometria opaca vista no shadow frustum
 //     bloqueia a propagação; as superfícies transparentes fora do volume não
@@ -55,11 +55,11 @@ void ydreamVoxelize(vec4 vertexPosition, vec4 midBlock, uint code) {
     vec3 worldCenter = mat3(shadowModelViewInverse) * viewCenter + shadowModelViewInverse[3].xyz;
 
     // A voxel index is world-block-relative, not view-direction-relative.
-    vec3 cellPosition = worldCenter + fract(cameraPosition) + vec3(48.0, 24.0, 48.0);
+    vec3 cellPosition = worldCenter + fract(cameraPosition) + vec3(48.0, 48.0, 48.0);
     ivec3 voxel = ivec3(floor(cellPosition));
 
     if (any(lessThan(voxel, ivec3(0))) ||
-        any(greaterThanEqual(voxel, ivec3(96, 48, 96)))) {
+        any(greaterThanEqual(voxel, ivec3(96, 96, 96)))) {
         return;
     }
 

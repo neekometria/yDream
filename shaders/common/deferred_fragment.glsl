@@ -80,6 +80,8 @@ varying vec3 upVector;
 
 #include "/lib/depth.glsl"
 #include "/lib/luma.glsl"
+#include "/lib/water_color.glsl"
+#include "/lib/water_medium.glsl"
 
 #ifdef DISTANT_HORIZONS
     #include "/lib/depth_dh.glsl"

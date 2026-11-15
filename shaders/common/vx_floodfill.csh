@@ -9,7 +9,7 @@
 // ============================================================
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
-const ivec3 workGroups = ivec3(12, 6, 12); // 96/8, 48/8, 96/8
+const ivec3 workGroups = ivec3(12, 12, 12); // 96/8, 96/8, 96/8
 
 #include "/lib/config.glsl"
 #include "/lib/voxel_world_id.glsl"
@@ -75,7 +75,7 @@ bool ydCanSupply(uint code) {
 }
 
 bool ydInVolume(ivec3 p) {
-    return all(greaterThanEqual(p, ivec3(0))) && all(lessThan(p, ivec3(96, 48, 96)));
+    return all(greaterThanEqual(p, ivec3(0))) && all(lessThan(p, ivec3(96, 96, 96)));
 }
 
 uint ydVoxelAt(ivec3 p) {
@@ -151,11 +151,19 @@ void main() {
     float attenuation = exp(-1.0 / radius);
 
     if (ydIsOpen(code) && frameCounter > 0) {
+        vec3 previousLight;
         if ((frameCounter & 1) == 0) {
+            previousLight = ydFieldAt(ydFieldSampler, previousPos);
             light = ydPropagate(ydFieldSampler, previousPos, pos, attenuation);
         } else {
+            previousLight = ydFieldAt(ydFieldCopySampler, previousPos);
             light = ydPropagate(ydFieldCopySampler, previousPos, pos, attenuation);
         }
+
+        // Suaviza a chegada/retirada do frente de luz entre frames. O filtro
+        // preserva a propagação espacial, mas evita que voxels distantes
+        // acendam/apaguem de um frame para o outro ao longo do eixo Y.
+        light = mix(previousLight, light, 0.45);
     }
 
     // Emissive blocks are solid blockers for interpolation, but their stored
@@ -167,9 +175,11 @@ void main() {
 
     // Held lights seed the camera-centred voxel with a block-light-equivalent
     // strength; the next frames propagate them through the same field.
-    if (all(equal(pos, ivec3(48, 24, 48))) && ydIsOpen(code)) {
+    if (all(equal(pos, ivec3(48, 48, 48))) && ydIsOpen(code)) {
         if (heldItemId == 11001 || heldItemId2 == 11001) {
-            light = vec3(1.0, 0.60, 0.26) * (14.0 / 15.0);
+            // 11/15: luz de mao forte, mas sem estourar (o usuario pediu
+            // "forte, mas nao tanto"); blocos ao redor ainda recebem bem.
+            light = vec3(1.0, 0.60, 0.26) * (11.0 / 15.0);
         } else if (heldItemId == 11002 || heldItemId2 == 11002) {
             // Mesmo ganho da redstone colocada no mundo (ydEmitterBoost).
             light = vec3(1.0, 0.16, 0.08) * (7.0 / 15.0) * 2.0;

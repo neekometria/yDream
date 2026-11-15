@@ -73,25 +73,21 @@ vec3 water_shader_dh(
     // `texcoord` no DH é a UV do atlas/vertex-data, não a UV da tela (mesma
     // regra do water.glsl). Screen UV vem de gl_FragCoord.
     vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-    float surfaceDepth = max(-fragpos.z, 0.05);
+    float surfaceDepth = ydr_water_surface_distance(fragpos);
     float bedDepth = 1e8;
     #ifdef DISTANT_HORIZONS
         float dh = texture2D(dhDepthTex1, screenUV).r;
         if (dh < 0.999999) {
-            bedDepth = 2.0 * dhNearPlane * dhFarPlane /
-                (dhFarPlane + dhNearPlane - (2.0 * dh - 1.0) *
-                (dhFarPlane - dhNearPlane));
+            bedDepth = ydr_water_linear_depth_dh(dh);
         }
     #endif
     if (bedDepth >= 1e8) {
         float d = texture2D(depthtex1, screenUV).r;
         if (d < 0.999999) {
-            bedDepth = gbufferProjection[3][2] /
-                (gbufferProjection[2][2] + 2.0 * d - 1.0);
+            bedDepth = ydr_water_linear_depth_standard(d);
         }
     }
-    float thickness = (bedDepth < 1e8)
-        ? clamp(bedDepth - surfaceDepth, 0.0, 24.0) : 8.0;
+    float thickness = ydr_water_surface_thickness(bedDepth, surfaceDepth);
 
     vec2 offset = vec2(0.0);
     #if REFRACTION == 1

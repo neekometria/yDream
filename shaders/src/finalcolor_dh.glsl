@@ -35,28 +35,32 @@
         } else {
             // Fog subaquatica tambem no LOD: sem ela o horizonte do DH
             // (onde a renderizacao corta) fica exposto como cortinas cruas.
-            float uwVertDepth = max(62.0 - cameraPosition.y, 0.0);
-            // Piso de 30%: mesmo raciocinio do composite — a nevoa NAO pode
-            // convergir para preto com a distancia, senao o LOD fica legivel
-            // como silhueta preta contra o ceu. O veu deve manter a cor da nevoa.
-            float uwDarkFactor = max(exp(-uwVertDepth * 0.05 * UNDERWATER_DARKNESS), 0.30);
-            vec3 uwFogTexture = fog_texture * vec3(0.30, 0.56, 0.70) * uwDarkFactor;
-            // Extincao fisica (Beer-Lambert) em vez do ramp de distancia do
-            // DH: com DH_RENDER grande o ramp deixava o LOD legivel por muito
-            // tempo (0.035+0.014*density equivale a ~40 m de visibilidade em
-            // agua media).
-            float uwExtinction = (0.035 + 0.014 * UNDERWATER_FOG_DENSITY) * max(UNDERWATER_DARKNESS, 0.5);
-            float uwFogAmount = 1.0 - exp(-gl_FogFragCoord * uwExtinction);
+            // gl_FogFragCoord e a distancia real do raio (position_vertex_dh).
+            // Com a camera submersa, TODO fragmento visivel esta atras da coluna
+            // d'agua, inclusive o LOD acima da linha d'agua: cortar o caminho
+            // na superficie deixava esse trecho praticamente sem fog e o
+            // horizonte do DH aparecia cru. O composite usa a mesma regra.
+            float uwWaterPath = gl_FogFragCoord;
+            // DH e composite partilham a mesma transmissão por canal e
+            // radiância de espalhamento do meio aquático.
+            vec3 uwFogTexture = ydr_water_column_fog_radiance(
+                directLightColor,
+                eyeBrightnessSmooth.y * 0.004166666666666667,
+                cameraPosition.y
+            );
+            vec3 uwTransEff = ydr_water_effective_transmittance(uwWaterPath);
+            float uwFogAmount = 1.0 - dot(uwTransEff, vec3(0.2126, 0.7152, 0.0722));
 
             // Debug subaquatico do DH (per-fragment):
-            //   6: fogTexture do DH (colortex7) — o que a fog do DH pinta
-            //   7: fogAmount do DH (per-fragment)
+            //   6: radiancia da fog subaquatica aplicada ao DH
+            //   7: extincao subaquatica do DH
             #if YDREAM_UW_DEBUG == 6
                 blockColor.rgb = uwFogTexture;
             #elif YDREAM_UW_DEBUG == 7
                 blockColor.rgb = vec3(0.0, 1.0, 0.0) * uwFogAmount;
             #else
-                blockColor.rgb = mix(blockColor.rgb, uwFogTexture, uwFogAmount);
+                blockColor.rgb = blockColor.rgb * uwTransEff +
+                    uwFogTexture * (vec3(1.0) - uwTransEff);
             #endif
         }
 

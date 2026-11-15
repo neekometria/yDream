@@ -34,7 +34,7 @@ void main() {
     float solidity = vsHistory(idx).a;
 
     if (slice < 48.0 && tileX < 7.0 && tileY < 7.0) {
-        vec3 rel = (idx - vec3(48.0, 24.0, 48.0)) + 0.5 - fract(cameraPosition);
+        vec3 rel = (idx - vec3(48.0, 48.0, 48.0)) + 0.5 - fract(cameraPosition);
 
         // Marcação de solidez com o depth do frame atual (este passe roda
         // depois da geometria, ao contrário do voxel_update).

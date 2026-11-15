@@ -15,6 +15,26 @@ vec2 ydr_water_project_view(vec3 viewPos) {
     return clip.xy / max(abs(clip.w), 1e-6) * sign(clip.w) * 0.5 + 0.5;
 }
 
+// z de cena (view space, negativo) no UV: opaco do vanilla ou, quando ali so
+// tem ceu, o LOD do DH. Sem o DH o raymarch da agua do LOD nunca acha alvo,
+// porque depthtex1 e ceu em toda a faixa do LOD. -1e8 = nenhuma geometria.
+float ydr_water_ssr_scene_z(vec2 uv) {
+    float d = texture2D(depthtex1, uv).r;
+    // O opaco do vanilla esta sempre a frente do LOD (o LOD so preenche onde
+    // nao existe chunk), entao so consulta o DH quando o pixel e ceu no vanilla.
+    if (d < 0.999999) return ydr_water_reconstruct_view(uv, d).z;
+
+    #ifdef DISTANT_HORIZONS
+        float dd = texture2D(dhDepthTex1, uv).r;
+        if (dd < 0.999999) {
+            return -2.0 * dhNearPlane * dhFarPlane /
+                (dhFarPlane + dhNearPlane - (2.0 * dd - 1.0) * (dhFarPlane - dhNearPlane));
+        }
+    #endif
+
+    return -1e8;
+}
+
 vec4 ydr_water_ssr(vec2 uv, vec3 viewPos, vec3 viewNormal, vec3 skyFallback) {
     vec3 rayDir = normalize(reflect(normalize(viewPos), normalize(viewNormal)));
     if (rayDir.z >= -0.025) return vec4(skyFallback, 0.0);
@@ -31,10 +51,9 @@ vec4 ydr_water_ssr(vec2 uv, vec3 viewPos, vec3 viewNormal, vec3 skyFallback) {
         vec2 sampleUV = ydr_water_project_view(samplePos);
         if (sampleUV.x < 0.002 || sampleUV.x > 0.998 || sampleUV.y < 0.002 || sampleUV.y > 0.998) break;
 
-        float sceneDepth = texture2D(depthtex1, sampleUV).r;
-        if (sceneDepth < 0.999999) {
-            vec3 scenePos = ydr_water_reconstruct_view(sampleUV, sceneDepth);
-            float delta = samplePos.z - scenePos.z;
+        float sceneZ = ydr_water_ssr_scene_z(sampleUV);
+        if (sceneZ > -1e7) {
+            float delta = samplePos.z - sceneZ;
             float thickness = max(0.12, abs(samplePos.z) * 0.012);
             if (delta < 0.0 && abs(delta) <= thickness && t > 0.8) {
                 hit = 1.0 - smoothstep(thickness * 0.45, thickness, abs(delta));
@@ -49,13 +68,12 @@ vec4 ydr_water_ssr(vec2 uv, vec3 viewPos, vec3 viewNormal, vec3 skyFallback) {
                     float mid = (lo + hi) * 0.5;
                     vec3 midPos = viewPos + rayDir * mid;
                     vec2 midUV = ydr_water_project_view(midPos);
-                    float midDepth = texture2D(depthtex1, midUV).r;
-                    if (midDepth >= 0.999999) {
+                    float midZ = ydr_water_ssr_scene_z(midUV);
+                    if (midZ <= -1e7) {
                         lo = mid;
                         continue;
                     }
-                    vec3 midScene = ydr_water_reconstruct_view(midUV, midDepth);
-                    float midDelta = midPos.z - midScene.z;
+                    float midDelta = midPos.z - midZ;
                     if (midDelta < 0.0) {
                         hi = mid;
                         hitUV = midUV;

@@ -193,10 +193,9 @@
 #define SS_DEBUG 0 // [0 1 2 3 4 5]
 #define GI_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0 3.0]
 #define GI_RADIUS 4.0 // [2.0 3.0 4.0 5.0 6.0 8.0]
-// Luz global colorida: emissores (fogo, soul, redstone, sea lantern, ochre,
-// verdant...) tingem o ambiente com a própria cor. Ligada por padrão; os perfis
-// Mínimo/Rápido forçam desligada para economizar FPS.
-#define COLORED_LIGHT 1 // [0 1]
+// Luz global colorida (GI): emissores tingem o ambiente com a própria cor.
+// Sempre ativa; difusão configurável na aba de Iluminação.
+#define COLORED_LIGHT 1
 #define COLORED_LIGHT_STRENGTH 1.0 // [0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 #define COLORED_LIGHT_RADIUS 8.0 // [4.0 6.0 8.0 10.0 12.0 16.0]
 #define CLOUD_LIGHTING 0 // [0 1 2]
@@ -459,7 +458,7 @@
 // A partir desta profundidade (em blocos) a agua comeca a virar abismo:
 // o escurecimento extra liga aqui e cresce exponencialmente. Rasa (< valor)
 // continua clara tipo litoral; fundo de oceano fica quase preto.
-#define UNDERWATER_DEEP_THRESHOLD 10.0 // [4.0 6.0 8.0 10.0 12.0 15.0 20.0]
+#define UNDERWATER_DEEP_THRESHOLD 8.0 // [4.0 6.0 8.0 10.0 12.0 15.0 20.0]
 // Caustics: padrao de luz dançante do sol projetado no leito submerso.
 #define WATER_CAUSTICS 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
 // "Neve marinha": particulas suspensas a deriva que dao volume a agua.
@@ -1240,10 +1239,12 @@
 #if WATER_REFLECTIONS == 0 || WATER_REFLECTIONS == 1
     #define YDREAM_WATER_SSR_STEPS 0
 #elif WATER_REFLECTIONS == 2
+    // 8 passos davam ~5 blocos por amostra: o reflexo do terreno pulava o
+    // alvo e saia em blocos quebrados.
     #if WATER_REFLECTION_QUALITY >= 100
-        #define YDREAM_WATER_SSR_STEPS 8
+        #define YDREAM_WATER_SSR_STEPS 24
     #else
-        #define YDREAM_WATER_SSR_STEPS 5
+        #define YDREAM_WATER_SSR_STEPS 12
     #endif
 #elif WATER_REFLECTIONS == 3
     #if WATER_REFLECTION_QUALITY >= 100

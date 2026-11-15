@@ -112,6 +112,13 @@ varying vec3 horizonSkyColor;
 #include "/lib/projection_utils.glsl"
 #include "/lib/basic_utils.glsl"
 #include "/lib/dither.glsl"
+
+#if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER
+    #include "/lib/volumetric_clouds.glsl"
+    // Janela de Snell usa as mesmas nuvens do ceu (water_compose -> get_cloud).
+    #define YDR_WATER_WINDOW_CLOUDS
+#endif
+
 #include "/lib/water.glsl"
 
 #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
@@ -123,10 +130,6 @@ varying vec3 horizonSkyColor;
 #endif
 
 #include "/lib/luma.glsl"
-
-#if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NETHER
-    #include "/lib/volumetric_clouds.glsl"
-#endif
 
 #if defined SHADOW_CASTING && SHADOW_LOCK > 0 && !defined NETHER
     #include "/lib/shadow_vertex.glsl"
@@ -321,7 +324,10 @@ void main() {
         blockColor.rgb *= mix(realLight, vec3(1.0), nightVision * .125);
 
         if(blockType > 1.5) {
-            blockColor = cristal_shader(fragposition, waterNormal, blockColor, skyColorReflect, fresnel * fresnel, visibleSky, dither, directLightColor);
+            // Gelo (blockType > 2.5): o fresnel^2 inteiro virava uma placa
+            // lavanda espelhada. Vidro (2) mantem o reflexo cheio.
+            float crystalFresnel = fresnel * fresnel * (blockType > 2.5 ? 0.45 : 1.0);
+            blockColor = cristal_shader(fragposition, waterNormal, blockColor, skyColorReflect, crystalFresnel, visibleSky, dither, directLightColor);
         }
     }
 

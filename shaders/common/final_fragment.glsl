@@ -344,7 +344,7 @@ void main() {
         // Fatia TOP-DOWN CRUA do campo (nível cy=24): grade 96×96, coluna =
         // cell.x, linha = cell.z. Acesso direto por texel do volume.
         vec2 dbgSq = min(floor(texcoord * 96.0), 95.0);
-        gl_FragData[0] = vec4(vlfSampleLatest((vec3(dbgSq.x, 24.0, dbgSq.y) + vec3(0.5)) / vec3(96.0, 48.0, 96.0)).rgb, 1.0);
+        gl_FragData[0] = vec4(vlfSampleLatest((vec3(dbgSq.x, 48.0, dbgSq.y) + vec3(0.5)) / vec3(96.0, 96.0, 96.0)).rgb, 1.0);
         #else
         gl_FragData[0] = vec4(blockColor, 1.0);
         #endif

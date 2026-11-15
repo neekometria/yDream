@@ -1,88 +1,98 @@
 // ============================================================================
-// Cor do corpo da água: absorção por canal, espalhamento e transmissão do fundo.
-// Compartilhado por Vanilla e DH, aplicado inline no próprio passe da água.
-//
-// Earth look: vermelho é absorvido primeiro, então água rasa fica esverdeada e
-// a profunda caminha para o WATER_COLOR do preset. O slider WATER_ABSORPTION
-// escala a densidade; a cor do preset controla o espalhamento profundo.
-//
-// Calibração: os coeficientes precisam vender a superfície olhando de cima
-// (fresnel ~0 nessa direção, então o corpo é a única coisa que “desenha” a
-// água rasa). Coeficientes fracos deixavam o leito visível quase direto — a
-// água parecia inexistente, principalmente com WATER_REFLECTIONS=0.
+// Water body/surface transmission helpers built on the unified medium model.
+// Includes depth-buffer sampling helpers and bed-fog composition.
+// Requires in TU (as applicable): gbufferProjection, cameraPosition,
+// depth/dh depth samplers and planes when used, and underwaterFogColor().
 // ============================================================================
 #ifndef YDREAM_WATER_BODY_INCLUDED
 #define YDREAM_WATER_BODY_INCLUDED
 
-vec3 ydr_water_absorption() {
-    // Coeficientes por canal (1/bloco): R some rápido, G/B permanecem.
-    // Escala por WATER_ABSORPTION (slider). Subidos em relação ao original:
-    // a água vista de cima ficava quase invisível em rasa ("topo fraco");
-    // coeficientes mais fortes dão corpo/coloração já com 2–3 blocos.
-    return vec3(5.60, 1.45, 1.00) * max(WATER_ABSORPTION, 0.001);
+#include "/lib/water_color.glsl"
+#include "/lib/water_medium.glsl"
+
+// --- Depth buffer conversions ---------------------------------------------
+
+// Convert a non-linear depth buffer sample to linear view distance using the
+// standard gbuffer projection. Caller must ensure depth is not sky.
+float ydr_water_linear_depth_standard(float depthSample) {
+    return gbufferProjection[3][2] /
+        (gbufferProjection[2][2] + 2.0 * depthSample - 1.0);
 }
+
+#ifdef DISTANT_HORIZONS
+// Convert a DH depth sample to linear view distance.
+float ydr_water_linear_depth_dh(float depthSample) {
+    return 2.0 * dhNearPlane * dhFarPlane /
+        (dhFarPlane + dhNearPlane - (2.0 * depthSample - 1.0) *
+        (dhFarPlane - dhNearPlane));
+}
+#endif
+
+// --- Surface body (above-water view through surface) -----------------------
 
 vec3 water_body(vec3 surfaceColor, vec3 refractedColor, float waterThickness) {
     float thickness = max(waterThickness, 0.0);
 
-    // Transmitância de Beer-Lambert por canal.
-    vec3 transmit = exp(-ydr_water_absorption() * thickness);
+    vec3 transmit = ydr_water_body_transmittance(thickness);
 
-    // Espalhamento: raso mistura a luz da superfície, fundo usa o preset com
-    // um escurecimento fixo — água profunda não pode ficar tão clara quanto o
-    // preset puro, senão parece névoa sobre o leito em vez de volume.
     vec3 shallowScatter = mix(WATER_COLOR, surfaceColor * vec3(0.88, 1.18, 1.06), 0.45);
-    // O slider WATER_DEPTH_TINT controla quão rápido o corpo chega à cor do
-    // preset; sem isso água de 2–3 blocos continuava praticamente invisível.
-    // Taxa subida (0.30 → 0.45): a coloração aparece antes, dá presença à
-    // superfície olhando de cima.
     float depthMix = clamp((1.0 - exp(-thickness * 0.45)) *
         clamp(YDREAM_WATER_DEPTH_TINT, 0.0, 1.5), 0.0, 1.0);
     vec3 scatter = mix(shallowScatter, WATER_COLOR * 0.68, depthMix);
 
-    // Fundo atenuado + luz espalhada no volume. Ganho 1.15 no espalhamento
-    // para a “tampa” da água nunca parecer vidro incolor.
     return refractedColor * transmit + scatter * (1.0 - transmit) * 1.15;
 }
 
-// Fog subaquatica fisica (Beer-Lambert) aplicada ao CONTEUDO REFRATADO.
-// O composite foga olhando "de dentro", usando a distancia ate a SUPERFICIE;
-// olhando de fora para dentro, a superficie esta perto e a fog dava 0,
-// deixando o fundo (inclusive o LOD do DH) cru. Aqui medimos o comprimento
-// do caminho dentro da agua ate o fundo no UV refratado e aplicamos a mesma
-// extincao usada pelo composite, para os dois lados baterem.
-// Requer do TU chamador: depthtex1, dhDepthTex0 + dhNearPlane/dhFarPlane
-// (com DISTANT_HORIZONS), gbufferProjection, cameraPosition, visibleSky e
-// lightColor.
+// --- Bed fog (camera above water, looking down through column) ------------
+
+// Fog do meio aquático aplicada ao conteúdo refratado visto de cima. Mede o
+// caminho dentro da água até o fundo no UV refratado e aplica a névoa da
+// coluna d'água (modelo unificado). A absorção seletiva de corpo fica a cargo
+// de water_body() para evitar dupla atenuação.
 vec3 ydr_bed_underwater_fog(vec3 bedColor, float surfaceDepth, vec2 refractUV,
     float destinationDepth, float visibleSky, vec3 lightColor) {
-    float bedDist = 1e9;
+    float bedDist = 1e8;
     #ifdef DISTANT_HORIZONS
         float dhd = texture2D(dhDepthTex0, refractUV).r;
-        if (dhd < 0.999999) {
-            bedDist = 2.0 * dhNearPlane * dhFarPlane /
-                (dhFarPlane + dhNearPlane - (2.0 * dhd - 1.0) *
-                (dhFarPlane - dhNearPlane));
+        if (dhd > 0.000001 && dhd < 0.999999) {
+            bedDist = ydr_water_linear_depth_dh(dhd);
         }
     #endif
     if (destinationDepth < 0.999999) {
-        float viewDepth = gbufferProjection[3][2] /
-            (gbufferProjection[2][2] + 2.0 * destinationDepth - 1.0);
+        float viewDepth = ydr_water_linear_depth_standard(destinationDepth);
         bedDist = min(bedDist, viewDepth);
     }
 
-    if (bedDist >= 1e9) return bedColor;
+    // Sem leito no buffer (chunk/LOD do DH ausente no UV refratado) o sample
+    // seria o ceu/névoa CRUA, e isso aparecia como "buracos" claros no meio da
+    // agua — visivel só com render distance maior, porque é onde o LOD tem
+    // lacunas. Sem leito = profundidade infinita: devolve a cor da coluna.
+    // Mesma coisa se o "leito" medido está na frente da superficie (depth
+    // velho do passe DH): caminho zero mostraria o sample cru.
+    if (bedDist >= 1e8 || bedDist <= surfaceDepth) {
+        return ydr_water_column_fog_radiance(lightColor, visibleSky, cameraPosition.y);
+    }
 
-    float waterPath = max(bedDist - surfaceDepth, 0.0);
-    float uwExtinction = (0.035 + 0.014 * UNDERWATER_FOG_DENSITY) * max(UNDERWATER_DARKNESS, 0.5);
-    float uwFogAmount = 1.0 - exp(-waterPath * uwExtinction);
-    float uwDepthDark = exp(-max(62.0 - cameraPosition.y, 0.0) * 0.05 * UNDERWATER_DARKNESS);
-    // Coluna d'água: olhando de CIMA para um fundo fundo, o véu não pode
-    // continuar claro — o próprio caminho dentro da água escurece a cor da
-    // névoa (sem isso, oceano profundo visto do barato parecia nevoa clara).
-    float uwColumnDark = exp(-waterPath * 0.035 * UNDERWATER_DARKNESS);
-    vec3 uwFogColor = underwaterFogColor(lightColor, visibleSky) * uwDepthDark * uwColumnDark;
-    return mix(bedColor, uwFogColor, uwFogAmount);
+    vec2 ndc = refractUV * 2.0 - 1.0;
+    vec3 viewRay = normalize((gbufferProjectionInverse * vec4(ndc, 1.0, 1.0)).xyz);
+    float bedRayDistance = ydr_water_view_to_ray_distance(bedDist, viewRay);
+    float surfaceRayDistance = ydr_water_view_to_ray_distance(surfaceDepth, viewRay);
+    float waterPath = max(bedRayDistance - surfaceRayDistance, 0.0);
+
+    vec3 waterPathFog = ydr_water_apply_column_fog(
+        bedColor, lightColor, visibleSky, cameraPosition.y, waterPath
+    );
+    // Olhando de FORA para dentro a coluna tem que virar parede depois de ~5
+    // blocos abaixo da superficie; antes o leito/LOD continuava legivel porque
+    // a extincao de fundo (Beer-Lambert) e fraca nessa distancia. Nao afeta a
+    // vista de dentro d'agua: ali o bedColor e descartado pelo ramo submerso
+    // de ydr_water_compose.
+    return mix(
+        waterPathFog,
+        ydr_water_column_fog_radiance(lightColor, visibleSky, cameraPosition.y),
+        smoothstep(YDR_WATER_SURFACE_HIDE_DEPTH - 2.0,
+            YDR_WATER_SURFACE_HIDE_DEPTH, waterPath)
+    );
 }
 
 #endif

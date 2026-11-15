@@ -189,24 +189,19 @@ vec3 water_shader(
     // pseudoaleatória (a do tile no atlas) — xadrez por bloco e validação de
     // refração no lugar errado.
     vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-    float surfaceDepth = max(-fragpos.z, 0.05);
+    float surfaceDepth = ydr_water_surface_distance(fragpos);
     float bedDepth = 1e8;
     float d = texture2D(depthtex1, screenUV).r;
     if (d < 0.999999) {
-        bedDepth = gbufferProjection[3][2] /
-            (gbufferProjection[2][2] + 2.0 * d - 1.0);
+        bedDepth = ydr_water_linear_depth_standard(d);
     }
     #ifdef DISTANT_HORIZONS
         float dh = texture2D(dhDepthTex1, screenUV).r;
         if (dh < 0.999999) {
-            float dhDepth = 2.0 * dhNearPlane * dhFarPlane /
-                (dhFarPlane + dhNearPlane - (2.0 * dh - 1.0) *
-                (dhFarPlane - dhNearPlane));
-            bedDepth = min(bedDepth, dhDepth);
+            bedDepth = min(bedDepth, ydr_water_linear_depth_dh(dh));
         }
     #endif
-    float thickness = (bedDepth < 1e8)
-        ? clamp(bedDepth - surfaceDepth, 0.0, 24.0) : 8.0;
+    float thickness = ydr_water_surface_thickness(bedDepth, surfaceDepth);
 
     vec2 offset = vec2(0.0);
     #if REFRACTION == 1
@@ -264,17 +259,22 @@ vec4 cristal_shader(
             vec3 target = fragpos + normalReflect * 76.0;
         #endif
         vec3 screen = camera_to_screen(target);
+        // Alvo atras da camera (w <= 0) inverte e estoura o UV: o reflexo do
+        // gelo virava um estilhacado radial. Sem alvo valido, usa o ceu.
+        float projected = step(0.0001, (gbufferProjection * vec4(target, 1.0)).w);
+        float onScreen = step(0.001, screen.x) * step(screen.x, 0.999) *
+            step(0.001, screen.y) * step(screen.y, 0.999);
         vec2 uv = clamp(screen.xy, 0.001, 0.999);
         float d = scene_depth_sky(uv);
-        float infinite = step(0.9999, d);
-        vec3 reflectColor = texture2D(gaux1, uv).rgb;
-        reflectColor = mix(reflectColor, skyReflectionColor * visibleSky * visibleSky, infinite);
+        float hitValid = projected * onScreen * step(d, 0.9999);
+        vec3 reflectColor = mix(skyReflectionColor * visibleSky * visibleSky,
+            texture2D(gaux1, uv).rgb, hitValid);
 
         color.rgb = mix(color.rgb, reflectColor, fresnel);
         color.a = mix(color.a, 1.0, fresnel * .9);
 
         #if SUN_REFLECTION == 1 && !defined NETHER && !defined THE_END
-            color.rgb += vec3(sun_reflection(normalReflect) * lightColor * visibleSky * (1.0 - infinite));
+            color.rgb += vec3(sun_reflection(normalReflect) * lightColor * visibleSky * hitValid);
         #endif
         return color;
     #endif

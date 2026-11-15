@@ -26,7 +26,7 @@ float vuMax3(vec3 v) {
 
 // Canal alpha do colortex8 = solidez do voxel (1.0 = dentro da geometria).
 vec4 vuHistory(vec3 idx) {
-    if (idx.x < 0.0 || idx.y < 0.0 || idx.z < 0.0 || idx.x >= 96.0 || idx.y >= 48.0 || idx.z >= 96.0) {
+    if (idx.x < 0.0 || idx.y < 0.0 || idx.z < 0.0 || idx.x >= 96.0 || idx.y >= 96.0 || idx.z >= 96.0) {
         return vec4(0.0);
     }
     float tileX = mod(idx.y, 7.0);
@@ -46,7 +46,7 @@ vec4 vuHistory(vec3 idx) {
 
 // Voxel do mundo (escrito pelo vertex shader): rgb = tint, a = opacidade.
 vec4 vuEmit(vec3 idx) {
-    if (idx.x < 0.0 || idx.y < 0.0 || idx.z < 0.0 || idx.x >= 96.0 || idx.y >= 48.0 || idx.z >= 96.0) {
+    if (idx.x < 0.0 || idx.y < 0.0 || idx.z < 0.0 || idx.x >= 96.0 || idx.y >= 96.0 || idx.z >= 96.0) {
         return vec4(0.0);
     }
     return unpackUnorm4x8(texelFetch(ydEmitSampler, ivec3(idx), 0).r);
@@ -96,7 +96,7 @@ void main() {
     float emitAlpha = emitData.a;
     float solidity = emitAlpha > 0.05 ? 1.0 : 0.0;
 
-    if (slice < 48.0 && tileX < 7.0 && tileY < 7.0) {
+    if (slice < 96.0 && tileX < 7.0 && tileY < 7.0) {
         float stepLoss = 1.0 / COLORED_LIGHT_RADIUS;
 
         // Emissor: a célula carrega a própria cor. Nada de projeção de tela —
@@ -145,7 +145,7 @@ void main() {
             // mesma curva/raio/cor do resto — antes ela só subia o candle
             // vanilla, que abria o add gated por candle e fazia as luzes
             // próximas "explodirem" e as de mão não acendiam em lugar escuro.
-            if (idx.x == 48.0 && idx.y == 24.0 && idx.z == 48.0) {
+            if (idx.x == 48.0 && idx.y == 48.0 && idx.z == 48.0) {
                 if (heldItemId == 11001 || heldItemId2 == 11001) {
                     vuAccumulate(vec3(1.0, 0.60, 0.26), 0.0, bestHue, bestStrength);
                 } else if (heldItemId == 11002 || heldItemId2 == 11002) {

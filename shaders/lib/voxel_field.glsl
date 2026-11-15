@@ -13,8 +13,8 @@ uniform sampler3D ydFieldCopySampler;
 
 #include "/lib/voxel_world_id.glsl"
 
-const ivec3 VLF_VOLUME_SIZE = ivec3(96, 48, 96);
-const vec3 VLF_VOLUME_CENTER = vec3(48.0, 24.0, 48.0);
+const ivec3 VLF_VOLUME_SIZE = ivec3(96, 96, 96);
+const vec3 VLF_VOLUME_CENTER = vec3(48.0, 48.0, 48.0);
 
 bool vlfInsideVolume(ivec3 cell) {
     return all(greaterThanEqual(cell, ivec3(0))) &&
@@ -123,8 +123,9 @@ vec3 vlfApplyBlockLight(vec3 vanillaBlockLight, vec3 worldRel, vec3 worldNormal)
     }
 
     vec3 radiance = max(vlfSampleFiltered(voxelPosition), vec3(0.0));
-    float peak = clamp(vlfPeak(radiance), 0.0, 1.0);
-    if (peak <= 0.001) {
+    float radiancePeak = vlfPeak(radiance);
+    float peak = clamp(radiancePeak, 0.0, 1.0);
+    if (peak <= 0.001 || radiancePeak <= 0.001) {
         return vanillaBlockLight;
     }
 
@@ -139,7 +140,10 @@ vec3 vlfApplyBlockLight(vec3 vanillaBlockLight, vec3 worldRel, vec3 worldNormal)
 
     // Independent RGB channel propagation allows separate sources to mix.
     // Normalize by the strongest channel so hue and intensity remain distinct.
-    vec3 sourceTint = radiance / max(peak, 0.0001);
+    // Emitter boosts may put field values above 1.0; normalize by the actual
+    // peak so those boosts extend the reach without pushing RGB channels above
+    // the source hue and washing lit materials/entities toward white.
+    vec3 sourceTint = radiance / max(radiancePeak, 0.0001);
     vec3 blockLightShift = mix(
         vec3(1.06, 0.92, 0.70),
         vec3(1.0, 1.04, 1.10),
@@ -156,13 +160,37 @@ vec3 vlfApplyBlockLight(vec3 vanillaBlockLight, vec3 worldRel, vec3 worldNormal)
 
     vec3 coloredLight = sourceTint * blockLightBase * vlfBlockLightCurve(lightLevel);
     coloredLight *= COLORED_LIGHT_STRENGTH;
+    // Normalize pela radiância real do emissor para preservar o matiz sem
+    // transformar boosters de luz colorida em uma fonte branca superexposta.
     coloredLight = clamp(coloredLight, vec3(0.0), vec3(4.0));
 
-    // Keep vanilla block-light energy wherever the voxel approximation is
-    // weaker. This avoids dark seams at the edge of the voxel volume or range.
+    // Teto na luminancia, preservando o matiz. A curva vale ~3.56 no nivel
+    // maximo, entao perto da fonte a luz colorida saia com ~3.5x a luz base e
+    // numa vila (toda superficie perto de alguma lamparina) o lugar inteiro
+    // pegava esse teto e parecia pleno sol. 1.0 = no maximo uma tocha vanilla;
+    // 1.6 ainda da presenca sem estourar. Limitar por canal com
+    // min(coloredLight, vanillaBlockLight) matava a cor: a luz local de uma
+    // redstone torch e fraca (nivel 7) e o matiz se perdia ao nivelar.
+    const float YDR_COLORED_LIGHT_CAP = 1.6;
+    float coloredCap = vlfLuminance(blockLightBase) * YDR_COLORED_LIGHT_CAP;
+    float coloredNow = vlfLuminance(coloredLight);
+    if (coloredNow > coloredCap) {
+        coloredLight *= coloredCap / max(coloredNow, 0.0001);
+    }
+
+    // Mais fraca que a vanilla: tinge mantendo a luminância, para não abrir
+    // costura escura na transição.
     float coloredLuma = vlfLuminance(coloredLight);
     float vanillaLuma = vlfLuminance(max(vanillaBlockLight, vec3(0.0)));
     if (coloredLuma <= 0.0001) {
+        return vanillaBlockLight;
+    }
+
+    // Nunca acende onde a vanilla nao acende. O campo voxel vaza pelas
+    // silhuetas (marcacao de solidez usa o depth de tela) e esse vazamento
+    // aparecia como brilho nas quinas do LADO DE FORA de paredes fechadas.
+    // COLORED_LIGHT_RADIUS (8) < 15, entao nada legítimo se perde aqui.
+    if (vanillaLuma <= 0.001) {
         return vanillaBlockLight;
     }
 
@@ -170,7 +198,7 @@ vec3 vlfApplyBlockLight(vec3 vanillaBlockLight, vec3 worldRel, vec3 worldNormal)
         return coloredLight;
     }
 
-    vec3 sameLuminanceTint = coloredLight * (vanillaLuma / coloredLuma);
+    vec3 sameLuminanceTint = coloredLight * (vanillaLuma / max(coloredLuma, 0.0001));
     float tintConfidence = clamp(coloredLuma / max(vanillaLuma, 0.0001), 0.0, 1.0);
     return mix(vanillaBlockLight, sameLuminanceTint, tintConfidence);
 }

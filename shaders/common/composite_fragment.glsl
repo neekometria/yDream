@@ -10,6 +10,7 @@ const bool colortex1MipmapEnabled = true;
 #endif
 
 uniform sampler2D colortex1;
+// Ainda usado por lib/volumetric_light.glsl no modo GODRAYS=1.
 uniform sampler2D depthtex1;
 uniform float far;
 uniform float near;
@@ -125,9 +126,20 @@ uniform vec3 cameraPosition;
     uniform float dhFarPlane;
 #endif
 
+#include "/lib/water_color.glsl"
+#include "/lib/water_body.glsl"
+
 #if defined DISTANT_HORIZONS && DH_OCCLUDE_SUN_EFFECTS == 1
     float dh_sun_clear(vec2 uv) {
+        // Submerso o LOD é véu puro (transmitância nula). Deixá-lo abrir buraco
+        // nos godrays desenhava a silhueta do DH como região sem luz.
+        if (isEyeInWater == 1) return 1.0;
         vec2 c = clamp(uv, vec2(0.001), vec2(0.999));
+        // Geometria vanilla na frente: o LOD atras dela nao oculta nada (ela
+        // mesma oculta, pelo shadow map e pelo depth). Sem isto a silhueta do
+        // DH virava um recorte escuro no godray/brilho sobre a superficie
+        // vanilla - o "plano do DH" aparecendo atras do terreno.
+        if (texture2DLod(depthtex1, c, 0.0).r < 0.999999) return 1.0;
         float clear = step(0.999999, texture2DLod(dhDepthTex1, c, 0.0).r);
         clear += step(0.999999, texture2DLod(dhDepthTex1, clamp(c + vec2(0.012, 0.0), 0.0, 1.0), 0.0).r);
         clear += step(0.999999, texture2DLod(dhDepthTex1, clamp(c - vec2(0.012, 0.0), 0.0, 1.0), 0.0).r);
@@ -186,32 +198,37 @@ uniform vec3 cameraPosition;
 #endif
 
 float ydr_water_scene_distance(vec2 uv) {
-    float depth = texture2DLod(depthtex1, uv, 0.0).r;
+    // depthtex0 inclui os translúcidos; depthtex1 não. Entidades jogador são
+    // renderizadas no estágio translúcido (skin usa RenderType translúcido),
+    // então só existem em depthtex0. Medindo com depthtex1 o jogador recebia a
+    // distância do que está ATRÁS dele (ou céu) e virava névoa pura — quanto
+    // mais fundo, mais invisível. Para a superfície d'água as duas dão o mesmo
+    // caminho submerso, então a janela de Snell não muda.
+    float depth = texture2DLod(depthtex0, uv, 0.0).r;
     if (depth >= 0.999999) return 1e9;
     return max(gbufferProjection[3][2] /
         (gbufferProjection[2][2] + 2.0 * depth - 1.0), 0.0);
 }
 
-// Usa dhDepthTex0, nao dhDepthTex1: esta versao do Iris ignora bindings de
-// samplers arbitrarios no composite (dhDepthTex1 chega como 0.0 — "vazio"),
-// enquanto dhDepthTex0 funciona (e o mesmo que as nuvens leem com sucesso).
-// O DH so escreve no tex0 o que renderiza; a agua do DH (translucida) nao
-// atrapalha a medida do terreno/LOD aqui.
-float ydr_underwater_opaque_distance(vec2 uv) {
-    float distance = ydr_water_scene_distance(uv);
+float ydr_water_dh_scene_distance(vec2 uv) {
     #ifdef DISTANT_HORIZONS
+        // Usa dhDepthTex0: neste Iris, dhDepthTex1 no composite pode chegar
+        // sem binding (zero), mas dhDepthTex0 funciona para o terreno DH.
         float dhDepth = texture2DLod(dhDepthTex0, uv, 0.0).r;
-        // Sampler sem binding chega como 0.0: tratar como "ceu" (sem oclusao)
-        // em vez de depth ~0, que produziria dhDistance ~ dhNearPlane e
-        // desligaria a nevoa justo nos pixels do LOD — o bug da "cortina".
+        // Depth zero sem binding e depth um de céu não representam geometria.
         if (dhDepth > 0.000001 && dhDepth < 0.999999) {
-            float dhDistance = 2.0 * dhNearPlane * dhFarPlane /
+            float distance = 2.0 * dhNearPlane * dhFarPlane /
                 (dhFarPlane + dhNearPlane - (2.0 * dhDepth - 1.0) *
                 (dhFarPlane - dhNearPlane));
-            if (dhDistance > 0.5) distance = min(distance, dhDistance);
+            if (distance > 0.5) return distance;
         }
     #endif
-    return distance;
+    return 1e9;
+}
+
+// Retorna a superfície opaca mais próxima entre terreno normal e DH.
+float ydr_underwater_opaque_distance(vec2 uv) {
+    return min(ydr_water_scene_distance(uv), ydr_water_dh_scene_distance(uv));
 }
 
 void main() {
@@ -298,49 +315,72 @@ void main() {
         float uwVertDepth = max(62.0 - cameraPosition.y, 0.0);
 
         #ifdef UNDERWATER_FX
-            float uwDistance = linearDepth * far;
+            float measuredDistance = ydr_underwater_opaque_distance(texcoord);
+            bool uwTargetValid = measuredDistance < 1e8;
+            float uwDistance = uwTargetValid ? measuredDistance : far;
 
-            vec3 underwaterFog = underwaterFogColor(directLightColor, eyeBrightSmoothFloat.y * 0.004166666666666667);
-            underwaterFog = mix(underwaterFog * vec3(0.85, 1.35, 1.20), underwaterFog, clamp((63.0 - cameraPosition.y) * 0.07, 0.0, 1.0));
-            // Extincao agora escala de verdade com a densidade escolhida
-            // (antes o coeficiente resultante era ~1.0, e o azul transmitia
-            // longe demais, deixando as silhuetas do LOD legiveis).
-            vec3 uwSigma = vec3(0.070, 0.038, 0.022) * ((UNDERWATER_FOG_DENSITY * 0.5 + WATER_ABSORPTION * 4.0) * 0.83);
-            // Segunda nevoa (por cima da primeira): densidade extra que cresce
-            // com a profundidade da camera. Mergulhar encurta a visibilidade
-            // e, junto do uwDepthDark, escurece tudo — o abismo engole o que
-            // esta longe.
-            float uwDeepDensity = 1.0 + uwVertDepth * 0.055 * UNDERWATER_DARKNESS;
-            vec3 uwTrans = exp(-uwSigma * uwDeepDensity * uwDistance);
+            // A profundidade DH não deve ser limitada ao far do terreno normal:
+            // isso encurtava o raio e fazia a fog desaparecer no LOD distante.
+            vec2 uwNdc0 = texcoord * 2.0 - 1.0;
+            vec3 uwFarView0 = (gbufferProjectionInverse * vec4(uwNdc0, 1.0, 1.0)).xyz;
+            vec3 uwViewRay = normalize(uwFarView0);
+            vec3 uwDir = normalize(mat3(gbufferModelViewInverse) * uwViewRay);
+            float uwRayDistance = ydr_water_view_to_ray_distance(uwDistance, uwViewRay);
+            vec3 uwWorld = cameraPosition + uwDir * uwRayDistance;
 
-            float uwDepthDark = exp(-uwVertDepth * 0.045 * UNDERWATER_DARKNESS);
-            // A nevoa NAO pode convergir para preto com a distancia: longe,
-            // uwPathDark ia a ~0 e o "fog saturado" virava uma silhueta preta
-            // legivel contra o ceu noturno (o LOD parecia furar a nevoa).
-            // Piso de 30% mantem o veu da cor da nevoa: estrutura distante
-            // desaparece num véu uniforme, nao num recorte preto.
-            float uwPathDark = max(exp(-uwDistance * 0.010 * UNDERWATER_DARKNESS), 0.30);
-            vec3 uwFogFinal = underwaterFog * uwDepthDark * uwPathDark;
+            // Alvo de geometria acima da linha d'agua continua sendo visto
+            // ATRAVES da coluna d'agua: cortar o caminho na superficie deixava
+            // o LOD do DH (e a terra fora d'agua) quase sem fog d'agua, visivel
+            // como silhueta crua. Só o ceu (sem alvo) termina na superficie,
+            // preservando a janela de Snell e os godrays.
+            float uwWaterPath = uwTargetValid ? uwRayDistance :
+                ydr_water_submerged_path(uwRayDistance, uwDir, cameraPosition.y, 62.0);
 
-            blockColor.rgb = blockColor.rgb * uwTrans + uwFogFinal * (vec3(1.0) - uwTrans);
+            vec3 underwaterFog = ydr_water_column_fog_radiance(
+                directLightColor,
+                eyeBrightSmoothFloat.y * 0.004166666666666667,
+                cameraPosition.y
+            );
+            vec3 uwTrans = ydr_water_column_transmittance(uwWaterPath);
+            vec3 uwTransEff = ydr_water_effective_transmittance(uwWaterPath);
+            blockColor.rgb = blockColor.rgb * uwTransEff +
+                underwaterFog * (vec3(1.0) - uwTransEff);
 
-            // ——— Abismo: além do limiar (UNDERWATER_DEEP_THRESHOLD, blocos),
-            // escurecimento exponencial extra. Água rasa (< limiar) continua
-            // clara tipo litoral; fundo de oceano vira quase preto.
+            vec3 uwRadiance = vec3(0.0);
+            #if YDREAM_VOXEL_LIGHT > 0 && YDREAM_QUALITY >= 2
+            if (uwTargetValid && uwWorld.y <= 62.5) {
+                // Amostra pelo lado do AR da superfície: o filtro trilinear do
+                // campo mistura as células de dentro da parede e fazia a luz
+                // vazar para fora nas quinas/arestas.
+                vec3 uwGlowWorld = uwWorld - uwDir * 0.6;
+                vec3 uwVoxelPos = vlfVoxelPosition(uwGlowWorld - cameraPosition);
+                if (all(greaterThanEqual(uwVoxelPos, vec3(0.0))) &&
+                        all(lessThan(uwVoxelPos, vec3(VLF_VOLUME_SIZE)))) {
+                    uwRadiance = max(vlfSampleFiltered(uwVoxelPos), vec3(0.0));
+                }
+            }
+            #endif
+
+            // ——— A transição rasa/profunda depende da profundidade da câmera:
+            // abaixo de UNDERWATER_DEEP_THRESHOLD aplica-se o escurecimento extra.
+            // A luz voxel local protege os pontos iluminados desse escurecimento.
             float uwDeepExtra = exp(-max(uwVertDepth - UNDERWATER_DEEP_THRESHOLD, 0.0) * 0.11 * UNDERWATER_DARKNESS);
-            blockColor.rgb *= uwDeepExtra;
+            float uwLocalLight = 0.0;
+            #if YDREAM_VOXEL_LIGHT > 0 && YDREAM_QUALITY >= 2
+                uwLocalLight = smoothstep(0.04, 0.35, clamp(vlfPeak(uwRadiance), 0.0, 1.0));
+            #endif
+            blockColor.rgb *= mix(uwDeepExtra, 1.0, uwLocalLight);
 
             #if defined YDREAM_UW_CAUSTICS || YDREAM_VOXEL_LIGHT > 0
-            if (uwDistance < far - 1.0) {
-                // Reconstrução do ponto de MUNDO do leito/superfície opaca
-                // vista (a mesma distância que alimentou a fog).
-                vec2 uwNdc = texcoord * 2.0 - 1.0;
-                vec3 uwFarView = (gbufferProjectionInverse * vec4(uwNdc, 1.0, 1.0)).xyz;
-                vec3 uwViewPos = uwFarView * (uwDistance / max(-uwFarView.z, 0.001));
-                vec3 uwWorld = cameraPosition + (mat3(gbufferModelViewInverse) * uwViewPos);
+            if (uwTargetValid) {
+                // Só efeitos sobre alvos de fato submersos: caustics e glow de
+                // luz colorida não existem no trecho aéreo do raio.
+                if (uwWorld.y <= 62.5) {
 
                 #if defined YDREAM_UW_CAUSTICS
-                // ——— Caustics: luz solar dançando no leito submerso ———
+                // Caustics são luz refletida NO alvo: precisam atravessar a
+                // mesma coluna que a fog. Somadas depois do véu (como antes)
+                // revelavam o leito/LOD distante — só aparecia "aonde tem luz".
                 vec2 causticUV = uwWorld.xz * 0.42;
                 float causticT = frameTimeCounter * 0.55;
                 float causticA = texture2D(noisetex, causticUV + vec2(causticT * 0.16, causticT * 0.11)).g;
@@ -356,7 +396,7 @@ void main() {
                 // Caustics morrem com a profundidade (a luz não chega lá).
                 float causticDepthFade = exp(-uwVertDepth * 0.07);
                 blockColor.rgb += directLightColor * (causticPattern * causticSun *
-                    causticDepthFade * WATER_CAUSTICS * 0.55);
+                    causticDepthFade * WATER_CAUSTICS * 0.55) * uwTransEff;
                 #endif
 
                 #if YDREAM_VOXEL_LIGHT > 0 && YDREAM_QUALITY >= 2
@@ -365,20 +405,28 @@ void main() {
                 // voxel é re-adicionada com atenuação muito mais suave, para
                 // tochas/lanternas/glowstone continuarem visíveis (e
                 // coloridas) no meio do abismo escuro.
-                vec3 uwVoxelPos = vlfVoxelPosition(uwWorld - cameraPosition);
-                if (all(greaterThanEqual(uwVoxelPos, vec3(0.0))) &&
-                        all(lessThan(uwVoxelPos, vec3(VLF_VOLUME_SIZE)))) {
-                    vec3 uwRadiance = max(vlfSampleFiltered(uwVoxelPos), vec3(0.0));
-                    float uwPeak = clamp(vlfPeak(uwRadiance), 0.0, 1.0);
-                    if (uwPeak > 0.003) {
-                        vec3 uwGlow = uwRadiance * COLORED_LIGHT_STRENGTH *
-                            (0.9 + 2.1 * uwPeak * uwPeak);
-                        // Perfuração: atenuação 4x mais suave que a da fog.
-                        uwGlow *= exp(-uwVertDepth * 0.012) * 1.4;
-                        blockColor.rgb += uwGlow;
+                float uwPeak = clamp(vlfPeak(uwRadiance), 0.0, 1.0);
+                if (uwPeak > 0.003) {
+                        // Iluminação local não pode depender só de (1 - trans):
+                        // perto da fonte a fog remove pouca energia e o glow
+                        // desaparecia justamente onde a luz deveria ser mais forte.
+                        // Mantém uma parcela local e aumenta suavemente com a
+                        // distância submersa, sem recolorir o fundo inteiro.
+                        float uwFogLuma = dot(uwTrans, vec3(0.2126, 0.7152, 0.0722));
+                        float uwScatter = mix(0.24, 0.58, 1.0 - uwFogLuma);
+                        vec3 uwGlow = uwRadiance * COLORED_LIGHT_STRENGTH * uwScatter;
+                        // A luz do emissor chega atenuada pela mesma coluna que a
+                        // fog. Sem isso o glow era somado cru e o vazamento do
+                        // campo voxel (que sobra nas silhuetas) aparecia como
+                        // fios de luz nas paredes vistas de longe.
+                        uwGlow *= uwTransEff;
+                        // Teto escalar (preserva o matiz): a contribuição local
+                        // clareia o material sem estourar os três canais em branco.
+                        float uwGlowPeak = max(max(uwGlow.r, uwGlow.g), uwGlow.b);
+                        blockColor.rgb += uwGlow * min(1.0, 0.42 / max(uwGlowPeak, 0.0001));
                     }
-                }
                 #endif
+            }
             }
             #endif
 

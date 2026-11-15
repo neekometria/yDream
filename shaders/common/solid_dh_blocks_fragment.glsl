@@ -10,6 +10,8 @@ uniform float dhNearPlane;
 uniform float dhFarPlane;
 uniform float far;
 uniform vec3 cameraPosition;
+uniform mat4 gbufferModelViewInverse;
+uniform ivec2 eyeBrightnessSmooth;
 uniform int dhRenderDistance;
 
 uniform int isEyeInWater;
@@ -23,7 +25,6 @@ uniform mat4 gbufferModelView;
 #if defined CLOUD_SHADOWS_ON && DH_CLOUD_SHADOWS == 1 && !defined NETHER && !defined THE_END
 uniform sampler2D gaux2;
 uniform float frameTimeCounter;
-uniform mat4 gbufferModelViewInverse;
     #if DH_TERRAIN_NORMALS != 1
 uniform vec3 sunPosition;
     #endif
@@ -64,6 +65,8 @@ varying float terrainWorldY;
 #include "/lib/luma.glsl"
 #include "/lib/dither.glsl"
 #include "/lib/fog_blend.glsl"
+#include "/lib/water_color.glsl"
+#include "/lib/water_medium.glsl"
 
 #if defined CLOUD_SHADOWS_ON && DH_CLOUD_SHADOWS == 1 && !defined NETHER && !defined THE_END
     #include "/lib/cloud_shadow.glsl"
@@ -75,16 +78,8 @@ varying float terrainWorldY;
 #endif
 
 void main() {
-    // Raciocinio Lumina: com a camera submersa o LOD do DH e MORTO. Nada de
-    // casar cores de fog entre passes (a fonte eterna das "cortinas"): a
-    // visibilidade na agua (~40 m) e menor que o vanilla far, entao o corte
-    // acontece dentro da nevoa e o fundo vira a nevoa escura do composite
-    // ("quanto mais fundo, mais escuro e assustador").
-    if (isEyeInWater == 1) {
-        discard;
-        return;
-    }
-
+    // Keep DH terrain visible underwater. finalcolor_dh applies the water
+    // medium along the submerged portion of the ray and clips it at the surface.
     #if AA_TYPE > 0
     float dither = shiftedRDither(gl_FragCoord.xy);
     #else

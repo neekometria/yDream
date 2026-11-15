@@ -14,10 +14,10 @@ vec3 kneeTone(vec3 color, float knee) {
 
     float over = (peak - knee) / (1.0 - knee);
     float mapped = knee + (1.0 - knee) * (1.0 - exp(-over));
-    vec3 scaled = color * (mapped / peak);
-    float whiten = smoothstep(1.2, 5.0, peak) * 0.55;
-
-    return mix(scaled, vec3(mapped), whiten);
+    // Mantém o matiz: todos os canais saem pelo mesmo fator. Antes havia um
+    // "whiten" que misturava até 55% com cinza neutro acima de pico 1.2; era
+    // isso que lavava a luz colorida e as entidades iluminadas em branco.
+    return color * (mapped / peak);
 }
 
 vec3 naturalTone(vec3 color) {

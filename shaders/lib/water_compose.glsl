@@ -46,17 +46,24 @@ vec3 ydr_water_compose(
             // fechar: olhar para cima no fundo do oceano nao mostra mais o
             // ceu — so o veu escuro do abismo. Antes do limiar, decay lento.
             float windowDepth = exp(-max(camDepth - UNDERWATER_DEEP_THRESHOLD, 0.0) *
-                0.11 * UNDERWATER_DARKNESS);
-            float skyDepthDark = exp(-camDepth * 0.028 * UNDERWATER_DARKNESS);
+                0.05 * UNDERWATER_DARKNESS);
+            float skyDepthDark = exp(-camDepth * 0.015 * UNDERWATER_DARKNESS);
             windowMask *= windowDepth;
 
             vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-            // Ondas animadas distorcendo o ceu visto de baixo: o offset usa a
-            // normal ondulada (animada por frameTimeCounter em water_motion)
-            // com magnitude maior que a antiga (0.0028), para a superficie
-            // tremular de verdade em vez de ser um vidro estatico.
-            vec2 windowUV = clamp(screenUV + normal.xy * 0.006,
+            // Ondas: a normal sozinha da um deslocamento suave. Duas escalas de
+            // ruido animado somam a "lente" que deforma tudo (ceu, nuvem, sol,
+            // terreno), que e o que se ve olhando para cima dentro d'agua.
+            float wobbleT = frameTimeCounter * 0.35;
+            vec2 hazeA = texture2D(noisetex, screenUV * vec2(6.0, 8.0) + vec2(wobbleT, -wobbleT)).rg - 0.5;
+            vec2 hazeB = texture2D(noisetex, screenUV * vec2(3.0, 4.0) - vec2(wobbleT * 0.7, wobbleT * 0.4)).gb - 0.5;
+            vec2 windowUV = clamp(screenUV + normal.xy * 0.03 + (hazeA + hazeB * 1.4) * 0.018,
                 vec2(pixelSizeX, pixelSizeY), vec2(1.0) - vec2(pixelSizeX, pixelSizeY));
+            // Direcao do raio do pixel ja ondulado. Ceu, nuvem, sol e terreno da
+            // janela usam TODOS esta direcao: refazer a refracao de Snell para
+            // um deles punha cada elemento num angulo diferente.
+            vec3 windowWorldDir = normalize(mat3(gbufferModelViewInverse) *
+                normalize((gbufferProjectionInverse * vec4(windowUV * 2.0 - 1.0, 1.0, 1.0)).xyz));
             vec3 transmittedSky = texture2D(gaux4, windowUV).rgb * vec3(0.62, 0.83, 1.0);
 
             // Cintilancia de superficie: bandas de brilho correndo pela janela,
@@ -66,25 +73,48 @@ vec3 ydr_water_compose(
             float shimmerB = texture2D(noisetex, windowUV * vec2(9.0, 13.0) - vec2(shimmerPos * 0.7, shimmerPos * 0.5)).g;
             transmittedSky *= 1.0 + (shimmerA * shimmerB - 0.42) * 0.55;
 
-            // Sol/lua visto de baixo atraves da janela: refracao de Snell
-            // comprime o ceu, entao o brilho se concentra perto do angulo
-            // transmitido. Deep: o sol some no veu (skyDepthDark).
-            vec3 rayWorld = mat3(gbufferModelViewInverse) * normalize(fragpos);
-            float rayHoriz = length(rayWorld.xz);
-            vec2 rayHorizDir = rayHoriz > 1e-4 ? rayWorld.xz / rayHoriz : vec2(0.0);
-            vec3 transmittedDir = normalize(vec3(rayHorizDir * sinTransmitted, cosTransmitted));
+            // Sol/lua visto de baixo atraves da janela: mesma direcao do ceu
+            // acima, entao o brilho cai onde cai o sol na superficie, ondula com
+            // as ondas e some com a profundidade (skyDepthDark).
             vec3 astroWorld = normalize(mat3(gbufferModelViewInverse) *
                 mix(moonPosition, sunPosition, step(0.5, dayNightMix)));
             float astroVisible = smoothstep(-0.05, 0.12, dot(astroWorld, geometricUp)) * (1.0 - rainStrength);
-            float sunAlign = max(dot(transmittedDir, astroWorld), 0.0);
-            float sunGlow = pow(sunAlign, 10.0) * 0.30 + pow(sunAlign, 72.0) * 0.85;
+            float sunAlign = max(dot(windowWorldDir, astroWorld), 0.0);
+            float sunGlow = pow(sunAlign, 40.0) * 0.15 + pow(sunAlign, 400.0) * 0.85;
             transmittedSky += lightColor * (sunGlow * astroVisible * skyDepthDark);
+
+            // colortex7 (prepare) nao carrega nuvens: sem isso a janela mostrava
+            // so o gradiente. Mesmo get_cloud do reflexo, para a nuvem da janela
+            // ser a mesma do ceu de cima.
+            #ifdef YDR_WATER_WINDOW_CLOUDS
+                float windowCloudCoverage;
+                transmittedSky = max(get_cloud(windowWorldDir,
+                    transmittedSky, 0.0, rDither(gl_FragCoord.xy), cameraPosition,
+                    int(CLOUD_STEPS_AVG * 0.5), umbral, cloudColor, darkCloudColor,
+                    normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) *
+                        mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9, 1.0,
+                    windowCloudCoverage), vec3(0.0));
+            #endif
+
+            // gaux4 so carrega ceu: sem isto a janela escondia o terreno acima
+            // da linha d'agua (ilha, arvores). O copy opaco do mesmo pixel tem
+            // a cena; a profundidade diz se ali existe geometria. A profundidade
+            // do DH tambem conta: o LOD distante nao esta em depthtex1.
+            bool windowHasTerrain = texture2D(depthtex1, windowUV).r < 0.9999;
+            #ifdef DISTANT_HORIZONS
+                float windowDHDepth = texture2D(dhDepthTex0, windowUV).r;
+                windowHasTerrain = windowHasTerrain ||
+                    (windowDHDepth > 0.000001 && windowDHDepth < 0.999999);
+            #endif
+            if (windowHasTerrain) {
+                transmittedSky = texture2D(gaux1, windowUV).rgb * vec3(0.62, 0.83, 1.0);
+            }
 
             transmittedSky *= skyDepthDark;
 
             vec3 tirRadiance = underwaterFogColor(lightColor, visibleSky) * 0.42 + WATER_COLOR * 0.18;
             // Regiao de reflexao interna total tambem escurece com profundidade.
-            tirRadiance *= exp(-camDepth * 0.045 * UNDERWATER_DARKNESS);
+            tirRadiance *= ydr_water_depth_darkening(camDepth);
 
             result = mix(tirRadiance, transmittedSky, clamp(windowMask, 0.0, 1.0));
             return result;
@@ -95,12 +125,14 @@ vec3 ydr_water_compose(
     // inclusive 0 — antes ela estava dentro do bloco de reflexo e no modo 0 a
     // água não tinha “tampa”. O SSR só entra nos modos com passos.
     if (isEyeInWater == 0) {
-        vec3 reflectColor = skyReflect;
+        // Agua em caverna/estrutura fechada nao tem ceu para refletir: o SSR
+        // continua (reflete a propria parede), so o fallback do ceu escurece.
+        vec3 reflectColor = skyReflect * visibleSky;
 
         #if YDREAM_WATER_SSR_STEPS > 0
             vec2 screenUV = gl_FragCoord.xy * vec2(pixelSizeX, pixelSizeY);
-            vec4 ssr = ydr_water_ssr(screenUV, fragpos, normal, skyReflect);
-            reflectColor = mix(skyReflect, ssr.rgb, ssr.a);
+            vec4 ssr = ydr_water_ssr(screenUV, fragpos, normal, reflectColor);
+            reflectColor = mix(reflectColor, ssr.rgb, ssr.a);
         #endif
 
         #if WATER_REFLECTIONS == 0

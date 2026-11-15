@@ -89,7 +89,6 @@ varying float fogSunScatter;
 #if (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
 uniform sampler2D gaux2;
     #include "/lib/cloud_noise.glsl"
-
 float dh_water_cloud_coverage(vec3 waterPos) {
     vec3 ray = waterPos - cameraPosition;
     if (ray.y > -0.001) {
@@ -123,6 +122,14 @@ float dh_water_cloud_coverage(vec3 waterPos) {
     }
     return coverage;
 }
+#endif
+
+#if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+    #include "/lib/volumetric_clouds.glsl"
+    // Cores de nuvem do reflexo. O palette e incluido dentro do main: ele tem
+    // atribuicoes, que nao sao validas em escopo global.
+    vec3 cloudColor;
+    vec3 darkCloudColor;
 #endif
 
 
@@ -169,7 +176,11 @@ void main() {
         float inf = dhSpan * TRANSITION_DH_INF;
         float fadeSpan = max(far - sup - inf - dhNearPlane, 1.0);
         float dhUmbral = (fogDistance - (dhNearPlane + inf)) / fadeSpan;
-        if(dhUmbral <= dither) {
+        // O dither complementar e da AGUA. Gelo e outros translucidos do LOD
+        // entravam no mesmo descarte e pareciam nao renderizar.
+        bool dhIsWater = blockType < DH_BLOCK_WATER + 0.5 &&
+            blockType > DH_BLOCK_WATER - 0.5;
+        if(dhUmbral <= dither && dhIsWater) {
             discard;
             return;
         }
@@ -214,6 +225,22 @@ void main() {
     }
 
     skyColorReflect = xyzToRgb(skyColorReflect);
+
+    // Nuvens no reflexo: get_cloud do mesmo campo que o ceu e a agua vanilla
+    // usam, entao a nuvem refletida e exatamente a que esta em cima da agua —
+    // nada de gradiente ou mancha. maxDist infinito = sem fade de distancia,
+    // igual ao reflexo da agua vanilla.
+    #if defined CLOUD_REFLECTION && (V_CLOUDS != 0 && !defined UNKNOWN_DIM) && !defined NO_CLOUDY_SKY
+        #include "/src/cloud_palette.glsl"
+        float reflectCoverage;
+        vec3 worldReflectDir = normalize(mat3(gbufferModelViewInverse) * reflectWaterVector);
+        vec3 cloudReflect = get_cloud(worldReflectDir, skyColorReflect, 0.0, dither,
+            position.xyz + cameraPosition, int(CLOUD_STEPS_AVG * 0.8), CLOUD_BASE_UMBRAL,
+            cloudColor, darkCloudColor,
+            normalize((gbufferModelViewInverse * vec4(sunPosition, 0.0)).xyz) *
+                mix(-1.0, 1.0, step(0.5, dayNightMix)), 1e9, 1.0, reflectCoverage);
+        skyColorReflect = max(cloudReflect, vec3(0.0));
+    #endif
 
     
     #if !defined VANILLA_WATER && WATER_TEXTURE == 1
