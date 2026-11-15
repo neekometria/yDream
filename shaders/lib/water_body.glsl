@@ -16,8 +16,10 @@
 
 vec3 ydr_water_absorption() {
     // Coeficientes por canal (1/bloco): R some rápido, G/B permanecem.
-    // Escala por WATER_ABSORPTION (slider).
-    return vec3(4.20, 1.10, 0.80) * max(WATER_ABSORPTION, 0.001);
+    // Escala por WATER_ABSORPTION (slider). Subidos em relação ao original:
+    // a água vista de cima ficava quase invisível em rasa ("topo fraco");
+    // coeficientes mais fortes dão corpo/coloração já com 2–3 blocos.
+    return vec3(5.60, 1.45, 1.00) * max(WATER_ABSORPTION, 0.001);
 }
 
 vec3 water_body(vec3 surfaceColor, vec3 refractedColor, float waterThickness) {
@@ -29,15 +31,18 @@ vec3 water_body(vec3 surfaceColor, vec3 refractedColor, float waterThickness) {
     // Espalhamento: raso mistura a luz da superfície, fundo usa o preset com
     // um escurecimento fixo — água profunda não pode ficar tão clara quanto o
     // preset puro, senão parece névoa sobre o leito em vez de volume.
-    vec3 shallowScatter = mix(WATER_COLOR, surfaceColor * vec3(0.88, 1.18, 1.06), 0.55);
+    vec3 shallowScatter = mix(WATER_COLOR, surfaceColor * vec3(0.88, 1.18, 1.06), 0.45);
     // O slider WATER_DEPTH_TINT controla quão rápido o corpo chega à cor do
     // preset; sem isso água de 2–3 blocos continuava praticamente invisível.
-    float depthMix = clamp((1.0 - exp(-thickness * 0.30)) *
+    // Taxa subida (0.30 → 0.45): a coloração aparece antes, dá presença à
+    // superfície olhando de cima.
+    float depthMix = clamp((1.0 - exp(-thickness * 0.45)) *
         clamp(YDREAM_WATER_DEPTH_TINT, 0.0, 1.5), 0.0, 1.0);
-    vec3 scatter = mix(shallowScatter, WATER_COLOR * 0.72, depthMix);
+    vec3 scatter = mix(shallowScatter, WATER_COLOR * 0.68, depthMix);
 
-    // Fundo atenuado + luz espalhada no volume.
-    return refractedColor * transmit + scatter * (1.0 - transmit);
+    // Fundo atenuado + luz espalhada no volume. Ganho 1.15 no espalhamento
+    // para a “tampa” da água nunca parecer vidro incolor.
+    return refractedColor * transmit + scatter * (1.0 - transmit) * 1.15;
 }
 
 // Fog subaquatica fisica (Beer-Lambert) aplicada ao CONTEUDO REFRATADO.
@@ -72,7 +77,11 @@ vec3 ydr_bed_underwater_fog(vec3 bedColor, float surfaceDepth, vec2 refractUV,
     float uwExtinction = (0.035 + 0.014 * UNDERWATER_FOG_DENSITY) * max(UNDERWATER_DARKNESS, 0.5);
     float uwFogAmount = 1.0 - exp(-waterPath * uwExtinction);
     float uwDepthDark = exp(-max(62.0 - cameraPosition.y, 0.0) * 0.05 * UNDERWATER_DARKNESS);
-    vec3 uwFogColor = underwaterFogColor(lightColor, visibleSky) * uwDepthDark;
+    // Coluna d'água: olhando de CIMA para um fundo fundo, o véu não pode
+    // continuar claro — o próprio caminho dentro da água escurece a cor da
+    // névoa (sem isso, oceano profundo visto do barato parecia nevoa clara).
+    float uwColumnDark = exp(-waterPath * 0.035 * UNDERWATER_DARKNESS);
+    vec3 uwFogColor = underwaterFogColor(lightColor, visibleSky) * uwDepthDark * uwColumnDark;
     return mix(bedColor, uwFogColor, uwFogAmount);
 }
 

@@ -39,6 +39,9 @@
   <a href="https://modrinth.com/mod/create-aeronautics">
     <img src="https://img.shields.io/badge/Aeronautics-Planned-orange?style=flat-square" alt="Aeronautics Planned">
   </a>
+    <a href="https://modrinth.com/mod/vh6aSn2S">
+    <img src="https://img.shields.io/badge/Atmospherics-Planned-orange?style=flat-square" alt="Atmospherics Planned">
+  </a>
 </p>
 
 <!-- Environment & Seasons -->

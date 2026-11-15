@@ -87,6 +87,37 @@ uniform vec3 cameraPosition;
 #include "/lib/basic_utils.glsl"
 #include "/lib/depth.glsl"
 
+// ——— Dependências do overhaul subaquático (yDream v0.6)
+// Declarações condicionais: este TU já declara sunPosition/dayNightMix/
+// gbufferModelViewInverse em outros guards (VOL_LIGHT, YDREAM_CLOUD_PASS);
+// aqui só declaramos o que falta, caso a caso, para não duplicar.
+#if defined UNDERWATER_FX && VOL_LIGHT != 1
+    // moonPosition nunca é declarado fora do ramo VOL_LIGHT == 1.
+    uniform vec3 moonPosition;
+    #if !defined YDREAM_CLOUD_PASS
+        uniform vec3 sunPosition;
+    #endif
+    #if (VOL_LIGHT == 2 && !defined SHADOW_CASTING) || (!defined YDREAM_CLOUD_PASS && VOL_LIGHT != 2)
+        uniform float dayNightMix;
+        uniform mat4 gbufferModelViewInverse;
+    #endif
+#endif
+#if defined UNDERWATER_FX
+    // Embers (Nether) e VOL_LIGHT são os únicos outros usuários destes
+    // uniforms; UNDERWATER_FX exclui o Nether, sobra só o VOL_LIGHT.
+    uniform sampler2D noisetex;
+    uniform float aspectRatioInverse;
+    #if VOL_LIGHT != 1 && VOL_LIGHT != 2
+        uniform float frameTimeCounter;
+    #endif
+#endif
+#if defined UNDERWATER_FX && YDREAM_VOXEL_LIGHT > 0
+    // Mesmo padrão do final_fragment: TU declara antes do include.
+    uniform int frameCounter;
+    uniform vec3 ydCameraPosition;
+    #include "/lib/voxel_field.glsl"
+#endif
+
 #ifdef DISTANT_HORIZONS
     uniform sampler2D dhDepthTex1;
     uniform sampler2D dhDepthTex0;
@@ -292,6 +323,84 @@ void main() {
             vec3 uwFogFinal = underwaterFog * uwDepthDark * uwPathDark;
 
             blockColor.rgb = blockColor.rgb * uwTrans + uwFogFinal * (vec3(1.0) - uwTrans);
+
+            // ——— Abismo: além do limiar (UNDERWATER_DEEP_THRESHOLD, blocos),
+            // escurecimento exponencial extra. Água rasa (< limiar) continua
+            // clara tipo litoral; fundo de oceano vira quase preto.
+            float uwDeepExtra = exp(-max(uwVertDepth - UNDERWATER_DEEP_THRESHOLD, 0.0) * 0.11 * UNDERWATER_DARKNESS);
+            blockColor.rgb *= uwDeepExtra;
+
+            #if defined YDREAM_UW_CAUSTICS || YDREAM_VOXEL_LIGHT > 0
+            if (uwDistance < far - 1.0) {
+                // Reconstrução do ponto de MUNDO do leito/superfície opaca
+                // vista (a mesma distância que alimentou a fog).
+                vec2 uwNdc = texcoord * 2.0 - 1.0;
+                vec3 uwFarView = (gbufferProjectionInverse * vec4(uwNdc, 1.0, 1.0)).xyz;
+                vec3 uwViewPos = uwFarView * (uwDistance / max(-uwFarView.z, 0.001));
+                vec3 uwWorld = cameraPosition + (mat3(gbufferModelViewInverse) * uwViewPos);
+
+                #if defined YDREAM_UW_CAUSTICS
+                // ——— Caustics: luz solar dançando no leito submerso ———
+                vec2 causticUV = uwWorld.xz * 0.42;
+                float causticT = frameTimeCounter * 0.55;
+                float causticA = texture2D(noisetex, causticUV + vec2(causticT * 0.16, causticT * 0.11)).g;
+                float causticB = texture2D(noisetex, causticUV * 1.37 - vec2(causticT * 0.12, causticT * 0.08)).g;
+                float causticPattern = pow(clamp(causticA * causticB * 2.4 - 0.35, 0.0, 1.0), 1.6);
+
+                vec3 uwAstro = normalize(mat3(gbufferModelViewInverse) *
+                    mix(moonPosition, sunPosition, step(0.5, dayNightMix)));
+                float causticSun = smoothstep(-0.05, 0.20, dot(uwAstro, vec3(0.0, 1.0, 0.0)))
+                    * (1.0 - rainStrength)
+                    // Cavernas não recebem luz solar: brilho do céu no olho.
+                    * clamp(eyeBrightSmoothFloat.x * 0.004166666666666667, 0.0, 1.0);
+                // Caustics morrem com a profundidade (a luz não chega lá).
+                float causticDepthFade = exp(-uwVertDepth * 0.07);
+                blockColor.rgb += directLightColor * (causticPattern * causticSun *
+                    causticDepthFade * WATER_CAUSTICS * 0.55);
+                #endif
+
+                #if YDREAM_VOXEL_LIGHT > 0 && YDREAM_QUALITY >= 2
+                // ——— Luz colorida (voxel) perfurando o véu ———
+                // A fog escurece tudo por igual; aqui a radiancia do campo
+                // voxel é re-adicionada com atenuação muito mais suave, para
+                // tochas/lanternas/glowstone continuarem visíveis (e
+                // coloridas) no meio do abismo escuro.
+                vec3 uwVoxelPos = vlfVoxelPosition(uwWorld - cameraPosition);
+                if (all(greaterThanEqual(uwVoxelPos, vec3(0.0))) &&
+                        all(lessThan(uwVoxelPos, vec3(VLF_VOLUME_SIZE)))) {
+                    vec3 uwRadiance = max(vlfSampleFiltered(uwVoxelPos), vec3(0.0));
+                    float uwPeak = clamp(vlfPeak(uwRadiance), 0.0, 1.0);
+                    if (uwPeak > 0.003) {
+                        vec3 uwGlow = uwRadiance * COLORED_LIGHT_STRENGTH *
+                            (0.9 + 2.1 * uwPeak * uwPeak);
+                        // Perfuração: atenuação 4x mais suave que a da fog.
+                        uwGlow *= exp(-uwVertDepth * 0.012) * 1.4;
+                        blockColor.rgb += uwGlow;
+                    }
+                }
+                #endif
+            }
+            #endif
+
+            #if defined YDREAM_UW_SNOW
+            // ——— "Neve marinha": partículas suspensas à deriva ———
+            // Dão volume à coluna d'água e vendem a distância mesmo sem
+            // geometria por perto (a fog sozinha fica chapada).
+            {
+                vec2 snowUV = vec2(texcoord.x * aspectRatioInverse, texcoord.y);
+                float snowT = frameTimeCounter;
+                vec2 snowDriftA = snowUV * 42.0 + vec2(sin(snowT * 0.5) * 0.35, snowT * 0.055);
+                vec2 snowDriftB = snowUV * 71.0 + vec2(snowT * 0.017, snowT * 0.083);
+                float snowA = texture2D(noisetex, snowDriftA).r;
+                float snowB = texture2D(noisetex, snowDriftB).g;
+                float snowDots = smoothstep(0.955, 0.985, snowA) + smoothstep(0.968, 0.992, snowB);
+                // Partículas longe somem no véu; perto brilham mais.
+                float snowFade = exp(-uwDistance * 0.012) * (0.30 + 0.70 * (1.0 - uwDeepExtra * 0.45));
+                vec3 snowTint = mix(underwaterFogColor(directLightColor,
+                    eyeBrightSmoothFloat.y * 0.004166666666666667), vec3(0.72, 0.86, 1.0), 0.45);
+                blockColor.rgb += snowTint * (snowDots * snowFade * UNDERWATER_SNOW * 0.5);
+            }
+            #endif
         #else
             float waterAbsorption = clamp(1.0 - pow(1.001 - linearDepth, UNDERWATER_FOG_DENSITY + (4.0 * WATER_ABSORPTION)), 0.0, 1.0);
             vec3 underwaterFog = underwaterFogColor(directLightColor, eyeBrightSmoothFloat.y * 0.004166666666666667);
@@ -439,7 +548,7 @@ void main() {
             }
 
             blockColor.rgb += volumetricLightColor * beamTint * volumetricLight * volumetricIntensity * waterGlimmer *
-                (GODRAY_STRENGTH * STYLE_GODRAY_MULT * mix(1.0 - getAltitudeRain(), 1.3, underwaterBeams));
+                (GODRAY_STRENGTH * STYLE_GODRAY_MULT * mix(1.0 - getAltitudeRain(), 1.55, underwaterBeams));
         #endif
     #endif
 
@@ -485,7 +594,7 @@ void main() {
             vec3 beamTint = mix(vec3(1.0), normalize(WATER_COLOR + 0.0001), underwaterBeams);
             beamTint *= mix(mix(vec3(1.0, 0.97, 0.90), vec3(1.0, 0.80, 0.55), clamp(goldenHour * GODRAY_WARMTH, 0.0, 1.0)), vec3(1.0), underwaterBeams);
             float scatterStrength = GODRAY_STRENGTH * STYLE_GODRAY_MULT *
-                mix(mix(0.56, 0.40, goldenHour) * (1.0 + 0.9 * goldenHour) * (1.0 - getAltitudeRain()), 1.25, underwaterBeams) *
+                mix(mix(0.56, 0.40, goldenHour) * (1.0 + 0.9 * goldenHour) * (1.0 - getAltitudeRain()), 1.6, underwaterBeams) *
                 abs(dayNightMix * 2.0 - 1.0);
 
             float waterGlimmer = 1.0;

@@ -456,6 +456,14 @@
 // exponencialmente com a distancia abaixo da superficie). Valores maiores
 // deixam o fundo mais profundo mais escuro/assustador; 0.0 desliga.
 #define UNDERWATER_DARKNESS 1.0 // [0.0 0.5 0.75 1.0 1.5 2.0 3.0]
+// A partir desta profundidade (em blocos) a agua comeca a virar abismo:
+// o escurecimento extra liga aqui e cresce exponencialmente. Rasa (< valor)
+// continua clara tipo litoral; fundo de oceano fica quase preto.
+#define UNDERWATER_DEEP_THRESHOLD 10.0 // [4.0 6.0 8.0 10.0 12.0 15.0 20.0]
+// Caustics: padrao de luz dançante do sol projetado no leito submerso.
+#define WATER_CAUSTICS 1.0 // [0.0 0.25 0.5 0.75 1.0 1.25 1.5 2.0]
+// "Neve marinha": particulas suspensas a deriva que dao volume a agua.
+#define UNDERWATER_SNOW 1.0 // [0.0 0.25 0.5 0.75 1.0 1.5 2.0]
 // Debug subaquatico (DH na agua): 0=off, 1=verde quando o jogo reporta
 // "olhos na agua" (barco/freecam mascaram isso), 2=profundidade vertical,
 // 3=distancia da fog (composite), 4=validade do dhDepthTex1, 5=fogAmount,
@@ -1153,6 +1161,12 @@
 
 #if !defined THE_END && !defined NETHER && !defined UNKNOWN_DIM
     #define UNDERWATER_FX
+#if WATER_CAUSTICS > 0 && YDREAM_QUALITY >= 2
+    #define YDREAM_UW_CAUSTICS
+#endif
+#if UNDERWATER_SNOW > 0 && YDREAM_QUALITY >= 2
+    #define YDREAM_UW_SNOW
+#endif
 
 
 #endif
