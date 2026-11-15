@@ -70,20 +70,26 @@ Built upon the fast rendering core of [MakeUp UltraFast](https://github.com/javi
 
 | Component | Version |
 |-----------|---------|
-| Minecraft | 1.21.1 |
-| Loader (tested) | NeoForge |
-| Shader loader | Iris **1.8.1+** |
+| Minecraft | 1.21, 1.21.1 and 1.21.3 – 1.21.11 · 26.1 – 26.3 |
+| Loader (tested) | NeoForge 1.21.1 |
+| Shader loader | Iris **1.8.1+** — required, no OptiFine support |
 | GPU (reference) | GTX 750 Ti |
+
+> Supported Minecraft versions follow the versions the Iris project itself supports with Iris 1.8.1+.
 
 > All screenshots were captured on a **GTX 750 Ti**.
 ---
 
 ## ROADMAP
 
+### Shipped
+- ✅ **v0.4 — Clouds Overhaul & Distant Horizons Compatibility**
+- ✅ **v0.5 — Screen Space Reflections (SSR) Overhaul**
+
+### In progress
+- 🚧 **v0.6 — Water & Sky Overhaul** (underwater rework, colored voxel lighting)
+
 ### Planned
-- **v0.4 — Clouds Overhaul & Distant Horizons Compatibility**
-- **v0.5 — Screen Space Reflections (SSR) Overhaul**
-- **v0.6 — Water & Sky Overhaul**
 - **v0.7 — End & Nether Overhaul**
 - **v0.8 — Fog Overhaul**
 - **v0.9 — Colors**
@@ -110,6 +116,12 @@ yDream has one cohesive style — but it's extremely customizable.
 - Midnight Blue
 
 Choose **Style default** to keep the shader's original palette.
+
+---
+
+### Colored Lighting (Iris 1.8.1+)
+
+A true 3D voxel light field, built on Iris custom images and compute shaders. Light propagates block by block, respects walls and stays per-dimension. Every light source family has its own color and strength — soul and redstone sources are intentionally stronger — and the field also lights underwater surfaces. Requires **Iris 1.8.1+** (custom 3D images + compute shaders); this system is Iris-only and does not target OptiFine.
 
 ---
 
@@ -249,7 +261,3 @@ You can **use, modify and share** yDream under the **GNU Lesser General Public L
 If you redistribute it, please **keep the credit** to MakeUp UltraFast and Javier Garduño. You don't need to ask first — though I'd love to hear about it!
 
 <p align="center"><strong>どんなマイクでも構いません！</strong></p>
-
-## Colored lighting (Iris 1.8+)
-
-The experimental voxel colored-light system uses Iris custom 3D images and compute shaders. It is intentionally Iris-only and does not target OptiFine.
